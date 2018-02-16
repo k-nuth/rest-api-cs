@@ -55,9 +55,7 @@ before_install:
     fi
 
 install:
-  # Install Conan
   - |
-    # Install Conan    
     if [[ "${TRAVIS_OS_NAME}" != "linux" ]]; then
       brew update || brew update
       brew outdated pyenv || brew upgrade pyenv
@@ -96,6 +94,7 @@ install:
       gcc --version
       g++ --version
       sudo ldconfig
+    fi
 
   script:
     - |
