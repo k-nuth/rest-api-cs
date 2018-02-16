@@ -44,6 +44,18 @@ matrix:
         osx_image: xcode8.3
         env: TRAVIS_PYTHON_VERSION=3.6 PYTHON_FULL_VERSION=3.6.2
 
+before_install:
+  - |
+    if test "$TRAVIS_OS_NAME" == "osx"; then
+      ln -s /usr/local/opt/openssl/lib/libcrypto.1.0.0.dylib /usr/local/lib/;
+      ln -s /usr/local/opt/openssl/lib/libssl.1.0.0.dylib /usr/local/lib/;
+      echo "Mac OSX ssl stuff"
+    else
+      sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test
+      sudo apt-get update -qq
+      echo "Ubuntu toolchain stuff"
+    fi  
+
 script:
   echo "Test"
 
