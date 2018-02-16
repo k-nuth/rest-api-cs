@@ -23,9 +23,6 @@ environment:
         - APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2017
           PUBLISH_TO_NUGET: "true"
 
-before_build:
-  - nuget restore
-
 build_script:
   - SET PATH=%PATH%;%PYTHON%/Scripts/
   - cd bitprim.insight
