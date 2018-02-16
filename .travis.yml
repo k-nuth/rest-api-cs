@@ -67,7 +67,7 @@ install:
     if test "$TRAVIS_OS_NAME" == "osx"; then
       echo "Max OSX install stuff"
     else
-      "Linux install stuff 2"
+      echo "Linux install stuff 2"
     fi  
 
 script:
