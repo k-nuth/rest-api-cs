@@ -13,7 +13,7 @@ namespace api
 
         private bool OnBlockReceived(ErrorCode error, UInt64 height, BlockList incoming, BlockList outgoing)
         {
-            Console.WriteLine("Block received!"); //TODO
+            Console.WriteLine("Block received!"); //TODO Send via web socket
             return true;
         }
     }
