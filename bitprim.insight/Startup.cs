@@ -16,6 +16,7 @@ namespace api
 {
     public class Startup
     {
+        private BlockChainObserver blockChainObserver_;
         private const string CORS_POLICY_NAME = "BI_CORS_POLICY";
         private Executor exec_;
 
@@ -93,6 +94,7 @@ namespace api
             {
                 throw new ApplicationException("Executor::RunWait failed; error code: " + result);
             }
+            blockChainObserver_ = new BlockChainObserver(exec_);
             services.AddSingleton<Chain>(exec_.Chain);
         }
 
