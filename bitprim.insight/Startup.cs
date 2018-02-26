@@ -19,6 +19,7 @@ namespace api
         private BlockChainObserver blockChainObserver_;
         private const string CORS_POLICY_NAME = "BI_CORS_POLICY";
         private Executor exec_;
+        private WebSocketHandler webSocketHandler_;
 
         public Startup(IHostingEnvironment env)
         {
@@ -51,11 +52,14 @@ namespace api
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
-        public void Configure(IApplicationBuilder app, IHostingEnvironment env, ILoggerFactory loggerFactory, IApplicationLifetime applicationLifetime)
+        public void Configure(IApplicationBuilder app, IHostingEnvironment env, IServiceProvider serviceProvider,
+                              ILoggerFactory loggerFactory, IApplicationLifetime applicationLifetime)
         {
             loggerFactory.AddConsole(Configuration.GetSection("Logging"));
             loggerFactory.AddDebug();
-            // Enable middleware to serve generated Swagger as a JSON endpoint.  
+            //Enable web sockets for sending block and tx notifications
+            ConfigureWebSockets(app, loggerFactory);
+            // Enable middleware to serve generated Swagger as a JSON endpoint.
             app.UseSwagger();
             // Enable middleware to serve swagger-ui (HTML, JS, CSS, etc.), specifying the Swagger JSON endpoint.  
             app.UseSwaggerUI(c =>  
@@ -65,7 +69,26 @@ namespace api
             // Register shutdown handler
             applicationLifetime.ApplicationStopping.Register(OnShutdown);
             app.UseCors(CORS_POLICY_NAME);
+            app.UseStaticFiles(); //TODO For testing web sockets
             app.UseMvc();
+        }
+
+        private void ConfigureWebSockets(IApplicationBuilder app, ILoggerFactory loggerFactory)
+        {
+            webSocketHandler_ = new WebSocketHandler(loggerFactory.CreateLogger("Echo"));
+            app.UseWebSockets();
+            app.Use(async (context, next) =>
+            {
+                if (context.WebSockets.IsWebSocketRequest)
+                {
+                    var webSocket = await context.WebSockets.AcceptWebSocketAsync();
+                    await webSocketHandler_.Echo(context, webSocket);
+                }
+                else
+                {
+                    await next();
+                }
+            });
         }
 
         private void ConfigureCors(IServiceCollection services)
