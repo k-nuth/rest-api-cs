@@ -75,14 +75,14 @@ namespace api
 
         private void ConfigureWebSockets(IApplicationBuilder app, ILoggerFactory loggerFactory)
         {
-            webSocketHandler_ = new WebSocketHandler(loggerFactory.CreateLogger("Echo"));
+            webSocketHandler_.Logger = loggerFactory.CreateLogger("SubscribeToBlocks");
             app.UseWebSockets();
             app.Use(async (context, next) =>
             {
                 if (context.WebSockets.IsWebSocketRequest)
                 {
                     var webSocket = await context.WebSockets.AcceptWebSocketAsync();
-                    await webSocketHandler_.Echo(context, webSocket);
+                    await webSocketHandler_.SubscribeToBlocks(context, webSocket);
                 }
                 else
                 {
@@ -117,16 +117,20 @@ namespace api
             {
                 throw new ApplicationException("Executor::RunWait failed; error code: " + result);
             }
-            blockChainObserver_ = new BlockChainObserver(exec_);
+            webSocketHandler_ = new WebSocketHandler();
+            blockChainObserver_ = new BlockChainObserver(exec_, webSocketHandler_);
             services.AddSingleton<Chain>(exec_.Chain);
         }
 
         private void OnShutdown()
         {
+            Console.WriteLine("Cancelling subscriptions...");
+            webSocketHandler_.CancelAllSubscriptions();
             Console.WriteLine("Stopping node...");
             exec_.Stop();
+            Console.WriteLine("Destroying node...");
             exec_.Dispose();
-            Console.WriteLine("Node stopped!");
+            Console.WriteLine("Node shutdown OK!");
         }
     }
 }

@@ -7,23 +7,24 @@ namespace api
 {
     public class BlockChainObserver
     {
+        private WebSocketHandler webSocketHandler_;
 
-        public BlockChainObserver(Executor executor)
+        public BlockChainObserver(Executor executor, WebSocketHandler webSocketHandler)
         {
+            webSocketHandler_ = webSocketHandler;
             executor.SubscribeToBlockChain(OnBlockReceived);
             executor.SubscribeToTransaction(OnTransactionReceived);
-            //TODO Subscribe to tx and test on top of chain
         }
 
         private bool OnBlockReceived(ErrorCode error, UInt64 height, BlockList incoming, BlockList outgoing)
         {
-            Console.WriteLine("Block received!"); //TODO Send via web socket
+            webSocketHandler_.PublishBlock("Block received"); //TODO Send block data
             return true;
         }
 
         private bool OnTransactionReceived(ErrorCode error, Transaction newTransaction)
         {
-            Console.WriteLine("Transaction received!"); //TODO Send via web socket
+            webSocketHandler_.PublishBlock("Transaction received"); //TODO Send tx data
             return true;
         }
     }

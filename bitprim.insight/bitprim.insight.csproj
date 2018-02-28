@@ -9,7 +9,7 @@
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="bitprim" Version="0.2.183" />
-    <!-- <ProjectReference Include="../bitprim/bitprim.csproj" /> -->
+    <!-- <ProjectReference Include="../../bitprim-cs/bitprim/bitprim.csproj" /> -->
     <PackageReference Include="Microsoft.AspNetCore.All" Version="2.0.5" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="1.1.0" />
     <PackageReference Include="Microsoft.AspNetCore.WebSockets" Version="2.0.1" />
