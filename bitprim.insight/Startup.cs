@@ -82,7 +82,7 @@ namespace api
                 if (context.WebSockets.IsWebSocketRequest)
                 {
                     var webSocket = await context.WebSockets.AcceptWebSocketAsync();
-                    await webSocketHandler_.SubscribeToBlocks(context, webSocket);
+                    await webSocketHandler_.Subscribe(context, webSocket);
                 }
                 else
                 {

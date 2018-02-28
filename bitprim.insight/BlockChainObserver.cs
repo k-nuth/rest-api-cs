@@ -24,7 +24,7 @@ namespace api
 
         private bool OnTransactionReceived(ErrorCode error, Transaction newTransaction)
         {
-            webSocketHandler_.PublishBlock("Transaction received"); //TODO Send tx data
+            webSocketHandler_.PublishTransaction("Transaction received"); //TODO Send tx data
             return true;
         }
     }
