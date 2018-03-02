@@ -12,8 +12,8 @@ namespace api
 {
     public class WebSocketHandler
     {
-        private ConcurrentDictionary<WebSocket, Dictionary<string, BlockingCollection<string>>> subscriberQueues_;
-        private const int CHANNEL_REMOVAL_HOLDOFF = 5;
+        private ConcurrentDictionary<WebSocket, ConcurrentDictionary<string, BlockingCollection<string>>> subscriberQueues_;
+        private const int DICT_REMOVAL_HOLDOFF = 5;
         private const int RECEPTION_BUFFER_SIZE = 1024 * 4;
         private const string BLOCKS_CHANNEL_NAME = "BlocksChannel";
         private const string BLOCKS_SUBSCRIPTION_MESSAGE = "SubscribeToBlocks";
@@ -27,7 +27,7 @@ namespace api
 
         public WebSocketHandler()
         {
-            subscriberQueues_ = new ConcurrentDictionary<WebSocket, Dictionary<string, BlockingCollection<string>>>();
+            subscriberQueues_ = new ConcurrentDictionary<WebSocket, ConcurrentDictionary<string, BlockingCollection<string>>>();
         }
 
         public ILogger Logger
@@ -49,7 +49,9 @@ namespace api
             LogFrame(result, buffer);
             // If the client sends "ServerClose", then they want a server-originated close to take place
             string content = "";
-            while(true) //TODO Check shutdown even when client doesnt send close message
+            var subLoops = new List<Task>();
+            bool keepListening = true;
+            while(keepListening) //TODO Check shutdown even when client doesnt send close message
             {
                 if (result.MessageType == WebSocketMessageType.Text)
                 {
@@ -58,7 +60,7 @@ namespace api
                     {
                         await webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Closing from Server", CancellationToken.None);
                         logger_.LogDebug($"Sent Frame Close: {WebSocketCloseStatus.NormalClosure} Closing from Server");
-                        return;
+                        keepListening = false;
                     }
                     else if (content.Equals(SERVER_ABORT_MESSAGE))
                     {
@@ -72,8 +74,11 @@ namespace api
                         Task.Run( ()=> SubscriberLoop(webSocket, TXS_CHANNEL_NAME) );
                     }
                 }
-                result = await webSocket.ReceiveAsync(new ArraySegment<byte>(buffer), CancellationToken.None);
-                LogFrame(result, buffer);
+                if(keepListening)
+                {
+                    result = await webSocket.ReceiveAsync(new ArraySegment<byte>(buffer), CancellationToken.None);
+                    LogFrame(result, buffer);
+                }
             }
         }
 
@@ -89,16 +94,13 @@ namespace api
 
         public void CancelAllSubscriptions()
         {
-            lock(subscriberQueues_)
+            foreach(ConcurrentDictionary<string, BlockingCollection<string>> connection in subscriberQueues_.Values)
             {
-                foreach(Dictionary<string, BlockingCollection<string>> connection in subscriberQueues_.Values)
+                foreach(BlockingCollection<string> channelQueue in connection.Values)
                 {
-                    foreach(BlockingCollection<string> channelQueue in connection.Values)
-                    {
-                        channelQueue.Add(SUBSCRIPTION_END_MESSAGE);
-                    }
+                    channelQueue.Add(SUBSCRIPTION_END_MESSAGE);
                 }
-            }
+            }   
         }
 
         private async void SubscriberLoop(WebSocket webSocket, string channelName)
@@ -119,30 +121,36 @@ namespace api
                     logger_.LogDebug($"Sent Frame {WebSocketMessageType.Text}: Len={queueItem.Length}, Fin={true}: {queueItem}");
                 }
             }
-            UnregisterChannel(webSocket, channelName);
+            await UnregisterChannel(webSocket, channelName);
         }
 
-        private async void UnregisterChannel(WebSocket webSocket, string channelName)
+        private async Task UnregisterChannel(WebSocket webSocket, string channelName)
         {
             bool closedAllChannels = false;
-            lock(subscriberQueues_)
+            bool removedChannel = false;
+            while( ! removedChannel )
             {
-                subscriberQueues_[webSocket].Remove(channelName);
-                if( subscriberQueues_[webSocket].Count == 0)
+                BlockingCollection<string> channel;
+                removedChannel = subscriberQueues_[webSocket].TryRemove(channelName, out channel);
+                if(!removedChannel)
                 {
-                    bool removedChannel = false;
-                    while(!removedChannel)
-                    {
-                        Dictionary<string, BlockingCollection<string>> removed;
-                        subscriberQueues_.TryRemove(webSocket, out removed);
-                        if(!removedChannel)
-                        {
-                            Thread.Sleep(TimeSpan.FromSeconds(CHANNEL_REMOVAL_HOLDOFF));
-                        }
-                    }
-                    closedAllChannels = true;
+                    Thread.Sleep(TimeSpan.FromSeconds(DICT_REMOVAL_HOLDOFF));
                 }
             }
+            if( subscriberQueues_[webSocket].Count == 0)
+            {
+                bool removedSocket = false;
+                while(!removedSocket)
+                {
+                    ConcurrentDictionary<string, BlockingCollection<string>> removed;
+                    removedSocket = subscriberQueues_.TryRemove(webSocket, out removed);
+                    if( ! removedSocket )
+                    {
+                        Thread.Sleep(TimeSpan.FromSeconds(DICT_REMOVAL_HOLDOFF));
+                    }
+                }
+                closedAllChannels = true;
+            }            
             if(closedAllChannels)
             {
                 await webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "All subscriptions cancelled", CancellationToken.None);
@@ -151,28 +159,8 @@ namespace api
 
         private bool RegisterChannel(WebSocket webSocket, string channelName)
         {
-            lock(subscriberQueues_)
-            {
-                bool registeredChannel = false;
-                if( ! subscriberQueues_.ContainsKey(webSocket) )
-                {
-                    subscriberQueues_[webSocket] = new Dictionary<string, BlockingCollection<string>>();
-                    subscriberQueues_[webSocket].Add(channelName, new BlockingCollection<string>());
-                    registeredChannel = true;
-                }
-                else
-                {
-                    if(subscriberQueues_[webSocket].ContainsKey(channelName))
-                    {
-                        registeredChannel = false; //Channel already exists
-                    }else
-                    {
-                        subscriberQueues_[webSocket].Add(channelName, new BlockingCollection<string>());
-                        registeredChannel = true;
-                    }
-                }
-                return registeredChannel;
-            }
+            subscriberQueues_.TryAdd(webSocket, new ConcurrentDictionary<string, BlockingCollection<string>>());
+            return subscriberQueues_[webSocket].TryAdd(channelName, new BlockingCollection<string>());
         }
 
         private void LogFrame(WebSocketReceiveResult frame, byte[] buffer)
@@ -198,11 +186,12 @@ namespace api
 
         private void Publish(string channelName, string item)
         {
-            foreach(Dictionary<string, BlockingCollection<string>> connection in subscriberQueues_.Values)
+            foreach(ConcurrentDictionary<string, BlockingCollection<string>> connection in subscriberQueues_.Values)
             {
-                if(connection.ContainsKey(channelName))
+                BlockingCollection<string> channel;
+                if(connection.TryGetValue(channelName, out channel))
                 {
-                    connection[channelName].Add(item);
+                    channel.Add(item);
                 }
             }
         }
