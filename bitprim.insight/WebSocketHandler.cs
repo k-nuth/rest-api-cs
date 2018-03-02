@@ -49,30 +49,31 @@ namespace api
             LogFrame(result, buffer);
             // If the client sends "ServerClose", then they want a server-originated close to take place
             string content = "";
-            if (result.MessageType == WebSocketMessageType.Text)
+            while(true) //TODO Check shutdown even when client doesnt send close message
             {
-                content = Encoding.UTF8.GetString(buffer, 0, result.Count);
-                if (content.Equals(SERVER_CLOSE_MESSAGE))
+                if (result.MessageType == WebSocketMessageType.Text)
                 {
-                    await webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Closing from Server", CancellationToken.None);
-                    logger_.LogDebug($"Sent Frame Close: {WebSocketCloseStatus.NormalClosure} Closing from Server");
-                    return;
+                    content = Encoding.UTF8.GetString(buffer, 0, result.Count);
+                    if (content.Equals(SERVER_CLOSE_MESSAGE))
+                    {
+                        await webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Closing from Server", CancellationToken.None);
+                        logger_.LogDebug($"Sent Frame Close: {WebSocketCloseStatus.NormalClosure} Closing from Server");
+                        return;
+                    }
+                    else if (content.Equals(SERVER_ABORT_MESSAGE))
+                    {
+                        context.Abort();
+                    }
+                    else if(content.Equals(BLOCKS_SUBSCRIPTION_MESSAGE))
+                    {
+                        Task.Run( ()=> SubscriberLoop(webSocket, BLOCKS_CHANNEL_NAME) );
+                    }else if(content.Equals(TXS_SUBSCRIPTION_MESSAGE))
+                    {
+                        Task.Run( ()=> SubscriberLoop(webSocket, TXS_CHANNEL_NAME) );
+                    }
                 }
-                else if (content.Equals(SERVER_ABORT_MESSAGE))
-                {
-                    context.Abort();
-                }
-                else if(content.Equals(BLOCKS_SUBSCRIPTION_MESSAGE))
-                {
-                    SubscriberLoop(webSocket, BLOCKS_CHANNEL_NAME);
-                }else if(content.Equals(TXS_SUBSCRIPTION_MESSAGE))
-                {
-                    SubscriberLoop(webSocket, TXS_CHANNEL_NAME);
-                }
-            }
-            else
-            {
-                await webSocket.CloseAsync(result.CloseStatus.Value, "Closing from server due to invalid request", CancellationToken.None);
+                result = await webSocket.ReceiveAsync(new ArraySegment<byte>(buffer), CancellationToken.None);
+                LogFrame(result, buffer);
             }
         }
 
@@ -191,6 +192,7 @@ namespace api
                 }
                 message = $"{frame.MessageType}: Len={frame.Count}, Fin={frame.EndOfMessage}: {content}";
             }
+            Console.WriteLine("Received frame: " + message);
             logger_.LogDebug("Received Frame " + message);
         }
 

@@ -8,11 +8,12 @@
     <Folder Include="wwwroot\" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="bitprim" Version="0.2.183" />
+    <PackageReference Include="bitprim" Version="0.2.184" />
     <!-- <ProjectReference Include="../../bitprim-cs/bitprim/bitprim.csproj" /> -->
     <PackageReference Include="Microsoft.AspNetCore.All" Version="2.0.5" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="1.1.0" />
     <PackageReference Include="Microsoft.AspNetCore.WebSockets" Version="2.0.1" />
+    <PackageReference Include="Newtonsoft.Json" Version="11.0.1" />
   </ItemGroup>
 
   <!-- <Target Name="CopyNativeLib" AfterTargets="Build">
