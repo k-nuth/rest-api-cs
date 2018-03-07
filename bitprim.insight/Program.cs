@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Net;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
@@ -11,31 +12,32 @@ namespace api
 {
     public class Program
     {
-        private const string DEFAULT_URL = "https://*:1549";
+        private const int DEFAULT_PORT = 1549;
 
         public static void Main(string[] args)
         {
-            var config = GetServerUrlsFromCommandLine(args);
-            var serverUrl = config.GetValue<string>("server.urls");
+            var config = GetServerPortFromCommandLine(args);
+            var serverPort = config.GetValue<int>("server.port");
             var host = new WebHostBuilder()
-                .UseKestrel()
+                .UseKestrel(options => {
+                    options.Listen(IPAddress.Loopback, serverPort);
+                })
                 .UseContentRoot(Directory.GetCurrentDirectory())
                 .UseIISIntegration()
                 .UseStartup<Startup>()
-                .UseUrls(serverUrl)
                 .Build();
             host.Run();
         }
 
-        private static IConfigurationRoot GetServerUrlsFromCommandLine(string[] args)
+        private static IConfigurationRoot GetServerPortFromCommandLine(string[] args)
         {
             var config = new ConfigurationBuilder()
                 .AddCommandLine(args)
                 .Build();
-            var serverurls = config.GetValue<string>("server.urls") ?? DEFAULT_URL;
+            var serverPort = config.GetValue<int>("server.port", DEFAULT_PORT);
             var configDictionary = new Dictionary<string, string>
             {
-                {"server.urls", serverurls}
+                {"server.port", serverPort.ToString()}
             };            
             return new ConfigurationBuilder()
                 .AddCommandLine(args)
