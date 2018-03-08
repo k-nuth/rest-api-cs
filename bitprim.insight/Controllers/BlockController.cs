@@ -55,13 +55,13 @@ namespace api.Controllers
             try
             {
                 Utils.CheckIfChainIsFresh(chain_, config_.AcceptStaleRequests);
-                Tuple<ErrorCode, Block, UInt64> getBlockResult = chain_.GetBlockByHeight(height);
-                Utils.CheckBitprimApiErrorCode(getBlockResult.Item1, "GetBlockByHeight(" + height + ") failed, error log");
+                Tuple<ErrorCode, byte[]> result = chain_.GetBlockHash(height);
+                Utils.CheckBitprimApiErrorCode(result.Item1, "GetBlockByHeight(" + height + ") failed, error log");
                 return Json
                 (
                     new
                     {
-                        blockHash = Binary.ByteArrayToHexString(getBlockResult.Item2.Hash)
+                        blockHash = Binary.ByteArrayToHexString(result.Item2)
                     }
                 );
             }
