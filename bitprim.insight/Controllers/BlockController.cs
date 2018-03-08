@@ -187,9 +187,9 @@ namespace api.Controllers
             while(low < high)
             {
                 mid = (UInt64) ((double)low + (double) high)/2; //Adds as doubles to prevent overflow
-                Tuple<ErrorCode, Block, UInt64> getBlockResult = chain_.GetBlockByHeight(mid);
-                Utils.CheckBitprimApiErrorCode(getBlockResult.Item1, "GetBlockByHeight(" + mid + ") failed, check error log");
-                if(DateTimeOffset.FromUnixTimeSeconds(getBlockResult.Item2.Header.Timestamp).Date <= blockDateToSearch.Date)
+                Tuple<ErrorCode, byte[], DateTime> getBlockResult = chain_.GetBlockByHeightHashTimestamp(mid);
+                Utils.CheckBitprimApiErrorCode(getBlockResult.Item1, "GetBlockByHeightHashTimestamp(" + mid + ") failed, check error log");
+                if(getBlockResult.Item3.Date <= blockDateToSearch.Date)
                 {
                     low = mid + 1;
                 }else
@@ -236,11 +236,11 @@ namespace api.Controllers
             }
             else
             {
-                Tuple<ErrorCode, Block, UInt64> getBlockResult = chain_.GetBlockByHeight(startingHeight - limit);
-                Utils.CheckBitprimApiErrorCode(getBlockResult.Item1, "GetBlockByHeight(" + (startingHeight - limit) + ") failed, check error log");
-                Block block = getBlockResult.Item2;
-                moreBlocks = DateTimeOffset.FromUnixTimeSeconds(block.Header.Timestamp).Date == blockDateToSearch.Date;
-                moreBlocksTs = moreBlocks? (int) block.Header.Timestamp : -1;
+                Tuple<ErrorCode, byte[], DateTime> getBlockResult = chain_.GetBlockByHeightHashTimestamp(startingHeight - limit);
+                Utils.CheckBitprimApiErrorCode(getBlockResult.Item1, "GetBlockByHeightHashTimestamp(" + (startingHeight - limit) + ") failed, check error log");
+                DateTime blockDate = getBlockResult.Item3;
+                moreBlocks = blockDate.Date == blockDateToSearch.Date;
+                moreBlocksTs = moreBlocks? (int) ((DateTimeOffset)blockDate).ToUnixTimeSeconds() : -1;
             }
             return new Tuple<bool, int>(moreBlocks, moreBlocksTs);
         }
