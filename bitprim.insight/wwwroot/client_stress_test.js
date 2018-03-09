@@ -1,39 +1,62 @@
 #!/usr/bin/env node
-var WebSocketClient = require('websocket').client;
- 
-var client = new WebSocketClient();
- 
-client.on('connectFailed', function(error) {
-    console.log('Connect Error: ' + error.toString());
-});
+// Usage: node client_stress_test server_ws_url client_connections_to_launch
+//Required modules:
+// npm install moment
+// npm install websocket
 
-process.on('SIGINT', function() {
-    console.log("Caught interrupt signal");
-    //client.sendUTF("ServerAbort");
-    client.close(); 
-});
- 
-client.on('connect', function(connection) {
-    console.log('WebSocket Client Connected');
-    connection.on('error', function(error) {
-        console.log("Connection Error: " + error.toString());
+var moment = require('moment'); //For timestamping
+
+if(process.argv.length != 4) {
+    console.log("Bad arguments! Usage: node client_stress_test server_ws_url client_connections_to_launch");
+    return;
+}
+var serverWsUrl = process.argv[2];
+var clientConnectionsToLaunch = process.argv[3];
+
+for(var i=1; i<=clientConnectionsToLaunch; i++) {
+    launchClientConnection(i);
+}
+
+function launchClientConnection(i) {
+    var WebSocketClient = require('websocket').client; 
+    var client = new WebSocketClient();
+
+    function clientLog(msg) {
+        var timestamp = moment().format("YYYY-MM-DDTHH:mm:ss.SSS");
+        console.log(timestamp + ' [client ' + i + '] ' + msg);
+    }
+    
+    client.on('connectFailed', function(error) {
+        clientLog('connect error: ' + error.toString());
     });
-    connection.on('close', function() {
-        console.log('Connection Closed');
-    });
-    connection.on('message', function(message) {
-        if (message.type === 'utf8') {
-            console.log("Received: '" + message.utf8Data + "'");
+
+    client.on('connect', function(connection) {
+        clientLog('webSocket client connected');
+        connection.on('error', function(error) {
+            clientLog("connection error: " + error.toString());
+        });
+        connection.on('close', function() {
+            clientLog('connection closed');
+        });
+        connection.on('message', function(message) {
+            if (message.type === 'utf8') {
+                clientLog("received: '" + message.utf8Data + "'");
+            }
+        });
+        process.on('SIGINT', function() {
+            clientLog("caught interrupt signal, closing connection");
+            connection.sendUTF("ServerAbort");
+        });
+        
+        function sendSubscriptions() {
+            if (connection.connected) {
+                connection.sendUTF("SubscribeToBlocks");
+                connection.sendUTF("SubscribeToTxs");
+            }
         }
+        sendSubscriptions();
     });
     
-    function sendSubscriptions() {
-        if (connection.connected) {
-            connection.sendUTF("SubscribeToBlocks");
-            connection.sendUTF("SubscribeToTxs");
-        }
-    }
-    sendSubscriptions();
-});
- 
-client.connect('ws://localhost:3001/');
+    client.connect(serverWsUrl);
+}
+
