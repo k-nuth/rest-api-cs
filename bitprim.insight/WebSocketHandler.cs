@@ -44,41 +44,49 @@ namespace api
         ///</summary>
         public async Task Subscribe(HttpContext context, WebSocket webSocket)
         {
-            var buffer = new byte[RECEPTION_BUFFER_SIZE];
-            var result = await webSocket.ReceiveAsync(new ArraySegment<byte>(buffer), CancellationToken.None);
-            LogFrame(result, buffer);
-            // If the client sends "ServerClose", then they want a server-originated close to take place
-            string content = "";
-            var subLoops = new List<Task>();
-            bool keepListening = true;
-            while(keepListening) //TODO Check shutdown even when client doesnt send close message
+            try
             {
-                if (result.MessageType == WebSocketMessageType.Text)
+                var buffer = new byte[RECEPTION_BUFFER_SIZE];
+                var result = await webSocket.ReceiveAsync(new ArraySegment<byte>(buffer), CancellationToken.None);
+                LogFrame(result, buffer);
+                // If the client sends "ServerClose", then they want a server-originated close to take place
+                string content = "";
+                var subLoops = new List<Task>();
+                bool keepListening = true;
+                while(keepListening) //TODO Check shutdown even when client doesnt send close message
                 {
-                    content = Encoding.UTF8.GetString(buffer, 0, result.Count);
-                    if (content.Equals(SERVER_CLOSE_MESSAGE))
+                    if (result.MessageType == WebSocketMessageType.Text)
                     {
-                        await webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Closing from Server", CancellationToken.None);
-                        logger_.LogDebug($"Sent Frame Close: {WebSocketCloseStatus.NormalClosure} Closing from Server");
-                        keepListening = false;
+                        content = Encoding.UTF8.GetString(buffer, 0, result.Count);
+                        if (content.Equals(SERVER_CLOSE_MESSAGE))
+                        {
+                            await webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Closing from Server", CancellationToken.None);
+                            logger_.LogDebug($"Sent Frame Close: {WebSocketCloseStatus.NormalClosure} Closing from Server");
+                            keepListening = false;
+                        }
+                        else if (content.Equals(SERVER_ABORT_MESSAGE))
+                        {
+                            context.Abort();
+                        }
+                        else if(content.Equals(BLOCKS_SUBSCRIPTION_MESSAGE))
+                        {
+                            Task.Run( ()=> SubscriberLoop(webSocket, BLOCKS_CHANNEL_NAME) );
+                        }else if(content.Equals(TXS_SUBSCRIPTION_MESSAGE))
+                        {
+                            Task.Run( ()=> SubscriberLoop(webSocket, TXS_CHANNEL_NAME) );
+                        }
                     }
-                    else if (content.Equals(SERVER_ABORT_MESSAGE))
+                    if(keepListening)
                     {
-                        context.Abort();
-                    }
-                    else if(content.Equals(BLOCKS_SUBSCRIPTION_MESSAGE))
-                    {
-                        Task.Run( ()=> SubscriberLoop(webSocket, BLOCKS_CHANNEL_NAME) );
-                    }else if(content.Equals(TXS_SUBSCRIPTION_MESSAGE))
-                    {
-                        Task.Run( ()=> SubscriberLoop(webSocket, TXS_CHANNEL_NAME) );
+                        result = await webSocket.ReceiveAsync(new ArraySegment<byte>(buffer), CancellationToken.None);
+                        LogFrame(result, buffer);
                     }
                 }
-                if(keepListening)
-                {
-                    result = await webSocket.ReceiveAsync(new ArraySegment<byte>(buffer), CancellationToken.None);
-                    LogFrame(result, buffer);
-                }
+            }
+            catch(WebSocketException ex)
+            {
+                Console.WriteLine("Subscribe - Web socket error, closing connection; " + ex);
+                context.Abort();
             }
         }
 
@@ -105,23 +113,31 @@ namespace api
 
         private async void SubscriberLoop(WebSocket webSocket, string channelName)
         {
-            if( ! RegisterChannel(webSocket, channelName) )
+            try
             {
-                return;
-            }
-            bool subscribed = true;
-            while(subscribed)
-            {
-                //This call blocks on an empty queue
-                string queueItem = subscriberQueues_[webSocket][channelName].Take();
-                subscribed = (queueItem != SUBSCRIPTION_END_MESSAGE);
-                if(subscribed)
+                if( ! RegisterChannel(webSocket, channelName) )
                 {
-                    await webSocket.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes(queueItem), 0, queueItem.Length), WebSocketMessageType.Text, true, CancellationToken.None);
-                    logger_.LogDebug($"Sent Frame {WebSocketMessageType.Text}: Len={queueItem.Length}, Fin={true}: {queueItem}");
+                    return;
                 }
+                bool subscribed = true;
+                while(subscribed)
+                {
+                    //This call blocks on an empty queue
+                    string queueItem = subscriberQueues_[webSocket][channelName].Take();
+                    subscribed = (queueItem != SUBSCRIPTION_END_MESSAGE);
+                    if(subscribed)
+                    {
+                        await webSocket.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes(queueItem), 0, queueItem.Length), WebSocketMessageType.Text, true, CancellationToken.None);
+                        logger_.LogDebug($"Sent Frame {WebSocketMessageType.Text}: Len={queueItem.Length}, Fin={true}: {queueItem}");
+                    }
+                }
+                await UnregisterChannel(webSocket, channelName);
             }
-            await UnregisterChannel(webSocket, channelName);
+            catch(WebSocketException ex)
+            {
+                Console.WriteLine("SubscriberLoop - Web socket error; closing connection" + ex);
+                await UnregisterChannel(webSocket, channelName);
+            }
         }
 
         private async Task UnregisterChannel(WebSocket webSocket, string channelName)
