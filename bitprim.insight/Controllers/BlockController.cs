@@ -32,15 +32,15 @@ namespace api.Controllers
                 }
                 Utils.CheckIfChainIsFresh(chain_, config_.AcceptStaleRequests);
                 byte[] binaryHash = Binary.HexStringToByteArray(hash);
-                Tuple<ErrorCode, Block, UInt64> getBlockResult = chain_.GetBlockByHash(binaryHash);
-                Utils.CheckBitprimApiErrorCode(getBlockResult.Item1, "GetBlockByHash(" + hash + ") failed, check error log");
+                Tuple<ErrorCode, Block, UInt64, HashList, UInt64> getBlockResult = chain_.GetBlockByHashTxSizes(binaryHash);
+                Utils.CheckBitprimApiErrorCode(getBlockResult.Item1, "GetBlockByHashTxSizes(" + hash + ") failed, check error log");
                 Tuple<ErrorCode, UInt64> getLastHeightResult = chain_.GetLastHeight();
                 Utils.CheckBitprimApiErrorCode(getLastHeightResult.Item1, "GetLastHeight() failed, check error log");
                 UInt64 topHeight = getLastHeightResult.Item2;
                 UInt64 blockHeight = getBlockResult.Item3;
-                Tuple<ErrorCode, Block, UInt64> getNextBlockResult = chain_.GetBlockByHeight(blockHeight + 1);
+                Tuple<ErrorCode, byte[]> getNextBlockResult = chain_.GetBlockHash(blockHeight + 1);
                 Utils.CheckBitprimApiErrorCode(getNextBlockResult.Item1, "GetBlockByHeight(" + blockHeight + 1 + ") failed, check error log");
-                return Json(BlockToJSON(getBlockResult.Item2, blockHeight, topHeight, getNextBlockResult.Item2.Hash));
+                return Json(BlockToJSON(getBlockResult.Item2, blockHeight, getBlockResult.Item4, getNextBlockResult.Item2, getBlockResult.Item5));
             }
             catch(Exception ex)
             {
@@ -265,7 +265,7 @@ namespace api.Controllers
             };
         }
 
-        private static object BlockToJSON(Block block, UInt64 blockHeight, UInt64 topHeight, byte[] nextBlockHash)
+        private static object BlockToJSON(Block block, UInt64 blockHeight, HashList txHashes, byte[] nextBlockHash, UInt64 serializedBlockSize)
         {
             Header blockHeader = block.Header;
             BigInteger proof;
@@ -273,11 +273,11 @@ namespace api.Controllers
             return new
             {
                 hash = Binary.ByteArrayToHexString(block.Hash),
-                size = block.GetSerializedSize(blockHeader.Version),
+                size = serializedBlockSize,
                 height = blockHeight,
                 version = blockHeader.Version,
                 merkleroot = Binary.ByteArrayToHexString(block.MerkleRoot),
-                tx = BlockTxsToJSON(block),
+                tx = BlockTxsToJSON(txHashes),
                 time = blockHeader.Timestamp,
                 nonce = blockHeader.Nonce,
                 bits = Utils.EncodeInBase16(blockHeader.Bits),
@@ -291,12 +291,12 @@ namespace api.Controllers
             };
         }
 
-        private static object[] BlockTxsToJSON(Block block)
+        private static object[] BlockTxsToJSON(HashList txHashes)
         {
             var txs = new List<object>();
-            for(uint i = 0; i<block.TransactionCount; i++)
+            for(int i = 0; i<txHashes.Count; i++)
             {
-                txs.Add(Binary.ByteArrayToHexString(block.GetNthTransaction(i).Hash));
+                txs.Add(Binary.ByteArrayToHexString(txHashes[i]));
             }
             return txs.ToArray();
         }
