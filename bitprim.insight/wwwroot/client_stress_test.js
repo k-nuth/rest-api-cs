@@ -10,6 +10,7 @@ if(process.argv.length != 4) {
     console.log("Bad arguments! Usage: node client_stress_test server_ws_url client_connections_to_launch");
     return;
 }
+process.setMaxListeners(0); //Unlimited listeners
 var serverWsUrl = process.argv[2];
 var clientConnectionsToLaunch = process.argv[3];
 
