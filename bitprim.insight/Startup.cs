@@ -70,17 +70,8 @@ namespace api
             applicationLifetime.ApplicationStopping.Register(OnShutdown);
             app.UseCors(CORS_POLICY_NAME);
             app.UseStaticFiles(); //TODO For testing web sockets
+            app.UseHttpStatusCodeExceptionMiddleware();
             app.UseMvc();
-            if (env.IsDevelopment())
-            {
-                app.UseDeveloperExceptionPage();
-                app.UseHttpStatusCodeExceptionMiddleware();
-            }
-            else
-            {
-                app.UseHttpStatusCodeExceptionMiddleware();
-                app.UseExceptionHandler();
-            }
         }
 
         private void ConfigureWebSockets(IApplicationBuilder app, ILoggerFactory loggerFactory)
