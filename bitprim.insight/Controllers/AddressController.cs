@@ -31,37 +31,30 @@ namespace api.Controllers
         [HttpGet("/api/addr/{paymentAddress}")]
         public ActionResult GetAddressHistory(string paymentAddress)
         {
-            try
+            if(!Validations.IsValidPaymentAddress(paymentAddress))
             {
-                if(!Validations.IsValidPaymentAddress(paymentAddress))
+                return StatusCode((int)System.Net.HttpStatusCode.BadRequest, paymentAddress + " is not a valid Base58 address");
+            }
+            Utils.CheckIfChainIsFresh(chain_, config_.AcceptStaleRequests);
+            AddressBalance balance = GetBalance(paymentAddress);
+            return Json
+            (
+                new
                 {
-                    return StatusCode((int)System.Net.HttpStatusCode.BadRequest, paymentAddress + " is not a valid Base58 address");
+                    addrStr = paymentAddress,
+                    balance = balance.Balance,
+                    balanceSat = Utils.SatoshisToBTC(balance.Balance),
+                    totalReceived = Utils.SatoshisToBTC(balance.Received),
+                    totalReceivedSat = balance.Received,
+                    totalSent = balance.Sent,
+                    totalSentSat = Utils.SatoshisToBTC(balance.Sent),
+                    unconfirmedBalance = 0, //We don't handle unconfirmed txs
+                    unconfirmedBalanceSat = 0, //We don't handle unconfirmed txs
+                    unconfirmedTxApperances = 0, //We don't handle unconfirmed txs
+                    txApperances = balance.Transactions.Count,
+                    transactions = balance.Transactions.ToArray()
                 }
-                Utils.CheckIfChainIsFresh(chain_, config_.AcceptStaleRequests);
-                AddressBalance balance = GetBalance(paymentAddress);
-                return Json
-                (
-                    new
-                    {
-                        addrStr = paymentAddress,
-                        balance = balance.Balance,
-                        balanceSat = Utils.SatoshisToBTC(balance.Balance),
-                        totalReceived = Utils.SatoshisToBTC(balance.Received),
-                        totalReceivedSat = balance.Received,
-                        totalSent = balance.Sent,
-                        totalSentSat = Utils.SatoshisToBTC(balance.Sent),
-                        unconfirmedBalance = 0, //We don't handle unconfirmed txs
-                        unconfirmedBalanceSat = 0, //We don't handle unconfirmed txs
-                        unconfirmedTxApperances = 0, //We don't handle unconfirmed txs
-                        txApperances = balance.Transactions.Count,
-                        transactions = balance.Transactions.ToArray()
-                    }
-                );
-            }
-            catch(Exception ex)
-            {
-                return StatusCode((int)System.Net.HttpStatusCode.InternalServerError, ex.Message);
-            }
+            );
         }
 
         // GET: api/addr/{paymentAddress}/balance
@@ -89,49 +82,28 @@ namespace api.Controllers
         [HttpGet("/api/addr/{paymentAddress}/unconfirmedBalance")]
         public ActionResult GetUnconfirmedBalance(string paymentAddress)
         {
-            try
-            {
-                Utils.CheckIfChainIsFresh(chain_, config_.AcceptStaleRequests);
-                return Json(0); //We don't handle unconfirmed transactions
-            }
-            catch(Exception ex)
-            {
-                return StatusCode((int)System.Net.HttpStatusCode.InternalServerError, ex.Message);
-            }
+            Utils.CheckIfChainIsFresh(chain_, config_.AcceptStaleRequests);
+            return Json(0); //We don't handle unconfirmed transactions
         }
 
         // GET: api/addr/{paymentAddress}/utxo
         [HttpGet("/api/addr/{paymentAddress}/utxo")]
         public ActionResult GetUtxoForSingleAddress(string paymentAddress)
         {
-            try
-            {
-                List<object> utxo = GetUtxo(paymentAddress);
-                return Json(utxo.ToArray());
-            }
-            catch(Exception ex)
-            {
-                return StatusCode((int)System.Net.HttpStatusCode.InternalServerError, ex.Message);
-            }
+            List<object> utxo = GetUtxo(paymentAddress);
+            return Json(utxo.ToArray());
         }
 
 
         [HttpGet("/api/addrs/{paymentAddresses}/utxo")]
         public ActionResult GetUtxoForMultipleAddresses(string addresses)
         {
-            try
+            var utxo = new List<object>();
+            foreach(string address in addresses.Split(","))
             {
-                var utxo = new List<object>();
-                foreach(string address in addresses.Split(","))
-                {
-                    utxo.Concat(GetUtxo(address));
-                }
-                return Json(utxo.ToArray());
+                utxo.Concat(GetUtxo(address));
             }
-            catch(Exception ex)
-            {
-                return StatusCode((int)System.Net.HttpStatusCode.InternalServerError, ex.Message);
-            }
+            return Json(utxo.ToArray());   
         }
 
         [HttpPost("/api/addrs/utxo")]

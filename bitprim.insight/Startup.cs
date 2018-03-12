@@ -70,6 +70,7 @@ namespace api
             applicationLifetime.ApplicationStopping.Register(OnShutdown);
             app.UseCors(CORS_POLICY_NAME);
             app.UseStaticFiles(); //TODO For testing web sockets
+            app.UseHttpStatusCodeExceptionMiddleware();
             app.UseMvc();
         }
 
