@@ -19,7 +19,7 @@ namespace api
 
         private bool OnBlockReceived(ErrorCode error, UInt64 height, BlockList incoming, BlockList outgoing)
         {
-            if(error == ErrorCode.Success && incoming.Count > 0)
+            if(error == ErrorCode.Success && incoming != null && incoming.Count > 0)
             {
                 var newBlocksNotification = new
                 {
