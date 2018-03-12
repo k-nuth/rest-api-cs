@@ -8,7 +8,7 @@
     <Folder Include="wwwroot\" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="bitprim" Version="0.2.184" />
+    <PackageReference Include="bitprim" Version="0.2.189" />
     <!-- <ProjectReference Include="../../bitprim-cs/bitprim/bitprim.csproj" /> -->
     <PackageReference Include="Microsoft.AspNetCore.All" Version="2.0.5" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="1.1.0" />
