@@ -27,75 +27,54 @@ namespace api.Controllers
         [HttpGet("/api/tx/{hash}")]
         public ActionResult GetTransactionByHash(string hash, bool requireConfirmed)
         {
-            try
+            if(!Validations.IsValidHash(hash))
             {
-                if(!Validations.IsValidHash(hash))
-                {
-                    return StatusCode((int)System.Net.HttpStatusCode.BadRequest, hash + " is not a valid transaction hash");
-                }
-                Utils.CheckIfChainIsFresh(chain_, config_.AcceptStaleRequests);
-                byte[] binaryHash = Binary.HexStringToByteArray(hash);
-                Tuple<ErrorCode, Transaction, UInt64, UInt64> getTxResult = chain_.GetTransaction(binaryHash, requireConfirmed);
-                Utils.CheckBitprimApiErrorCode(getTxResult.Item1, "GetTransaction(" + hash + ") failed, check error log");
-                return Json(TxToJSON(getTxResult.Item2, getTxResult.Item3, noAsm: false, noScriptSig: false, noSpend: false));
+                return StatusCode((int)System.Net.HttpStatusCode.BadRequest, hash + " is not a valid transaction hash");
             }
-            catch(Exception ex)
-            {
-                return StatusCode((int)System.Net.HttpStatusCode.InternalServerError, ex.Message);
-            }
+            Utils.CheckIfChainIsFresh(chain_, config_.AcceptStaleRequests);
+            byte[] binaryHash = Binary.HexStringToByteArray(hash);
+            Tuple<ErrorCode, Transaction, UInt64, UInt64> getTxResult = chain_.GetTransaction(binaryHash, requireConfirmed);
+            Utils.CheckBitprimApiErrorCode(getTxResult.Item1, "GetTransaction(" + hash + ") failed, check error log");
+            return Json(TxToJSON(getTxResult.Item2, getTxResult.Item3, noAsm: false, noScriptSig: false, noSpend: false));   
         }
 
         // GET: api/rawtx/{hash}
         [HttpGet("/api/rawtx/{hash}")]
         public ActionResult GetRawTransactionByHash(string hash)
         {
-            try
-            {
-                Utils.CheckIfChainIsFresh(chain_, config_.AcceptStaleRequests);
-                byte[] binaryHash = Binary.HexStringToByteArray(hash);
-                Tuple<ErrorCode, Transaction, UInt64, UInt64> getTxResult = chain_.GetTransaction(binaryHash, false);
-                Utils.CheckBitprimApiErrorCode(getTxResult.Item1, "GetTransaction(" + hash + ") failed, check error log");
-                Transaction tx = getTxResult.Item2;
-                return Json
-                (
-                    new
-                    {
-                        rawtx = Binary.ByteArrayToHexString(tx.ToData(false).Reverse().ToArray())
-                    }
-                );
-            }
-            catch(Exception ex)
-            {
-                return StatusCode((int)System.Net.HttpStatusCode.InternalServerError, ex.Message);
-            }
+            Utils.CheckIfChainIsFresh(chain_, config_.AcceptStaleRequests);
+            byte[] binaryHash = Binary.HexStringToByteArray(hash);
+            Tuple<ErrorCode, Transaction, UInt64, UInt64> getTxResult = chain_.GetTransaction(binaryHash, false);
+            Utils.CheckBitprimApiErrorCode(getTxResult.Item1, "GetTransaction(" + hash + ") failed, check error log");
+            Transaction tx = getTxResult.Item2;
+            return Json
+            (
+                new
+                {
+                    rawtx = Binary.ByteArrayToHexString(tx.ToData(false).Reverse().ToArray())
+                }
+            );
         }
 
         // GET: api/txs/?block=HASH
         [HttpGet("/api/txs")]
         public ActionResult GetTransactions(string block = null, string address = null, UInt64? pageNum = 0)
         {
-            try
+            if(block == null && address == null)
             {
-                if(block == null && address == null)
-                {
-                    return StatusCode((int)System.Net.HttpStatusCode.BadRequest, "Specify block or address");
-                }
-                else if(block != null && address != null)
-                {
-                    return StatusCode((int)System.Net.HttpStatusCode.BadRequest, "Specify either block or address, but not both");
-                }
-                else if(block != null)
-                {
-                    return GetTransactionsByBlockHash(block, pageNum.Value);
-                }
-                else
-                {
-                    return GetTransactionsByAddress(address, pageNum.Value);
-                }
+                return StatusCode((int)System.Net.HttpStatusCode.BadRequest, "Specify block or address");
             }
-            catch(Exception ex)
+            else if(block != null && address != null)
             {
-                return StatusCode((int)System.Net.HttpStatusCode.InternalServerError, ex.Message);
+                return StatusCode((int)System.Net.HttpStatusCode.BadRequest, "Specify either block or address, but not both");
+            }
+            else if(block != null)
+            {
+                return GetTransactionsByBlockHash(block, pageNum.Value);
+            }
+            else
+            {
+                return GetTransactionsByAddress(address, pageNum.Value);
             }
         }
 
@@ -114,58 +93,44 @@ namespace api.Controllers
         [HttpPost("/api/tx/send")]
         public ActionResult BroadcastTransaction([FromBody] string rawtx)
         {
-            try
-            {
-                Utils.CheckIfChainIsFresh(chain_, config_.AcceptStaleRequests);
-                var tx = new Transaction(rawtx);
-                ErrorCode ec = chain_.OrganizeTransactionSync(tx);
-                Utils.CheckBitprimApiErrorCode(ec, "OrganizeTransaction(" + rawtx + ") failed");
-                return Json
-                (
-                    new
-                    {
-                        txid = Binary.ByteArrayToHexString(tx.Hash) //TODO Check if this should be returned by organize call
-                    }
-                );
-            }
-            catch(Exception ex)
-            {
-                return StatusCode((int)System.Net.HttpStatusCode.InternalServerError, ex.Message);
-            }
+            Utils.CheckIfChainIsFresh(chain_, config_.AcceptStaleRequests);
+            var tx = new Transaction(rawtx);
+            ErrorCode ec = chain_.OrganizeTransactionSync(tx);
+            Utils.CheckBitprimApiErrorCode(ec, "OrganizeTransaction(" + rawtx + ") failed");
+            return Json
+            (
+                new
+                {
+                    txid = Binary.ByteArrayToHexString(tx.Hash) //TODO Check if this should be returned by organize call
+                }
+            );
         }
 
         private ActionResult DoGetTransactionsForMultipleAddresses(string addrs, int from, int to,
                                                                    bool noAsm = true, bool noScriptSig = true, bool noSpend = true)
         {
-            try
+            if(from < 0)
             {
-                if(from < 0)
-                {
-                    return StatusCode((int)System.Net.HttpStatusCode.BadRequest, "'from' must be non negative");
-                }
-                if(from > to)
-                {
-                    return StatusCode((int)System.Net.HttpStatusCode.BadRequest, "'from' must be lower or equal than 'to'");
-                }
-                var txs = new List<dynamic>();
-                foreach(string address in System.Web.HttpUtility.UrlDecode(addrs).Split(","))
-                {
-                    txs = txs.Concat(GetTransactionsBySingleAddress(address, false, 0, noAsm, noScriptSig, noSpend).Item1).ToList();
-                }
-                //Sort by descending blocktime
-                txs.Sort((tx1, tx2) => tx2.blocktime.CompareTo(tx1.blocktime) );
-                to = (int) Math.Min(to, txs.Count - 1);
-                return Json(new{
-                    totalItems = txs.Count,
-                    from = from,
-                    to = to,
-                    items = txs.GetRange(from, to - from + 1).ToArray()
-                });
+                return StatusCode((int)System.Net.HttpStatusCode.BadRequest, "'from' must be non negative");
             }
-            catch(Exception ex)
+            if(from > to)
             {
-                return StatusCode((int)System.Net.HttpStatusCode.InternalServerError, ex.Message);
+                return StatusCode((int)System.Net.HttpStatusCode.BadRequest, "'from' must be lower or equal than 'to'");
             }
+            var txs = new List<dynamic>();
+            foreach(string address in System.Web.HttpUtility.UrlDecode(addrs).Split(","))
+            {
+                txs = txs.Concat(GetTransactionsBySingleAddress(address, false, 0, noAsm, noScriptSig, noSpend).Item1).ToList();
+            }
+            //Sort by descending blocktime
+            txs.Sort((tx1, tx2) => tx2.blocktime.CompareTo(tx1.blocktime) );
+            to = (int) Math.Min(to, txs.Count - 1);
+            return Json(new{
+                totalItems = txs.Count,
+                from = from,
+                to = to,
+                items = txs.GetRange(from, to - from + 1).ToArray()
+            });   
         }
 
         private ActionResult GetTransactionsByBlockHash(string blockHash, UInt64 pageNum)

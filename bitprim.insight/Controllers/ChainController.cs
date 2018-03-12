@@ -25,69 +25,48 @@ namespace api.Controllers
         [HttpGet("/api/sync")]
         public ActionResult GetSyncStatus()
         {
-            try
-            {
-                //TODO Try a more reliable way to know network max height (i.e. ask another node, or some service)
-                Tuple<ErrorCode, UInt64> getLastHeightResult = chain_.GetLastHeight();
-                Utils.CheckBitprimApiErrorCode(getLastHeightResult.Item1, "GetLastHeight() failed");
-                UInt64 currentHeight = getLastHeightResult.Item2;
-                bool synced = currentHeight >= config_.BlockchainHeight;
-                dynamic syncStatus = new ExpandoObject();
-                syncStatus.status = synced? "finished" : "synchronizing";
-                syncStatus.blockChainHeight = config_.BlockchainHeight;
-                syncStatus.syncPercentage = Math.Min((double)currentHeight / (double)config_.BlockchainHeight * 100.0, 100);
-                syncStatus.error = null;
-                syncStatus.type = config_.NodeType;
-                return Json(syncStatus);
-            }
-            catch(Exception ex)
-            {
-                return StatusCode((int)System.Net.HttpStatusCode.InternalServerError, ex.Message);
-            }
+            //TODO Try a more reliable way to know network max height (i.e. ask another node, or some service)
+            Tuple<ErrorCode, UInt64> getLastHeightResult = chain_.GetLastHeight();
+            Utils.CheckBitprimApiErrorCode(getLastHeightResult.Item1, "GetLastHeight() failed");
+            UInt64 currentHeight = getLastHeightResult.Item2;
+            bool synced = currentHeight >= config_.BlockchainHeight;
+            dynamic syncStatus = new ExpandoObject();
+            syncStatus.status = synced? "finished" : "synchronizing";
+            syncStatus.blockChainHeight = config_.BlockchainHeight;
+            syncStatus.syncPercentage = Math.Min((double)currentHeight / (double)config_.BlockchainHeight * 100.0, 100);
+            syncStatus.error = null;
+            syncStatus.type = config_.NodeType;
+            return Json(syncStatus);   
         }
 
         [HttpGet("/api/status")]
         public ActionResult GetStatus(string method)
         {
-            try
+            if(method == GET_DIFFICULTY)
             {
-                if(method == GET_DIFFICULTY)
-                {
-                    return GetDifficulty();
-                }
-                else if(method == GET_BEST_BLOCK_HASH)
-                {
-                    return GetBestBlockHash();
-                }
-                else if(method == GET_LAST_BLOCK_HASH)
-                {
-                    return GetLastBlockHash();
-                }
-                else
-                {
-                    return GetInfo();
-                }
+                return GetDifficulty();
             }
-            catch(Exception ex)
+            else if(method == GET_BEST_BLOCK_HASH)
             {
-                return StatusCode((int)System.Net.HttpStatusCode.InternalServerError, ex.Message);
+                return GetBestBlockHash();
             }
+            else if(method == GET_LAST_BLOCK_HASH)
+            {
+                return GetLastBlockHash();
+            }
+            else
+            {
+                return GetInfo();
+            }   
         }
 
         [HttpGet("/api/utils/estimatefee")]
         public ActionResult GetEstimateFee([FromQuery] int? nbBlocks = 2)
         {
-            try
-            {
-                var estimateFee = new ExpandoObject() as IDictionary<string, Object>;
-                //TODO Check which algorithm to use (see bitcoin-abc's median, at src/policy/fees.cpp for an example)
-                estimateFee.Add(nbBlocks.ToString(), 1.0);
-                return Json(estimateFee);
-            }
-            catch(Exception ex)
-            {
-                return StatusCode((int)System.Net.HttpStatusCode.InternalServerError, ex.Message);
-            }
+            var estimateFee = new ExpandoObject() as IDictionary<string, Object>;
+            //TODO Check which algorithm to use (see bitcoin-abc's median, at src/policy/fees.cpp for an example)
+            estimateFee.Add(nbBlocks.ToString(), 1.0);
+            return Json(estimateFee);   
         }
 
         [HttpGet("/api/currency")]
