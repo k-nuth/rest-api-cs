@@ -32,15 +32,15 @@ namespace api.Controllers
                 }
                 Utils.CheckIfChainIsFresh(chain_, config_.AcceptStaleRequests);
                 byte[] binaryHash = Binary.HexStringToByteArray(hash);
-                Tuple<ErrorCode, Block, UInt64> getBlockResult = chain_.GetBlockByHash(binaryHash);
-                Utils.CheckBitprimApiErrorCode(getBlockResult.Item1, "GetBlockByHash(" + hash + ") failed, check error log");
+                Tuple<ErrorCode, Block, UInt64, HashList, UInt64> getBlockResult = chain_.GetBlockByHashTxSizes(binaryHash);
+                Utils.CheckBitprimApiErrorCode(getBlockResult.Item1, "GetBlockByHashTxSizes(" + hash + ") failed, check error log");
                 Tuple<ErrorCode, UInt64> getLastHeightResult = chain_.GetLastHeight();
                 Utils.CheckBitprimApiErrorCode(getLastHeightResult.Item1, "GetLastHeight() failed, check error log");
                 UInt64 topHeight = getLastHeightResult.Item2;
                 UInt64 blockHeight = getBlockResult.Item3;
-                Tuple<ErrorCode, Block, UInt64> getNextBlockResult = chain_.GetBlockByHeight(blockHeight + 1);
+                Tuple<ErrorCode, byte[]> getNextBlockResult = chain_.GetBlockHash(blockHeight + 1);
                 Utils.CheckBitprimApiErrorCode(getNextBlockResult.Item1, "GetBlockByHeight(" + blockHeight + 1 + ") failed, check error log");
-                return Json(BlockToJSON(getBlockResult.Item2, blockHeight, topHeight, getNextBlockResult.Item2.Hash));
+                return Json(BlockToJSON(getBlockResult.Item2, blockHeight, getBlockResult.Item4, getNextBlockResult.Item2, getBlockResult.Item5));
             }
             catch(Exception ex)
             {
@@ -55,13 +55,13 @@ namespace api.Controllers
             try
             {
                 Utils.CheckIfChainIsFresh(chain_, config_.AcceptStaleRequests);
-                Tuple<ErrorCode, Block, UInt64> getBlockResult = chain_.GetBlockByHeight(height);
-                Utils.CheckBitprimApiErrorCode(getBlockResult.Item1, "GetBlockByHeight(" + height + ") failed, error log");
+                Tuple<ErrorCode, byte[]> result = chain_.GetBlockHash(height);
+                Utils.CheckBitprimApiErrorCode(result.Item1, "GetBlockByHeight(" + height + ") failed, error log");
                 return Json
                 (
                     new
                     {
-                        blockHash = Binary.ByteArrayToHexString(getBlockResult.Item2.Hash)
+                        blockHash = Binary.ByteArrayToHexString(result.Item2)
                     }
                 );
             }
@@ -187,9 +187,9 @@ namespace api.Controllers
             while(low < high)
             {
                 mid = (UInt64) ((double)low + (double) high)/2; //Adds as doubles to prevent overflow
-                Tuple<ErrorCode, Block, UInt64> getBlockResult = chain_.GetBlockByHeight(mid);
-                Utils.CheckBitprimApiErrorCode(getBlockResult.Item1, "GetBlockByHeight(" + mid + ") failed, check error log");
-                if(DateTimeOffset.FromUnixTimeSeconds(getBlockResult.Item2.Header.Timestamp).Date <= blockDateToSearch.Date)
+                Tuple<ErrorCode, byte[], DateTime> getBlockResult = chain_.GetBlockByHeightHashTimestamp(mid);
+                Utils.CheckBitprimApiErrorCode(getBlockResult.Item1, "GetBlockByHeightHashTimestamp(" + mid + ") failed, check error log");
+                if(getBlockResult.Item3.Date <= blockDateToSearch.Date)
                 {
                     low = mid + 1;
                 }else
@@ -236,11 +236,11 @@ namespace api.Controllers
             }
             else
             {
-                Tuple<ErrorCode, Block, UInt64> getBlockResult = chain_.GetBlockByHeight(startingHeight - limit);
-                Utils.CheckBitprimApiErrorCode(getBlockResult.Item1, "GetBlockByHeight(" + (startingHeight - limit) + ") failed, check error log");
-                Block block = getBlockResult.Item2;
-                moreBlocks = DateTimeOffset.FromUnixTimeSeconds(block.Header.Timestamp).Date == blockDateToSearch.Date;
-                moreBlocksTs = moreBlocks? (int) block.Header.Timestamp : -1;
+                Tuple<ErrorCode, byte[], DateTime> getBlockResult = chain_.GetBlockByHeightHashTimestamp(startingHeight - limit);
+                Utils.CheckBitprimApiErrorCode(getBlockResult.Item1, "GetBlockByHeightHashTimestamp(" + (startingHeight - limit) + ") failed, check error log");
+                DateTime blockDate = getBlockResult.Item3;
+                moreBlocks = blockDate.Date == blockDateToSearch.Date;
+                moreBlocksTs = moreBlocks? (int) ((DateTimeOffset)blockDate).ToUnixTimeSeconds() : -1;
             }
             return new Tuple<bool, int>(moreBlocks, moreBlocksTs);
         }
@@ -265,7 +265,7 @@ namespace api.Controllers
             };
         }
 
-        private static object BlockToJSON(Block block, UInt64 blockHeight, UInt64 topHeight, byte[] nextBlockHash)
+        private static object BlockToJSON(Block block, UInt64 blockHeight, HashList txHashes, byte[] nextBlockHash, UInt64 serializedBlockSize)
         {
             Header blockHeader = block.Header;
             BigInteger proof;
@@ -273,11 +273,11 @@ namespace api.Controllers
             return new
             {
                 hash = Binary.ByteArrayToHexString(block.Hash),
-                size = block.GetSerializedSize(blockHeader.Version),
+                size = serializedBlockSize,
                 height = blockHeight,
                 version = blockHeader.Version,
                 merkleroot = Binary.ByteArrayToHexString(block.MerkleRoot),
-                tx = BlockTxsToJSON(block),
+                tx = BlockTxsToJSON(txHashes),
                 time = blockHeader.Timestamp,
                 nonce = blockHeader.Nonce,
                 bits = Utils.EncodeInBase16(blockHeader.Bits),
@@ -291,12 +291,12 @@ namespace api.Controllers
             };
         }
 
-        private static object[] BlockTxsToJSON(Block block)
+        private static object[] BlockTxsToJSON(HashList txHashes)
         {
             var txs = new List<object>();
-            for(uint i = 0; i<block.TransactionCount; i++)
+            for(int i = 0; i<txHashes.Count; i++)
             {
-                txs.Add(Binary.ByteArrayToHexString(block.GetNthTransaction(i).Hash));
+                txs.Add(Binary.ByteArrayToHexString(txHashes[i]));
             }
             return txs.ToArray();
         }
