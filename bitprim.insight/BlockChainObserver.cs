@@ -25,7 +25,8 @@ namespace api
                 {
                     eventname = "block"
                 };
-                webSocketHandler_.PublishBlock(JsonConvert.SerializeObject(newBlocksNotification));
+                var task = webSocketHandler_.PublishBlock(JsonConvert.SerializeObject(newBlocksNotification));
+                task.Wait();
             }
             return true;
         }
@@ -40,7 +41,8 @@ namespace api
                     txid = Binary.ByteArrayToHexString(newTransaction.Hash),
                     valueOut = Utils.SatoshisToBTC(newTransaction.TotalOutputValue)
                 };
-                webSocketHandler_.PublishTransaction(JsonConvert.SerializeObject(tx));
+                var task = webSocketHandler_.PublishTransaction(JsonConvert.SerializeObject(tx));
+                task.Wait();
             }
             return true;
         }
