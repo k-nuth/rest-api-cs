@@ -3,16 +3,15 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using System;
 using System.Threading.Tasks;
+using Serilog;
 
 public class HttpStatusCodeExceptionMiddleware
 {
     private readonly RequestDelegate _next;
-    private readonly ILogger<HttpStatusCodeExceptionMiddleware> _logger;
 
-    public HttpStatusCodeExceptionMiddleware(RequestDelegate next, ILoggerFactory loggerFactory)
+    public HttpStatusCodeExceptionMiddleware(RequestDelegate next)
     {
         _next = next ?? throw new ArgumentNullException(nameof(next));
-        _logger = loggerFactory?.CreateLogger<HttpStatusCodeExceptionMiddleware>() ?? throw new ArgumentNullException(nameof(loggerFactory));
     }
 
     public async Task Invoke(HttpContext context)
@@ -25,7 +24,7 @@ public class HttpStatusCodeExceptionMiddleware
         {
             if (context.Response.HasStarted)
             {
-                _logger.LogWarning("The response has already started, the http status code middleware will not be executed.");
+                Log.Warning("The response has already started, the http status code middleware will not be executed.");
                 throw;
             }
             await HandleException(context, ex, ex.StatusCode, ex.ContentType);
@@ -35,7 +34,7 @@ public class HttpStatusCodeExceptionMiddleware
         {
             if (context.Response.HasStarted)
             {
-                _logger.LogWarning("The response has already started, the http status code middleware will not be executed.");
+                Log.Warning("The response has already started, the http status code middleware will not be executed.");
                 throw;
             }
             await HandleException(context, ex, (int) System.Net.HttpStatusCode.InternalServerError, "text/plain");
@@ -48,7 +47,7 @@ public class HttpStatusCodeExceptionMiddleware
         context.Response.Clear();
         context.Response.StatusCode = statusCode;
         context.Response.ContentType = contentType;
-        Console.WriteLine(ex); //TODO Implement logging (RA-16)
+        Log.Error(ex.ToString());
         await context.Response.WriteAsync(ex.Message);
     }
 }
