@@ -66,7 +66,9 @@ namespace api
                 .MinimumLevel.Debug()
                 .MinimumLevel.Override("Microsoft", LogEventLevel.Information)
                 .Enrich.FromLogContext()
-                .WriteTo.Console()
+                .WriteTo.Console(outputTemplate:
+                    "{SourceIP} {UserName} [{Timestamp:dd/MMM/yyyy HH:mm:ss zzz}] {Level:u3} {HttpMethod} {HttpRequestUrl} {HttpRequestProtocol} {HttpResponseStatusCode} {HttpResponseLength} {Message:lj}{NewLine}{Exception}")
+                .MinimumLevel.Override("Microsoft", LogEventLevel.Warning)
                 .CreateLogger();
         }
     }
