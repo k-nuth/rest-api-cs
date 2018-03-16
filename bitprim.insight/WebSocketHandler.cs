@@ -163,7 +163,6 @@ namespace api
             catch(Exception ex)
             {
                 logger_.LogError("PublisherThread - Error: " + ex);
-                await UnregisterChannel(webSocket, channelName);
             }
         }
 
