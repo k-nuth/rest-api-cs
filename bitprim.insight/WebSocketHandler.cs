@@ -25,7 +25,7 @@ namespace api
         private const string SUBSCRIPTION_END_MESSAGE = "Unsubscribe";
         private const string TXS_CHANNEL_NAME = "TxsChannel";
         private const string TXS_SUBSCRIPTION_MESSAGE = "SubscribeToTxs";
-        private volatile bool acceptSubscriptions_ = true;
+        private int acceptSubscriptions_ = 1; //It is an int because Interlocked does not support bool 
 
         private ILogger logger_;
 
@@ -74,10 +74,10 @@ namespace api
                             context.Abort();
                             keepListening = false;
                         }
-                        else if(content.Equals(BLOCKS_SUBSCRIPTION_MESSAGE) && acceptSubscriptions_)
+                        else if(content.Equals(BLOCKS_SUBSCRIPTION_MESSAGE) && Interlocked.CompareExchange(ref acceptSubscriptions_, 0, 0) > 0)
                         {
                             RegisterChannel(webSocket, BLOCKS_CHANNEL_NAME);
-                        }else if(content.Equals(TXS_SUBSCRIPTION_MESSAGE) && acceptSubscriptions_)
+                        }else if(content.Equals(TXS_SUBSCRIPTION_MESSAGE) && Interlocked.CompareExchange(ref acceptSubscriptions_, 0, 0) > 0)
                         {
                             RegisterChannel(webSocket, TXS_CHANNEL_NAME);
                         }
@@ -109,7 +109,7 @@ namespace api
 
         public async Task Shutdown()
         {
-            acceptSubscriptions_ = false;
+            Interlocked.Decrement(ref acceptSubscriptions_);
             foreach(WebSocket ws in subscriptions_.Keys)
             {
                 try
