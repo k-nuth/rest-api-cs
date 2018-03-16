@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Net;
 using Microsoft.AspNetCore.Builder;
@@ -62,12 +63,22 @@ namespace api
 
         private static void ConfigureLogging()
         {
+            var timeZone = DateTimeOffset.Now.ToString("%K").Replace(CultureInfo.CurrentCulture.DateTimeFormat.TimeSeparator, "");
             Log.Logger = new LoggerConfiguration()
                 .MinimumLevel.Debug()
                 .MinimumLevel.Override("Microsoft", LogEventLevel.Information)
                 .Enrich.FromLogContext()
+                .Enrich.WithProperty(LogPropertyNames.TIME_ZONE, timeZone)
                 .WriteTo.Console(outputTemplate:
-                    "{SourceIP} {UserName} [{Timestamp:dd/MMM/yyyy HH:mm:ss zzz}] {Level:u3} {HttpMethod} {HttpRequestUrl} {HttpRequestProtocol} {HttpResponseStatusCode} {HttpResponseLength} {Message:lj}{NewLine}{Exception}")
+                    "{" + LogPropertyNames.SOURCE_IP + "} " +
+                    "{" + LogPropertyNames.USER_ID +  "} {" + LogPropertyNames.USER_NAME  + "} " +
+                    "[{Timestamp:dd/MMM/yyyy HH:mm:ss} {" + LogPropertyNames.TIME_ZONE + "}] {Level:u3} " +
+                    "\"{" + LogPropertyNames.HTTP_METHOD + "} " +
+                    "{" + LogPropertyNames.HTTP_REQUEST_URL + "} " +
+                    "{" + LogPropertyNames.HTTP_PROTOCOL_VERSION + "}\" " +
+                    "{" + LogPropertyNames.HTTP_RESPONSE_STATUS_CODE + "} " +
+                    "{" + LogPropertyNames.HTTP_RESPONSE_LENGTH + "} " +
+                    "{Message:lj}{NewLine}{Exception}")
                 .MinimumLevel.Override("Microsoft", LogEventLevel.Warning)
                 .CreateLogger();
         }
