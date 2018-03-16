@@ -25,6 +25,7 @@ namespace api
         private const string SUBSCRIPTION_END_MESSAGE = "Unsubscribe";
         private const string TXS_CHANNEL_NAME = "TxsChannel";
         private const string TXS_SUBSCRIPTION_MESSAGE = "SubscribeToTxs";
+        private volatile bool acceptSubscriptions_ = true;
 
         private ILogger logger_;
 
@@ -73,10 +74,10 @@ namespace api
                             context.Abort();
                             keepListening = false;
                         }
-                        else if(content.Equals(BLOCKS_SUBSCRIPTION_MESSAGE))
+                        else if(content.Equals(BLOCKS_SUBSCRIPTION_MESSAGE) && acceptSubscriptions_)
                         {
                             RegisterChannel(webSocket, BLOCKS_CHANNEL_NAME);
-                        }else if(content.Equals(TXS_SUBSCRIPTION_MESSAGE))
+                        }else if(content.Equals(TXS_SUBSCRIPTION_MESSAGE) && acceptSubscriptions_)
                         {
                             RegisterChannel(webSocket, TXS_CHANNEL_NAME);
                         }
@@ -106,8 +107,9 @@ namespace api
             await Publish(TXS_CHANNEL_NAME, tx);
         }
 
-        public async Task CancelAllSubscriptions()
+        public async Task Shutdown()
         {
+            acceptSubscriptions_ = false;
             foreach(WebSocket ws in subscriptions_.Keys)
             {
                 await UnregisterChannels(ws);

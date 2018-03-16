@@ -126,7 +126,7 @@ namespace api
         private void OnShutdown()
         {
             Console.WriteLine("Cancelling subscriptions...");
-            var task = webSocketHandler_.CancelAllSubscriptions();
+            var task = webSocketHandler_.Shutdown();
             task.Wait();
             Console.WriteLine("Stopping node...");
             exec_.Stop();
