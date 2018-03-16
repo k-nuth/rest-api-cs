@@ -11,6 +11,7 @@ using Swashbuckle.AspNetCore.Swagger;
 using Bitprim;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Cors.Internal;
+using Serilog;
 
 namespace api
 {
@@ -53,12 +54,10 @@ namespace api
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
         public void Configure(IApplicationBuilder app, IHostingEnvironment env, IServiceProvider serviceProvider,
-                              ILoggerFactory loggerFactory, IApplicationLifetime applicationLifetime)
+                              IApplicationLifetime applicationLifetime)
         {
-            loggerFactory.AddConsole(Configuration.GetSection("Logging"));
-            loggerFactory.AddDebug();
             //Enable web sockets for sending block and tx notifications
-            ConfigureWebSockets(app, loggerFactory);
+            ConfigureWebSockets(app);
             // Enable middleware to serve generated Swagger as a JSON endpoint.
             app.UseSwagger();
             // Enable middleware to serve swagger-ui (HTML, JS, CSS, etc.), specifying the Swagger JSON endpoint.  
@@ -74,9 +73,8 @@ namespace api
             app.UseMvc();
         }
 
-        private void ConfigureWebSockets(IApplicationBuilder app, ILoggerFactory loggerFactory)
+        private void ConfigureWebSockets(IApplicationBuilder app)
         {
-            webSocketHandler_.Logger = loggerFactory.CreateLogger("SubscribeToBlocks");
             app.UseWebSockets();
             app.Use(async (context, next) =>
             {
@@ -118,21 +116,21 @@ namespace api
             {
                 throw new ApplicationException("Executor::RunWait failed; error code: " + result);
             }
-            webSocketHandler_ = new WebSocketHandler();
+            webSocketHandler_ = new WebSocketHandler(services.BuildServiceProvider().GetService<ILogger<WebSocketHandler>>());
             blockChainObserver_ = new BlockChainObserver(exec_, webSocketHandler_);
             services.AddSingleton<Chain>(exec_.Chain);
         }
 
         private void OnShutdown()
         {
-            Console.WriteLine("Cancelling subscriptions...");
+            Log.Information("Cancelling subscriptions...");
             var task = webSocketHandler_.Shutdown();
             task.Wait();
-            Console.WriteLine("Stopping node...");
+            Log.Information("Stopping node...");
             exec_.Stop();
-            Console.WriteLine("Destroying node...");
+            Log.Information("Destroying node...");
             exec_.Dispose();
-            Console.WriteLine("Node shutdown OK!");
+            Log.Information("Node shutdown OK!");
         }
     }
 }

@@ -8,6 +8,7 @@ using Microsoft.Extensions.Logging;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using Nito.AsyncEx;
+using Serilog;
 
 namespace api
 {
@@ -26,21 +27,13 @@ namespace api
         private const string TXS_CHANNEL_NAME = "TxsChannel";
         private const string TXS_SUBSCRIPTION_MESSAGE = "SubscribeToTxs";
         private int acceptSubscriptions_ = 1; //It is an int because Interlocked does not support bool 
+        private ILogger<WebSocketHandler> logger_;
 
-        private ILogger logger_;
-
-        public WebSocketHandler()
+        public WebSocketHandler(ILogger<WebSocketHandler> logger)
         {
             messageQueue_ = new AsyncProducerConsumerQueue<BitprimWebSocketMessage>();
             subscriptions_ = new ConcurrentDictionary<WebSocket, ConcurrentDictionary<string, byte>>();
-        }
-
-        public ILogger Logger
-        {
-            set
-            {
-                logger_ = value;
-            }
+            logger_ = logger;
         }
 
         ///<summary>
@@ -170,6 +163,7 @@ namespace api
             catch(Exception ex)
             {
                 logger_.LogError("PublisherThread - Error: " + ex);
+                await UnregisterChannel(webSocket, channelName);
             }
         }
 
