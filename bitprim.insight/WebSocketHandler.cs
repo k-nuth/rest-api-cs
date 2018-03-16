@@ -92,7 +92,7 @@ namespace api
             }
             catch(WebSocketException ex)
             {
-                Console.WriteLine("Subscribe - Web socket error, closing connection; " + ex);
+                logger_.LogWarning("Subscribe - Web socket error, closing connection; " + ex);
                 context.Abort();
             }
         }
@@ -218,7 +218,6 @@ namespace api
                 }
                 message = $"{frame.MessageType}: Len={frame.Count}, Fin={frame.EndOfMessage}: {content}";
             }
-            Console.WriteLine("Received frame: " + message);
             logger_.LogDebug("Received Frame " + message);
         }
 
