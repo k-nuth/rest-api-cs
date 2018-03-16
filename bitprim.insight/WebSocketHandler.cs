@@ -112,7 +112,14 @@ namespace api
             acceptSubscriptions_ = false;
             foreach(WebSocket ws in subscriptions_.Keys)
             {
-                await UnregisterChannels(ws);
+                try
+                {
+                    await UnregisterChannels(ws);
+                }
+                catch(WebSocketException ex)
+                {
+                    logger_.LogWarning("Error unregistering channel: " + ex.ToString());
+                }
             }
             await messageQueue_.EnqueueAsync
             (
@@ -140,16 +147,29 @@ namespace api
                             byte dummy;
                             if(ws.Value.TryGetValue(message.ChannelName, out dummy))
                             {
-                                await ws.Key.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes(message.Content), 0, message.Content.Length), WebSocketMessageType.Text, true, CancellationToken.None);
+                                try
+                                {
+                                    await ws.Key.SendAsync
+                                    (
+                                        new ArraySegment<byte>(Encoding.UTF8.GetBytes(message.Content), 0, message.Content.Length),
+                                        WebSocketMessageType.Text,
+                                        true,
+                                        CancellationToken.None
+                                    );
+                                }
+                                catch(WebSocketException ex)
+                                {
+                                    logger_.LogWarning("Error sending to client: " + ex.ToString());
+                                }
                                 logger_.LogDebug($"Sent Frame {WebSocketMessageType.Text}: Len={message.Content.Length}, Fin={true}: {message.Content}");
-                            } 
+                            }
                         }
                     }
                 }
             }
             catch(Exception ex)
             {
-                Console.WriteLine("PublisherThread - Error: " + ex);
+                logger_.LogError("PublisherThread - Error: " + ex);
             }
         }
 
