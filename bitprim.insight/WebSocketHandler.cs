@@ -23,10 +23,12 @@ namespace api
         private const string SUBSCRIPTION_END_MESSAGE = "Unsubscribe";
         private const string TXS_CHANNEL_NAME = "TxsChannel";
         private const string TXS_SUBSCRIPTION_MESSAGE = "SubscribeToTxs";
+        private ILogger<WebSocketHandler> logger_;
 
-        public WebSocketHandler()
+        public WebSocketHandler(ILogger<WebSocketHandler> logger)
         {
             subscriberQueues_ = new ConcurrentDictionary<WebSocket, ConcurrentDictionary<string, BlockingCollection<string>>>();
+            logger_ = logger;
         }
 
         ///<summary>
@@ -52,7 +54,7 @@ namespace api
                         if (content.Equals(SERVER_CLOSE_MESSAGE))
                         {
                             await webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Closing from Server", CancellationToken.None);
-                            Log.Debug($"Sent Frame Close: {WebSocketCloseStatus.NormalClosure} Closing from Server");
+                            logger_.LogDebug($"Sent Frame Close: {WebSocketCloseStatus.NormalClosure} Closing from Server");
                             keepListening = false;
                         }
                         else if (content.Equals(SERVER_ABORT_MESSAGE))
@@ -76,7 +78,7 @@ namespace api
             }
             catch(WebSocketException ex)
             {
-                Log.Error("Subscribe - Web socket error, closing connection; " + ex);
+                logger_.LogError("Subscribe - Web socket error, closing connection; " + ex);
                 context.Abort();
             }
         }
@@ -119,14 +121,14 @@ namespace api
                     if(subscribed)
                     {
                         await webSocket.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes(queueItem), 0, queueItem.Length), WebSocketMessageType.Text, true, CancellationToken.None);
-                        Log.Debug($"Sent Frame {WebSocketMessageType.Text}: Len={queueItem.Length}, Fin={true}: {queueItem}");
+                        logger_.LogDebug($"Sent Frame {WebSocketMessageType.Text}: Len={queueItem.Length}, Fin={true}: {queueItem}");
                     }
                 }
                 await UnregisterChannel(webSocket, channelName);
             }
             catch(WebSocketException ex)
             {
-                Log.Error("SubscriberLoop - Web socket error; closing connection" + ex);
+                logger_.LogError("SubscriberLoop - Web socket error; closing connection" + ex);
                 await UnregisterChannel(webSocket, channelName);
             }
         }
@@ -187,7 +189,7 @@ namespace api
                 }
                 message = $"{frame.MessageType}: Len={frame.Count}, Fin={frame.EndOfMessage}: {content}";
             }
-            Log.Debug("Received Frame " + message);
+            logger_.LogDebug("Received Frame " + message);
         }
 
         private void Publish(string channelName, string item)

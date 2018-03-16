@@ -23,10 +23,12 @@ public static class LogPropertyNames
 public class HttpStatusCodeExceptionMiddleware
 {
     private readonly RequestDelegate _next;
+    private readonly ILogger<HttpStatusCodeExceptionMiddleware> logger_;
 
-    public HttpStatusCodeExceptionMiddleware(RequestDelegate next)
+    public HttpStatusCodeExceptionMiddleware(RequestDelegate next, ILogger<HttpStatusCodeExceptionMiddleware> logger)
     {
         _next = next ?? throw new ArgumentNullException(nameof(next));
+        logger_ = logger;
     }
 
     public async Task Invoke(HttpContext context)
@@ -47,7 +49,7 @@ public class HttpStatusCodeExceptionMiddleware
         {
             if (context.Response.HasStarted)
             {
-                Log.Warning("The response has already started, the http status code middleware will not be executed.");
+                logger_.LogWarning("The response has already started, the http status code middleware will not be executed.");
                 throw;
             }
             await HandleException(context, ex, ex.StatusCode, ex.ContentType);
@@ -57,7 +59,7 @@ public class HttpStatusCodeExceptionMiddleware
         {
             if (context.Response.HasStarted)
             {
-                Log.Warning("The response has already started, the http status code middleware will not be executed.");
+                logger_.LogWarning("The response has already started, the http status code middleware will not be executed.");
                 throw;
             }
             await HandleException(context, ex, (int) System.Net.HttpStatusCode.InternalServerError, "text/plain");
@@ -70,7 +72,7 @@ public class HttpStatusCodeExceptionMiddleware
         context.Response.Clear();
         context.Response.StatusCode = statusCode;
         context.Response.ContentType = contentType;
-        Log.Error(ex.ToString());
+        logger_.LogError(ex.ToString());
         await context.Response.WriteAsync(ex.Message);
     }
 
@@ -91,7 +93,7 @@ public class HttpStatusCodeExceptionMiddleware
         using(LogContext.PushProperty(LogPropertyNames.HTTP_RESPONSE_STATUS_CODE, context.Response.StatusCode))
         using(LogContext.PushProperty(LogPropertyNames.HTTP_RESPONSE_LENGTH, responseText.Length))
         {
-            Log.Information(""); //Properties cover all information, so empty message
+            logger_.LogInformation(""); //Properties cover all information, so empty message
         }
     }
 }

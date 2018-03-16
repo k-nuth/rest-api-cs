@@ -21,7 +21,6 @@ namespace api
             try
             {
                 ConfigureLogging();
-                Log.Information("Starting web host");
                 var config = GetServerPortFromCommandLine(args);
                 var serverPort = config.GetValue<int>("server.port");
                 var host = new WebHostBuilder()
@@ -33,6 +32,7 @@ namespace api
                     .UseIISIntegration()
                     .UseStartup<Startup>()
                     .Build();
+                Log.Information("Starting web host");
                 host.Run();
             }
             catch(Exception ex)

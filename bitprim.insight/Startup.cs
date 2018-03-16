@@ -116,7 +116,7 @@ namespace api
             {
                 throw new ApplicationException("Executor::RunWait failed; error code: " + result);
             }
-            webSocketHandler_ = new WebSocketHandler();
+            webSocketHandler_ = new WebSocketHandler(services.BuildServiceProvider().GetService<ILogger<WebSocketHandler>>());
             blockChainObserver_ = new BlockChainObserver(exec_, webSocketHandler_);
             services.AddSingleton<Chain>(exec_.Chain);
         }
