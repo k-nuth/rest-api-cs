@@ -156,12 +156,12 @@ namespace api
                                         true,
                                         CancellationToken.None
                                     );
+                                    logger_.LogDebug($"Sent Frame {WebSocketMessageType.Text}: Len={message.Content.Length}, Fin={true}: {message.Content}");
                                 }
                                 catch(WebSocketException ex)
                                 {
                                     logger_.LogWarning("Error sending to client: " + ex.ToString());
                                 }
-                                logger_.LogDebug($"Sent Frame {WebSocketMessageType.Text}: Len={message.Content.Length}, Fin={true}: {message.Content}");
                             }
                         }
                     }
