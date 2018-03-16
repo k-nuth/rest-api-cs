@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using Serilog;
 
 namespace api
 {
@@ -22,20 +23,12 @@ namespace api
         private const string SUBSCRIPTION_END_MESSAGE = "Unsubscribe";
         private const string TXS_CHANNEL_NAME = "TxsChannel";
         private const string TXS_SUBSCRIPTION_MESSAGE = "SubscribeToTxs";
+        private ILogger<WebSocketHandler> logger_;
 
-        private ILogger logger_;
-
-        public WebSocketHandler()
+        public WebSocketHandler(ILogger<WebSocketHandler> logger)
         {
             subscriberQueues_ = new ConcurrentDictionary<WebSocket, ConcurrentDictionary<string, BlockingCollection<string>>>();
-        }
-
-        public ILogger Logger
-        {
-            set
-            {
-                logger_ = value;
-            }
+            logger_ = logger;
         }
 
         ///<summary>
@@ -85,7 +78,7 @@ namespace api
             }
             catch(WebSocketException ex)
             {
-                Console.WriteLine("Subscribe - Web socket error, closing connection; " + ex);
+                logger_.LogError("Subscribe - Web socket error, closing connection; " + ex);
                 context.Abort();
             }
         }
@@ -135,7 +128,7 @@ namespace api
             }
             catch(WebSocketException ex)
             {
-                Console.WriteLine("SubscriberLoop - Web socket error; closing connection" + ex);
+                logger_.LogError("SubscriberLoop - Web socket error; closing connection" + ex);
                 await UnregisterChannel(webSocket, channelName);
             }
         }
@@ -196,7 +189,6 @@ namespace api
                 }
                 message = $"{frame.MessageType}: Len={frame.Count}, Fin={frame.EndOfMessage}: {content}";
             }
-            Console.WriteLine("Received frame: " + message);
             logger_.LogDebug("Received Frame " + message);
         }
 
