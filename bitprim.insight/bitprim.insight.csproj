@@ -10,9 +10,9 @@
   <ItemGroup>
     <PackageReference Include="bitprim" Version="0.2.189" />
     <!-- <ProjectReference Include="../../bitprim-cs/bitprim/bitprim.csproj" /> -->
-    <PackageReference Include="Microsoft.AspNetCore.All" Version="2.0.5" />
-    <PackageReference Include="Swashbuckle.AspNetCore" Version="1.1.0" />
-    <PackageReference Include="Microsoft.AspNetCore.WebSockets" Version="2.0.1" />
+    <PackageReference Include="Microsoft.AspNetCore.All" Version="2.0.6" />
+    <PackageReference Include="Swashbuckle.AspNetCore" Version="2.3.0" />
+    <PackageReference Include="Microsoft.AspNetCore.WebSockets" Version="2.0.2" />
     <PackageReference Include="Newtonsoft.Json" Version="11.0.1" />
     <PackageReference Include="Nito.AsyncEx" Version="5.0.0-pre-05" />
     <PackageReference Include="Serilog.AspNetCore" Version="2.1.1" />
