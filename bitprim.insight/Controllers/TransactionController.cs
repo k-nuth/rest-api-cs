@@ -15,12 +15,14 @@ namespace api.Controllers
     public class TransactionController : Controller
     {
         private Chain chain_;
+        private Executor nodeExecutor_;
         private readonly NodeConfig config_;
 
-        public TransactionController(IOptions<NodeConfig> config, Chain chain)
+        public TransactionController(IOptions<NodeConfig> config, Executor executor)
         {
             config_ = config.Value;
-            chain_ = chain;
+            nodeExecutor_ = executor;
+            chain_ = executor.Chain;
         }
 
         // GET: api/tx/{hash}
@@ -263,7 +265,7 @@ namespace api.Controllers
             Tuple<ErrorCode, Transaction, UInt64, UInt64> getTxResult = chain_.GetTransaction(previousOutput.Hash, false);
             Utils.CheckBitprimApiErrorCode(getTxResult.Item1, "GetTransaction(" + Binary.ByteArrayToHexString(previousOutput.Hash) + ") failed, check errog log");
             Output output = getTxResult.Item2.Outputs[(int)previousOutput.Index];
-            jsonInput.addr =  output.PaymentAddress(NodeSettings.UseTestnetRules).Encoded;
+            jsonInput.addr =  output.PaymentAddress(nodeExecutor_.UseTestnetRules).Encoded;
             jsonInput.valueSat = output.Value;
             jsonInput.value = Utils.SatoshisToBTC(output.Value);
             jsonInput.doubleSpentTxID = null; //We don't handle double spent transactions
@@ -323,7 +325,7 @@ namespace api.Controllers
             }
         }
 
-        private static object OutputScriptToJSON(Output output, bool noAsm)
+        private object OutputScriptToJSON(Output output, bool noAsm)
         {
             Script script = output.Script;
             byte[] scriptData = script.ToData(false);
@@ -339,10 +341,10 @@ namespace api.Controllers
             return result;
         }
 
-        private static object ScriptAddressesToJSON(Output output)
+        private object ScriptAddressesToJSON(Output output)
         {
             var jsonAddresses = new List<object>();
-            jsonAddresses.Add(output.PaymentAddress(NodeSettings.UseTestnetRules).Encoded);
+            jsonAddresses.Add(output.PaymentAddress(nodeExecutor_.UseTestnetRules).Encoded);
             return jsonAddresses.ToArray();
         }
 

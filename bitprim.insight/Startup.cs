@@ -118,6 +118,7 @@ namespace api
             }
             webSocketHandler_ = new WebSocketHandler(services.BuildServiceProvider().GetService<ILogger<WebSocketHandler>>());
             blockChainObserver_ = new BlockChainObserver(exec_, webSocketHandler_);
+            services.AddSingleton<Executor>(exec_);
             services.AddSingleton<Chain>(exec_.Chain);
         }
 

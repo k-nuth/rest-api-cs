@@ -11,15 +11,17 @@ namespace api.Controllers
     public class ChainController : Controller
     {
         private Chain chain_;
+        private Executor nodeExecutor_;
         private readonly NodeConfig config_;
         private const string GET_BEST_BLOCK_HASH = "getBestBlockHash";
         private const string GET_LAST_BLOCK_HASH = "getLastBlockHash";
         private const string GET_DIFFICULTY = "getDifficulty";
 
-        public ChainController(IOptions<NodeConfig> config, Chain chain)
+        public ChainController(IOptions<NodeConfig> config, Executor executor)
         {
             config_ = config.Value;
-            chain_ = chain;
+            nodeExecutor_ = executor;
+            chain_ = executor.Chain;
         }
 
         [HttpGet("/api/sync")]
@@ -136,11 +138,11 @@ namespace api.Controllers
                         //connections = 8, //TODO
                         //proxy = "", //TODO
                         difficulty = Utils.BitsToDifficulty(block.Item1.Header.Bits),
-                        testnet = NodeSettings.UseTestnetRules
+                        testnet = nodeExecutor_.UseTestnetRules,
                         //relayfee = 0.00001, //TODO
                         //errors = "Warning: unknown new rules activated (versionbit 28)", //TODO
-                    },
-                    network = NodeSettings.NetworkType.ToString()
+                        network = nodeExecutor_.NetworkType.ToString()
+                    }
                 }
             );
         }
