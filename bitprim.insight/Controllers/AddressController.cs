@@ -4,9 +4,11 @@ using Bitprim;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using api.DTOs;
 
 namespace api.Controllers
 {
+
     [Route("api/[controller]")]
     public class AddressController : Controller
     {
@@ -96,20 +98,20 @@ namespace api.Controllers
 
 
         [HttpGet("/api/addrs/{paymentAddresses}/utxo")]
-        public ActionResult GetUtxoForMultipleAddresses(string addresses)
+        public ActionResult GetUtxoForMultipleAddresses(string paymentAddresses)
         {
-            var utxo = new List<object>();
-            foreach(string address in addresses.Split(","))
+            IEnumerable<object> utxo = new List<object>();
+            foreach(string address in paymentAddresses.Split(","))
             {
-                utxo.Concat(GetUtxo(address));
+                utxo = utxo.Concat(GetUtxo(address));
             }
             return Json(utxo.ToArray());   
         }
 
         [HttpPost("/api/addrs/utxo")]
-        public ActionResult GetUtxoForMultipleAddressesPost([FromBody] string addrs)
+        public ActionResult GetUtxoForMultipleAddressesPost([FromBody]GetUtxosForMultipleAddressesRequest requestParams)
         {
-            return GetUtxoForMultipleAddresses(addrs);
+            return GetUtxoForMultipleAddresses(requestParams.addrs);
         }
 
         private List<object> GetUtxo(string paymentAddress)
