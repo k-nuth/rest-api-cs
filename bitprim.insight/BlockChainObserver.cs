@@ -8,13 +8,17 @@ namespace api
 {
     public class BlockChainObserver
     {
+        private Executor.BlockHandler blockHandler_;
+        private Executor.TransactionHandler txHandler_;
         private WebSocketHandler webSocketHandler_;
 
         public BlockChainObserver(Executor executor, WebSocketHandler webSocketHandler)
         {
             webSocketHandler_ = webSocketHandler;
-            executor.SubscribeToBlockChain(OnBlockReceived);
-            executor.SubscribeToTransaction(OnTransactionReceived);
+            blockHandler_ = new Executor.BlockHandler(OnBlockReceived);
+            txHandler_ = new Executor.TransactionHandler(OnTransactionReceived);
+            executor.SubscribeToBlockChain(blockHandler_);
+            executor.SubscribeToTransaction(txHandler_);
         }
 
         private bool OnBlockReceived(ErrorCode error, UInt64 height, BlockList incoming, BlockList outgoing)
