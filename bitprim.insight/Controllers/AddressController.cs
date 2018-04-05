@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using api.DTOs;
+using System.Dynamic;
 
 namespace api.Controllers
 {
@@ -31,7 +32,7 @@ namespace api.Controllers
 
         // GET: api/addr/{paymentAddress}
         [HttpGet("/api/addr/{paymentAddress}")]
-        public ActionResult GetAddressHistory(string paymentAddress)
+        public ActionResult GetAddressHistory(string paymentAddress, bool noTxList)
         {
             if(!Validations.IsValidPaymentAddress(paymentAddress))
             {
@@ -39,24 +40,23 @@ namespace api.Controllers
             }
             Utils.CheckIfChainIsFresh(chain_, config_.AcceptStaleRequests);
             AddressBalance balance = GetBalance(paymentAddress);
-            return Json
-            (
-                new
-                {
-                    addrStr = paymentAddress,
-                    balance = balance.Balance,
-                    balanceSat = Utils.SatoshisToBTC(balance.Balance),
-                    totalReceived = Utils.SatoshisToBTC(balance.Received),
-                    totalReceivedSat = balance.Received,
-                    totalSent = balance.Sent,
-                    totalSentSat = Utils.SatoshisToBTC(balance.Sent),
-                    unconfirmedBalance = 0, //We don't handle unconfirmed txs
-                    unconfirmedBalanceSat = 0, //We don't handle unconfirmed txs
-                    unconfirmedTxApperances = 0, //We don't handle unconfirmed txs
-                    txApperances = balance.Transactions.Count,
-                    transactions = balance.Transactions.ToArray()
-                }
-            );
+            dynamic historyJson = new ExpandoObject();
+            historyJson.addrStr = paymentAddress;
+            historyJson.balance = balance.Balance;
+            historyJson.balanceSat = Utils.SatoshisToBTC(balance.Balance);
+            historyJson.totalReceived = Utils.SatoshisToBTC(balance.Received);
+            historyJson.totalReceivedSat = balance.Received;
+            historyJson.totalSent = balance.Sent;
+            historyJson.totalSentSat = Utils.SatoshisToBTC(balance.Sent);
+            historyJson.unconfirmedBalance = 0; //We don't handle unconfirmed txs
+            historyJson.unconfirmedBalanceSat = 0; //We don't handle unconfirmed txs
+            historyJson.unconfirmedTxApperances = 0; //We don't handle unconfirmed txs
+            historyJson.txApperances = balance.Transactions.Count;
+            if( ! noTxList )
+            {
+                historyJson.transactions = balance.Transactions.ToArray();
+            }
+            return Json(historyJson);
         }
 
         // GET: api/addr/{paymentAddress}/balance
