@@ -28,9 +28,9 @@ namespace api.Controllers
         public ActionResult GetSyncStatus()
         {
             //TODO Try a more reliable way to know network max height (i.e. ask another node, or some service)
-            Tuple<ErrorCode, UInt64> getLastHeightResult = chain_.GetLastHeight();
-            Utils.CheckBitprimApiErrorCode(getLastHeightResult.Item1, "GetLastHeight() failed");
-            UInt64 currentHeight = getLastHeightResult.Item2;
+            ApiCallResult<UInt64> getLastHeightResult = chain_.GetLastHeight();
+            Utils.CheckBitprimApiErrorCode(getLastHeightResult.ErrorCode, "GetLastHeight() failed");
+            UInt64 currentHeight = getLastHeightResult.Result;
             bool synced = currentHeight >= config_.BlockchainHeight;
             dynamic syncStatus = new ExpandoObject();
             syncStatus.status = synced? "finished" : "synchronizing";
@@ -149,12 +149,12 @@ namespace api.Controllers
 
         private Tuple<Block, UInt64> GetLastBlock()
         {
-            Tuple<ErrorCode, UInt64> getLastHeightResult = chain_.GetLastHeight();
-            Utils.CheckBitprimApiErrorCode(getLastHeightResult.Item1, "GetLastHeight() failed");
-            UInt64 currentHeight = getLastHeightResult.Item2;
-            Tuple<ErrorCode, Block, UInt64> getBlockResult = chain_.GetBlockByHeight(currentHeight);
-            Utils.CheckBitprimApiErrorCode(getBlockResult.Item1, "GetBlockByHeight(" + currentHeight + ") failed");
-            Block topBlock = getBlockResult.Item2;
+            ApiCallResult<UInt64> getLastHeightResult = chain_.GetLastHeight();
+            Utils.CheckBitprimApiErrorCode(getLastHeightResult.ErrorCode, "GetLastHeight() failed");
+            UInt64 currentHeight = getLastHeightResult.Result;
+            DisposableApiCallResult<GetBlockDataResult<Block>> getBlockResult = chain_.GetBlockByHeight(currentHeight);
+            Utils.CheckBitprimApiErrorCode(getBlockResult.ErrorCode, "GetBlockByHeight(" + currentHeight + ") failed");
+            Block topBlock = getBlockResult.Result.BlockData;
             return new Tuple<Block, UInt64>(topBlock, currentHeight);
         }
 

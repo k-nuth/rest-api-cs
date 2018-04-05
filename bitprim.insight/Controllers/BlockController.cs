@@ -30,15 +30,24 @@ namespace api.Controllers
             }
             Utils.CheckIfChainIsFresh(chain_, config_.AcceptStaleRequests);
             byte[] binaryHash = Binary.HexStringToByteArray(hash);
-            Tuple<ErrorCode, Block, UInt64, HashList, UInt64> getBlockResult = chain_.GetBlockByHashTxSizes(binaryHash);
-            Utils.CheckBitprimApiErrorCode(getBlockResult.Item1, "GetBlockByHashTxSizes(" + hash + ") failed, check error log");
-            Tuple<ErrorCode, UInt64> getLastHeightResult = chain_.GetLastHeight();
-            Utils.CheckBitprimApiErrorCode(getLastHeightResult.Item1, "GetLastHeight() failed, check error log");
-            UInt64 topHeight = getLastHeightResult.Item2;
-            UInt64 blockHeight = getBlockResult.Item3;
-            Tuple<ErrorCode, byte[]> getNextBlockResult = chain_.GetBlockHash(blockHeight + 1);
-            Utils.CheckBitprimApiErrorCode(getNextBlockResult.Item1, "GetBlockByHeight(" + blockHeight + 1 + ") failed, check error log");
-            return Json(BlockToJSON(getBlockResult.Item2, blockHeight, getBlockResult.Item4, getNextBlockResult.Item2, getBlockResult.Item5));   
+            using(DisposableApiCallResult<GetBlockByHashTxSizeResult> getBlockResult = chain_.GetBlockByHashTxSizes(binaryHash))
+            {
+                Utils.CheckBitprimApiErrorCode(getBlockResult.ErrorCode, "GetBlockByHashTxSizes(" + hash + ") failed, check error log");
+                ApiCallResult<UInt64> getLastHeightResult = chain_.GetLastHeight();
+                Utils.CheckBitprimApiErrorCode(getLastHeightResult.ErrorCode, "GetLastHeight() failed, check error log");
+                UInt64 topHeight = getLastHeightResult.Result;
+                UInt64 blockHeight = getBlockResult.Result.Block.BlockHeight;
+                ApiCallResult<byte[]> getNextBlockResult = chain_.GetBlockHash(blockHeight + 1);
+                Utils.CheckBitprimApiErrorCode
+                (
+                    getNextBlockResult.ErrorCode, "GetBlockByHeight(" + blockHeight + 1 + ") failed, check error log"
+                );
+                return Json(BlockToJSON
+                (
+                    getBlockResult.Result.Block.BlockData, blockHeight, getBlockResult.Result.TransactionHashes, getNextBlockResult.Result,
+                    getBlockResult.Result.SerializedBlockSize)
+                );
+            }
         }
 
         // GET: api/block-index/{height}
@@ -46,13 +55,13 @@ namespace api.Controllers
         public ActionResult GetBlockByHeight(UInt64 height)
         {
             Utils.CheckIfChainIsFresh(chain_, config_.AcceptStaleRequests);
-            Tuple<ErrorCode, byte[]> result = chain_.GetBlockHash(height);
-            Utils.CheckBitprimApiErrorCode(result.Item1, "GetBlockByHeight(" + height + ") failed, error log");
+            ApiCallResult<byte[]> result = chain_.GetBlockHash(height);
+            Utils.CheckBitprimApiErrorCode(result.ErrorCode, "GetBlockByHeight(" + height + ") failed, error log");
             return Json
             (
                 new
                 {
-                    blockHash = Binary.ByteArrayToHexString(result.Item2)
+                    blockHash = Binary.ByteArrayToHexString(result.Result)
                 }
             );               
         }
@@ -63,16 +72,18 @@ namespace api.Controllers
         {
             Utils.CheckIfChainIsFresh(chain_, config_.AcceptStaleRequests);
             byte[] binaryHash = Binary.HexStringToByteArray(hash);
-            Tuple<ErrorCode, Block, UInt64> getBlockResult = chain_.GetBlockByHash(binaryHash);
-            Utils.CheckBitprimApiErrorCode(getBlockResult.Item1, "GetBlockByHash(" + hash + ") failed, check error log");
-            Block block = getBlockResult.Item2;
-            return Json
-            (
-                new
-                {
-                    rawblock = Binary.ByteArrayToHexString(block.ToData(false).Reverse().ToArray())
-                }
-            );   
+            using(DisposableApiCallResult<GetBlockDataResult<Block>> getBlockResult = chain_.GetBlockByHash(binaryHash))
+            {
+                Utils.CheckBitprimApiErrorCode(getBlockResult.ErrorCode, "GetBlockByHash(" + hash + ") failed, check error log");
+                Block block = getBlockResult.Result.BlockData;
+                return Json
+                (
+                    new
+                    {
+                        rawblock = Binary.ByteArrayToHexString(block.ToData(false).Reverse().ToArray())
+                    }
+                );
+            }   
         }
 
         // GET: api/rawblock-index/{height}
@@ -80,16 +91,18 @@ namespace api.Controllers
         public ActionResult GetRawBlockByHeight(UInt64 height)
         {
             Utils.CheckIfChainIsFresh(chain_, config_.AcceptStaleRequests);
-            Tuple<ErrorCode, Block, UInt64> getBlockResult = chain_.GetBlockByHeight(height);
-            Utils.CheckBitprimApiErrorCode(getBlockResult.Item1, "GetBlockByHeight(" + height + ") failed, check error log");
-            Block block = getBlockResult.Item2;
-            return Json
-            (
-                new
-                {
-                    rawblock = Binary.ByteArrayToHexString(block.ToData(false).Reverse().ToArray())
-                }
-            );
+            using(DisposableApiCallResult<GetBlockDataResult<Block>> getBlockResult = chain_.GetBlockByHeight(height))
+            {
+                Utils.CheckBitprimApiErrorCode(getBlockResult.ErrorCode, "GetBlockByHeight(" + height + ") failed, check error log");
+                Block block = getBlockResult.Result.BlockData;
+                return Json
+                (
+                    new
+                    {
+                        rawblock = Binary.ByteArrayToHexString(block.ToData(false).Reverse().ToArray())
+                    }
+                );
+            }
         }
 
         // GET: api/blocks/?limit={limit}&blockDate={blockDate}
@@ -105,9 +118,9 @@ namespace api.Controllers
             DateTime blockDateToSearch = validateInputResult.Item3.Value;
             //Find blocks starting point
             Utils.CheckIfChainIsFresh(chain_, config_.AcceptStaleRequests);
-            Tuple<ErrorCode, UInt64> getLastHeightResult = chain_.GetLastHeight();
-            Utils.CheckBitprimApiErrorCode(getLastHeightResult.Item1, "GetLastHeight failed, check error log");
-            UInt64 topHeight = getLastHeightResult.Item2;
+            ApiCallResult<UInt64> getLastHeightResult = chain_.GetLastHeight();
+            Utils.CheckBitprimApiErrorCode(getLastHeightResult.ErrorCode, "GetLastHeight failed, check error log");
+            UInt64 topHeight = getLastHeightResult.Result;
             UInt64 low = FindFirstBlockFromNextDay(blockDateToSearch, topHeight);
             if(low == 0) //No blocks
             {
@@ -152,9 +165,9 @@ namespace api.Controllers
             while(low < high)
             {
                 mid = (UInt64) ((double)low + (double) high)/2; //Adds as doubles to prevent overflow
-                Tuple<ErrorCode, byte[], DateTime> getBlockResult = chain_.GetBlockByHeightHashTimestamp(mid);
-                Utils.CheckBitprimApiErrorCode(getBlockResult.Item1, "GetBlockByHeightHashTimestamp(" + mid + ") failed, check error log");
-                if(getBlockResult.Item3.Date <= blockDateToSearch.Date)
+                ApiCallResult<GetBlockHashTimestampResult> getBlockResult = chain_.GetBlockByHeightHashTimestamp(mid);
+                Utils.CheckBitprimApiErrorCode(getBlockResult.ErrorCode, "GetBlockByHeightHashTimestamp(" + mid + ") failed, check error log");
+                if(getBlockResult.Result.BlockTimestamp.Date <= blockDateToSearch.Date)
                 {
                     low = mid + 1;
                 }else
@@ -171,21 +184,23 @@ namespace api.Controllers
             bool blockWithinDate = true;
             for(UInt64 i=0; i<blockCount && startingHeight-i>=0 && blockWithinDate; i++)
             {
-                Tuple<ErrorCode, Block, UInt64> getBlockResult = chain_.GetBlockByHeight(startingHeight - i);
-                Utils.CheckBitprimApiErrorCode(getBlockResult.Item1, "GetBlockByHeight(" + (startingHeight - i) + ") failed, check error log");
-                Block block = getBlockResult.Item2;
-                blockWithinDate = DateTimeOffset.FromUnixTimeSeconds(getBlockResult.Item2.Header.Timestamp).Date == blockDateToSearch.Date;
-                if(blockWithinDate)
+                using(DisposableApiCallResult<GetBlockDataResult<Block>> getBlockResult = chain_.GetBlockByHeight(startingHeight - i))
                 {
-                    blocks.Add(new
+                    Utils.CheckBitprimApiErrorCode(getBlockResult.ErrorCode, "GetBlockByHeight(" + (startingHeight - i) + ") failed, check error log");
+                    Block block = getBlockResult.Result.BlockData;
+                    blockWithinDate = DateTimeOffset.FromUnixTimeSeconds(block.Header.Timestamp).Date == blockDateToSearch.Date;
+                    if(blockWithinDate)
                     {
-                        height = getBlockResult.Item3,
-                        size = block.GetSerializedSize(block.Header.Version),
-                        hash = Binary.ByteArrayToHexString(block.Hash),
-                        time = block.Header.Timestamp,
-                        txlength = block.TransactionCount
-                        //TODO Add pool info
-                    });
+                        blocks.Add(new
+                        {
+                            height = getBlockResult.Result.BlockHeight,
+                            size = block.GetSerializedSize(block.Header.Version),
+                            hash = Binary.ByteArrayToHexString(block.Hash),
+                            time = block.Header.Timestamp,
+                            txlength = block.TransactionCount
+                            //TODO Add pool info
+                        });
+                    }
                 }
             }
             return blocks;
@@ -201,9 +216,9 @@ namespace api.Controllers
             }
             else
             {
-                Tuple<ErrorCode, byte[], DateTime> getBlockResult = chain_.GetBlockByHeightHashTimestamp(startingHeight - limit);
-                Utils.CheckBitprimApiErrorCode(getBlockResult.Item1, "GetBlockByHeightHashTimestamp(" + (startingHeight - limit) + ") failed, check error log");
-                DateTime blockDate = getBlockResult.Item3;
+                ApiCallResult<GetBlockHashTimestampResult> getBlockResult = chain_.GetBlockByHeightHashTimestamp(startingHeight - limit);
+                Utils.CheckBitprimApiErrorCode(getBlockResult.ErrorCode, "GetBlockByHeightHashTimestamp(" + (startingHeight - limit) + ") failed, check error log");
+                DateTime blockDate = getBlockResult.Result.BlockTimestamp;
                 moreBlocks = blockDate.Date == blockDateToSearch.Date;
                 moreBlocksTs = moreBlocks? (int) ((DateTimeOffset)blockDate).ToUnixTimeSeconds() : -1;
             }

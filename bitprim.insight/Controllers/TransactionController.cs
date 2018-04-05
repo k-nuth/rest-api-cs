@@ -35,9 +35,14 @@ namespace api.Controllers
             }
             Utils.CheckIfChainIsFresh(chain_, config_.AcceptStaleRequests);
             byte[] binaryHash = Binary.HexStringToByteArray(hash);
-            Tuple<ErrorCode, Transaction, UInt64, UInt64> getTxResult = chain_.GetTransaction(binaryHash, requireConfirmed);
-            Utils.CheckBitprimApiErrorCode(getTxResult.Item1, "GetTransaction(" + hash + ") failed, check error log");
-            return Json(TxToJSON(getTxResult.Item2, getTxResult.Item3, noAsm: false, noScriptSig: false, noSpend: false));   
+            using(DisposableApiCallResult<GetTxDataResult> getTxResult = chain_.GetTransaction(binaryHash, requireConfirmed))
+            {
+                Utils.CheckBitprimApiErrorCode(getTxResult.ErrorCode, "GetTransaction(" + hash + ") failed, check error log");
+                return Json(TxToJSON
+                (
+                    getTxResult.Result.Tx, getTxResult.Result.TxPosition.BlockHeight, noAsm: false, noScriptSig: false, noSpend: false)
+                );
+            }
         }
 
         // GET: api/rawtx/{hash}
@@ -46,16 +51,18 @@ namespace api.Controllers
         {
             Utils.CheckIfChainIsFresh(chain_, config_.AcceptStaleRequests);
             byte[] binaryHash = Binary.HexStringToByteArray(hash);
-            Tuple<ErrorCode, Transaction, UInt64, UInt64> getTxResult = chain_.GetTransaction(binaryHash, false);
-            Utils.CheckBitprimApiErrorCode(getTxResult.Item1, "GetTransaction(" + hash + ") failed, check error log");
-            Transaction tx = getTxResult.Item2;
-            return Json
-            (
-                new
-                {
-                    rawtx = Binary.ByteArrayToHexString(tx.ToData(false).Reverse().ToArray())
-                }
-            );
+            using(DisposableApiCallResult<GetTxDataResult> getTxResult = chain_.GetTransaction(binaryHash, false))
+            {
+                Utils.CheckBitprimApiErrorCode(getTxResult.ErrorCode, "GetTransaction(" + hash + ") failed, check error log");
+                Transaction tx = getTxResult.Result.Tx;
+                return Json
+                (
+                    new
+                    {
+                        rawtx = Binary.ByteArrayToHexString(tx.ToData(false).Reverse().ToArray())
+                    }
+                );
+            }
         }
 
         // GET: api/txs/?block=HASH
@@ -138,31 +145,33 @@ namespace api.Controllers
         private ActionResult GetTransactionsByBlockHash(string blockHash, UInt64 pageNum)
         {
             Utils.CheckIfChainIsFresh(chain_, config_.AcceptStaleRequests);
-            Tuple<ErrorCode, Block, UInt64> getBlockResult = chain_.GetBlockByHash(Binary.HexStringToByteArray(blockHash));
-            Utils.CheckBitprimApiErrorCode(getBlockResult.Item1, "GetBlockByHash(" + blockHash + ") failed, check error log");
-            Block fullBlock = getBlockResult.Item2;
-            UInt64 blockHeight = getBlockResult.Item3;
-            UInt64 pageSize = (UInt64) config_.TransactionsByAddressPageSize;
-            UInt64 pageCount = (UInt64) Math.Ceiling((double)fullBlock.TransactionCount/(double)pageSize);
-            if(pageNum >= pageCount)
+            using(DisposableApiCallResult<GetBlockDataResult<Block>> getBlockResult = chain_.GetBlockByHash(Binary.HexStringToByteArray(blockHash)))
             {
-                return StatusCode
-                (
-                    (int)System.Net.HttpStatusCode.BadRequest,
-                    "pageNum cannot exceed " + (pageCount - 1) + " (zero-indexed)"
-                );
+                Utils.CheckBitprimApiErrorCode(getBlockResult.ErrorCode, "GetBlockByHash(" + blockHash + ") failed, check error log");
+                Block fullBlock = getBlockResult.Result.BlockData;
+                UInt64 blockHeight = getBlockResult.Result.BlockHeight;
+                UInt64 pageSize = (UInt64) config_.TransactionsByAddressPageSize;
+                UInt64 pageCount = (UInt64) Math.Ceiling((double)fullBlock.TransactionCount/(double)pageSize);
+                if(pageNum >= pageCount)
+                {
+                    return StatusCode
+                    (
+                        (int)System.Net.HttpStatusCode.BadRequest,
+                        "pageNum cannot exceed " + (pageCount - 1) + " (zero-indexed)"
+                    );
+                }
+                List<object> txs = new List<object>();
+                for(UInt64 i=0; i<pageSize && pageNum * pageSize + i < fullBlock.TransactionCount; i++)
+                {
+                    Transaction tx = fullBlock.GetNthTransaction(pageNum * pageSize + i);
+                    txs.Add(TxToJSON(tx, blockHeight, noAsm: false, noScriptSig: false, noSpend: false));
+                }
+                return Json(new
+                {
+                    pagesTotal = pageCount,
+                    txs = txs.ToArray()
+                });
             }
-            List<object> txs = new List<object>();
-            for(UInt64 i=0; i<pageSize && pageNum * pageSize + i < fullBlock.TransactionCount; i++)
-            {
-                Transaction tx = fullBlock.GetNthTransaction(pageNum * pageSize + i);
-                txs.Add(TxToJSON(tx, blockHeight, noAsm: false, noScriptSig: false, noSpend: false));
-            }
-            return Json(new
-            {
-                pagesTotal = pageCount,
-                txs = txs.ToArray()
-            });
         }
 
         private ActionResult GetTransactionsByAddress(string address, UInt64 pageNum)
@@ -187,45 +196,51 @@ namespace api.Controllers
                                                                            bool noAsm, bool noScriptSig, bool noSpend)
         {
             Utils.CheckIfChainIsFresh(chain_, config_.AcceptStaleRequests);
-            Tuple<ErrorCode, HistoryCompactList> getAddressHistoryResult = chain_.GetHistory(new PaymentAddress(paymentAddress), UInt64.MaxValue, 0);
-            Utils.CheckBitprimApiErrorCode(getAddressHistoryResult.Item1, "GetHistory(" + paymentAddress + ") failed, check error log.");
-            HistoryCompactList history = getAddressHistoryResult.Item2;
-            var txs = new List<object>();
-            UInt64 pageSize = pageResults? (UInt64) config_.TransactionsByAddressPageSize : history.Count;
-            for(UInt64 i=0; i<pageSize && (pageNum * pageSize + i < history.Count); i++)
+            using(DisposableApiCallResult<HistoryCompactList> getAddressHistoryResult = chain_.GetHistory(new PaymentAddress(paymentAddress), UInt64.MaxValue, 0))
             {
-                HistoryCompact compact = history[(int)(pageNum * pageSize + i)];
-                Tuple<ErrorCode, Transaction, UInt64, UInt64> getTxResult = chain_.GetTransaction(compact.Point.Hash, true);
-                Utils.CheckBitprimApiErrorCode(getTxResult.Item1, "GetTransaction(" + Binary.ByteArrayToHexString(compact.Point.Hash) + ") failed, check error log");
-                txs.Add(TxToJSON(getTxResult.Item2, getTxResult.Item3, noAsm, noScriptSig, noSpend));
+                Utils.CheckBitprimApiErrorCode(getAddressHistoryResult.ErrorCode, "GetHistory(" + paymentAddress + ") failed, check error log.");
+                HistoryCompactList history = getAddressHistoryResult.Result;
+                var txs = new List<object>();
+                UInt64 pageSize = pageResults? (UInt64) config_.TransactionsByAddressPageSize : history.Count;
+                for(UInt64 i=0; i<pageSize && (pageNum * pageSize + i < history.Count); i++)
+                {
+                    HistoryCompact compact = history[(int)(pageNum * pageSize + i)];
+                    using(DisposableApiCallResult<GetTxDataResult> getTxResult = chain_.GetTransaction(compact.Point.Hash, true))
+                    {
+                        Utils.CheckBitprimApiErrorCode(getTxResult.ErrorCode, "GetTransaction(" + Binary.ByteArrayToHexString(compact.Point.Hash) + ") failed, check error log");
+                        txs.Add(TxToJSON(getTxResult.Result.Tx, getTxResult.Result.TxPosition.BlockHeight, noAsm, noScriptSig, noSpend));
+                    }
+                }
+                UInt64 pageCount = (UInt64) Math.Ceiling((double)history.Count/(double)pageSize);
+                return new Tuple<List<object>, UInt64>(txs, pageCount);
             }
-            UInt64 pageCount = (UInt64) Math.Ceiling((double)history.Count/(double)pageSize);
-            return new Tuple<List<object>, UInt64>(txs, pageCount);
         }
 
         private object TxToJSON(Transaction tx, UInt64 blockHeight, bool noAsm, bool noScriptSig, bool noSpend)
         {
-            Tuple<ErrorCode, Header, UInt64> getBlockHeaderResult = chain_.GetBlockHeaderByHeight(blockHeight);
-            Utils.CheckBitprimApiErrorCode(getBlockHeaderResult.Item1, "GetBlockHeaderByHeight(" + blockHeight + ") failed, check error log");
-            Header blockHeader = getBlockHeaderResult.Item2;
-            Tuple<ErrorCode, UInt64> getLastHeightResult = chain_.GetLastHeight();
-            Utils.CheckBitprimApiErrorCode(getLastHeightResult.Item1, "GetLastHeight failed, check error log");
-            return new
+            using(DisposableApiCallResult<GetBlockDataResult<Header>> getBlockHeaderResult = chain_.GetBlockHeaderByHeight(blockHeight))
             {
-                txid = Binary.ByteArrayToHexString(tx.Hash),
-                version = tx.Version,
-                locktime = tx.Locktime,
-                vin = TxInputsToJSON(tx, noAsm, noScriptSig),
-                vout = TxOutputsToJSON(tx, noAsm, noSpend),
-                blockhash = Binary.ByteArrayToHexString(blockHeader.Hash),
-                blockheight = blockHeight,
-                confirmations = getLastHeightResult.Item2 - blockHeight + 1,
-                time = blockHeader.Timestamp,
-                blocktime = blockHeader.Timestamp,
-                isCoinBase = tx.IsCoinbase,
-                valueOut = Utils.SatoshisToBTC(tx.TotalOutputValue),
-                size = tx.GetSerializedSize()
-            };
+                Utils.CheckBitprimApiErrorCode(getBlockHeaderResult.ErrorCode, "GetBlockHeaderByHeight(" + blockHeight + ") failed, check error log");
+                Header blockHeader = getBlockHeaderResult.Result.BlockData;
+                ApiCallResult<UInt64> getLastHeightResult = chain_.GetLastHeight();
+                Utils.CheckBitprimApiErrorCode(getLastHeightResult.ErrorCode, "GetLastHeight failed, check error log");
+                return new
+                {
+                    txid = Binary.ByteArrayToHexString(tx.Hash),
+                    version = tx.Version,
+                    locktime = tx.Locktime,
+                    vin = TxInputsToJSON(tx, noAsm, noScriptSig),
+                    vout = TxOutputsToJSON(tx, noAsm, noSpend),
+                    blockhash = Binary.ByteArrayToHexString(blockHeader.Hash),
+                    blockheight = blockHeight,
+                    confirmations = getLastHeightResult.Result - blockHeight + 1,
+                    time = blockHeader.Timestamp,
+                    blocktime = blockHeader.Timestamp,
+                    isCoinBase = tx.IsCoinbase,
+                    valueOut = Utils.SatoshisToBTC(tx.TotalOutputValue),
+                    size = tx.GetSerializedSize()
+                };
+            }
         }
 
         private object TxInputsToJSON(Transaction tx, bool noAsm, bool noScriptSig)
@@ -262,13 +277,15 @@ namespace api.Controllers
             {
                 jsonInput.scriptSig = InputScriptToJSON(input.Script, noAsm);
             }
-            Tuple<ErrorCode, Transaction, UInt64, UInt64> getTxResult = chain_.GetTransaction(previousOutput.Hash, false);
-            Utils.CheckBitprimApiErrorCode(getTxResult.Item1, "GetTransaction(" + Binary.ByteArrayToHexString(previousOutput.Hash) + ") failed, check errog log");
-            Output output = getTxResult.Item2.Outputs[(int)previousOutput.Index];
-            jsonInput.addr =  output.PaymentAddress(nodeExecutor_.UseTestnetRules).Encoded;
-            jsonInput.valueSat = output.Value;
-            jsonInput.value = Utils.SatoshisToBTC(output.Value);
-            jsonInput.doubleSpentTxID = null; //We don't handle double spent transactions
+            using(DisposableApiCallResult<GetTxDataResult> getTxResult = chain_.GetTransaction(previousOutput.Hash, false))
+            {
+                Utils.CheckBitprimApiErrorCode(getTxResult.ErrorCode, "GetTransaction(" + Binary.ByteArrayToHexString(previousOutput.Hash) + ") failed, check errog log");
+                Output output = getTxResult.Result.Tx.Outputs[(int)previousOutput.Index];
+                jsonInput.addr =  output.PaymentAddress(nodeExecutor_.UseTestnetRules).Encoded;
+                jsonInput.valueSat = output.Value;
+                jsonInput.value = Utils.SatoshisToBTC(output.Value);
+                jsonInput.doubleSpentTxID = null; //We don't handle double spent transactions
+            }
         }
 
         private object InputScriptToJSON(Script inputScript, bool noAsm)
@@ -306,8 +323,8 @@ namespace api.Controllers
 
         private void SetOutputSpendInfo(dynamic jsonOutput, byte[] txHash, UInt32 index)
         {
-            Tuple<ErrorCode, Point> fetchSpendResult = chain_.GetSpend(new OutputPoint(txHash, index));
-            if(fetchSpendResult.Item1 == ErrorCode.NotFound)
+            ApiCallResult<Point> fetchSpendResult = chain_.GetSpend(new OutputPoint(txHash, index));
+            if(fetchSpendResult.ErrorCode == ErrorCode.NotFound)
             {
                 jsonOutput.spentTxId = null;
                 jsonOutput.spentIndex = null;
@@ -315,13 +332,15 @@ namespace api.Controllers
             }
             else
             {
-                Utils.CheckBitprimApiErrorCode(fetchSpendResult.Item1, "GetSpend failed, check error log");
-                Point spend = fetchSpendResult.Item2;
+                Utils.CheckBitprimApiErrorCode(fetchSpendResult.ErrorCode, "GetSpend failed, check error log");
+                Point spend = fetchSpendResult.Result;
                 jsonOutput.spentTxId = Binary.ByteArrayToHexString(spend.Hash);
                 jsonOutput.spentIndex = spend.Index;
-                Tuple<ErrorCode, Transaction, UInt64, UInt64> getTxResult = chain_.GetTransaction(spend.Hash, false);
-                Utils.CheckBitprimApiErrorCode(getTxResult.Item1, "GetTransaction(" + Binary.ByteArrayToHexString(spend.Hash) + "), check error log");
-                jsonOutput.spentHeight = getTxResult.Item3;
+                using(DisposableApiCallResult<GetTxDataResult> getTxResult = chain_.GetTransaction(spend.Hash, false))
+                {
+                    Utils.CheckBitprimApiErrorCode(getTxResult.ErrorCode, "GetTransaction(" + Binary.ByteArrayToHexString(spend.Hash) + "), check error log");
+                    jsonOutput.spentHeight = getTxResult.Result.TxPosition.BlockHeight;
+                }
             }
         }
 
