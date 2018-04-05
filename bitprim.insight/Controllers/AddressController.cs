@@ -32,7 +32,7 @@ namespace api.Controllers
 
         // GET: api/addr/{paymentAddress}
         [HttpGet("/api/addr/{paymentAddress}")]
-        public ActionResult GetAddressHistory(string paymentAddress, bool noTxList)
+        public ActionResult GetAddressHistory(string paymentAddress, bool? noTxList = false, int? from = 0, int? to = null)
         {
             if(!Validations.IsValidPaymentAddress(paymentAddress))
             {
@@ -52,9 +52,19 @@ namespace api.Controllers
             historyJson.unconfirmedBalanceSat = 0; //We don't handle unconfirmed txs
             historyJson.unconfirmedTxApperances = 0; //We don't handle unconfirmed txs
             historyJson.txApperances = balance.Transactions.Count;
-            if( ! noTxList )
+            if( ! noTxList.Value )
             {
-                historyJson.transactions = balance.Transactions.ToArray();
+                Tuple<bool, string> validationResult = ValidateParameters(from, to);
+                if( ! validationResult.Item1 )
+                {
+                    return StatusCode((int)System.Net.HttpStatusCode.BadRequest, validationResult.Item2);
+                }                
+                if(to == null)
+                {
+                    to = balance.Transactions.Count() - 1;
+                }
+                to = Math.Min(to.Value, balance.Transactions.Count - 1);
+                historyJson.transactions = balance.Transactions.GetRange(from.Value, to.Value).ToArray();
             }
             return Json(historyJson);
         }
@@ -196,6 +206,23 @@ namespace api.Controllers
             {
                 return StatusCode((int)System.Net.HttpStatusCode.InternalServerError, ex.Message);
             }
+        }
+
+        private Tuple<bool, string> ValidateParameters(int? from, int? to)
+        {
+            if(from < 0)
+            {
+                return new Tuple<bool, string>(false, "from(" + from.Value + ") must be greater than or equal to zero");
+            }
+            if(to != null && to.Value <= 0)
+            {
+                return new Tuple<bool, string>(false, "to(" + to.Value + ") must be greater than zero");
+            }
+            if(to != null && to >= from.Value)
+            {
+                return new Tuple<bool, string>(false, "to(" + to.Value +  ") must be greater than from(" + from.Value + ")");
+            }
+            return new Tuple<bool, string>(true, "");
         }
     }
 }
