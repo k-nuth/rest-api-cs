@@ -18,7 +18,10 @@ namespace bitprim.insight
             ConfigureLogging();
             try
             {
-                var config = GetServerPortFromCommandLine(args);
+                var config = new ConfigurationBuilder()
+                    .AddCommandLine(args)
+                    .Build();
+
                 var serverPort = config.GetValue<int>("server.port",DEFAULT_PORT);
                 var host = new WebHostBuilder()
                     .UseKestrel(options => {
@@ -40,13 +43,6 @@ namespace bitprim.insight
             {
                 Log.CloseAndFlush();
             }
-        }
-
-        private static IConfigurationRoot GetServerPortFromCommandLine(string[] args)
-        {
-            return new ConfigurationBuilder()
-                .AddCommandLine(args)
-                .Build();
         }
 
         private static void ConfigureLogging()
