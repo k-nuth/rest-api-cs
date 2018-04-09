@@ -14,4 +14,4 @@ bitprim.insight/conaninfo.txt
 bitprim.insight/conanfile.txt
 bitprim.insight/wwwroot/node_modules/
 bitprim.insight/wwwroot/package-lock.json
-
+bitprim.insight/Properties/launchSettings.json
