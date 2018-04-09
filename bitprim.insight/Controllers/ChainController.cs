@@ -86,76 +86,83 @@ namespace api.Controllers
 
         private ActionResult GetDifficulty()
         {
-            Tuple<Block, UInt64> topBlock = GetLastBlock();
-            return Json
-            (
-                new
-                {
-                    difficulty = Utils.BitsToDifficulty(topBlock.Item1.Header.Bits)
-                }
-            );
+            using(DisposableApiCallResult<GetBlockDataResult<Block>> getLastBlockResult = GetLastBlock())
+            {
+                return Json
+                (
+                    new
+                    {
+                        difficulty = Utils.BitsToDifficulty(getLastBlockResult.Result.BlockData.Header.Bits)
+                    }
+                );
+            }
         }
 
         private ActionResult GetBestBlockHash()
         {
-            Tuple<Block, UInt64> topBlock = GetLastBlock();
-            return Json
-            (
-                new
-                {
-                    bestblockhash = Binary.ByteArrayToHexString(topBlock.Item1.Hash)
-                }
-            );
+            using(DisposableApiCallResult<GetBlockDataResult<Block>> getLastBlockResult = GetLastBlock())
+            {
+                return Json
+                (
+                    new
+                    {
+                        bestblockhash = Binary.ByteArrayToHexString(getLastBlockResult.Result.BlockData.Hash)
+                    }
+                );
+            }
         }
 
         private ActionResult GetLastBlockHash()
         {
-            Tuple<Block, UInt64> topBlock = GetLastBlock();
-            string hashHexString = Binary.ByteArrayToHexString(topBlock.Item1.Hash); 
-            return Json
-            (
-                new
-                {
-                    syncTipHash = hashHexString,
-                    lastblockhash = hashHexString
-                }
-            );
+            using(DisposableApiCallResult<GetBlockDataResult<Block>> getLastBlockResult = GetLastBlock())
+            {
+                string hashHexString = Binary.ByteArrayToHexString(getLastBlockResult.Result.BlockData.Hash); 
+                return Json
+                (
+                    new
+                    {
+                        syncTipHash = hashHexString,
+                        lastblockhash = hashHexString
+                    }
+                );
+            }
         }
 
         private ActionResult GetInfo()
         {
-            Tuple<Block, UInt64> block = GetLastBlock();
-            return Json
-            (
-                new
-                {
-                    info = new 
+            using(DisposableApiCallResult<GetBlockDataResult<Block>> getLastBlockResult = GetLastBlock())
+            {
+                return Json
+                (
+                    new
                     {
-                        //version = 120100, //TODO
-                        //protocolversion = 70012, //TODO
-                        blocks = block.Item2,
-                        //timeoffset = 0, //TODO
-                        //connections = 8, //TODO
-                        //proxy = "", //TODO
-                        difficulty = Utils.BitsToDifficulty(block.Item1.Header.Bits),
-                        testnet = nodeExecutor_.UseTestnetRules,
-                        //relayfee = 0.00001, //TODO
-                        //errors = "Warning: unknown new rules activated (versionbit 28)", //TODO
-                        network = nodeExecutor_.NetworkType.ToString()
+                        info = new 
+                        {
+                            //version = 120100, //TODO
+                            //protocolversion = 70012, //TODO
+                            blocks = getLastBlockResult.Result.BlockHeight,
+                            //timeoffset = 0, //TODO
+                            //connections = 8, //TODO
+                            //proxy = "", //TODO
+                            difficulty = Utils.BitsToDifficulty(getLastBlockResult.Result.BlockData.Header.Bits),
+                            testnet = nodeExecutor_.UseTestnetRules,
+                            //relayfee = 0.00001, //TODO
+                            //errors = "Warning: unknown new rules activated (versionbit 28)", //TODO
+                            network = nodeExecutor_.NetworkType.ToString()
+                        }
                     }
-                }
-            );
+                );
+            }
         }
 
-        private Tuple<Block, UInt64> GetLastBlock()
+        private DisposableApiCallResult<GetBlockDataResult<Block>> GetLastBlock()
         {
             ApiCallResult<UInt64> getLastHeightResult = chain_.GetLastHeight();
             Utils.CheckBitprimApiErrorCode(getLastHeightResult.ErrorCode, "GetLastHeight() failed");
             UInt64 currentHeight = getLastHeightResult.Result;
             DisposableApiCallResult<GetBlockDataResult<Block>> getBlockResult = chain_.GetBlockByHeight(currentHeight);
             Utils.CheckBitprimApiErrorCode(getBlockResult.ErrorCode, "GetBlockByHeight(" + currentHeight + ") failed");
-            Block topBlock = getBlockResult.Result.BlockData;
-            return new Tuple<Block, UInt64>(topBlock, currentHeight);
+            return getBlockResult;
         }
 
     }
