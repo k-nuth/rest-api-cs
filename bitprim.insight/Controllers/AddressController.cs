@@ -5,6 +5,7 @@ using bitprim.insight.DTOs;
 using Bitprim;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
+using System.Dynamic;
 
 namespace bitprim.insight.Controllers
 {
@@ -31,7 +32,7 @@ namespace bitprim.insight.Controllers
 
         // GET: api/addr/{paymentAddress}
         [HttpGet("/api/addr/{paymentAddress}")]
-        public ActionResult GetAddressHistory(string paymentAddress)
+        public ActionResult GetAddressHistory(string paymentAddress, bool? noTxList = false, int? from = 0, int? to = null)
         {
             if(!Validations.IsValidPaymentAddress(paymentAddress))
             {
@@ -39,24 +40,36 @@ namespace bitprim.insight.Controllers
             }
             Utils.CheckIfChainIsFresh(chain_, config_.AcceptStaleRequests);
             AddressBalance balance = GetBalance(paymentAddress);
-            return Json
-            (
-                new
+            dynamic historyJson = new ExpandoObject();
+            historyJson.addrStr = paymentAddress;
+            historyJson.balance = balance.Balance;
+            historyJson.balanceSat = Utils.SatoshisToBTC(balance.Balance);
+            historyJson.totalReceived = Utils.SatoshisToBTC(balance.Received);
+            historyJson.totalReceivedSat = balance.Received;
+            historyJson.totalSent = balance.Sent;
+            historyJson.totalSentSat = Utils.SatoshisToBTC(balance.Sent);
+            historyJson.unconfirmedBalance = 0; //We don't handle unconfirmed txs
+            historyJson.unconfirmedBalanceSat = 0; //We don't handle unconfirmed txs
+            historyJson.unconfirmedTxApperances = 0; //We don't handle unconfirmed txs
+            historyJson.txApperances = balance.Transactions.Count;
+            if( ! noTxList.Value )
+            {
+                if(from == null)
                 {
-                    addrStr = paymentAddress,
-                    balance = balance.Balance,
-                    balanceSat = Utils.SatoshisToBTC(balance.Balance),
-                    totalReceived = Utils.SatoshisToBTC(balance.Received),
-                    totalReceivedSat = balance.Received,
-                    totalSent = balance.Sent,
-                    totalSentSat = Utils.SatoshisToBTC(balance.Sent),
-                    unconfirmedBalance = 0, //We don't handle unconfirmed txs
-                    unconfirmedBalanceSat = 0, //We don't handle unconfirmed txs
-                    unconfirmedTxApperances = 0, //We don't handle unconfirmed txs
-                    txApperances = balance.Transactions.Count,
-                    transactions = balance.Transactions.ToArray()
+                    from = 0;
                 }
-            );
+                if(to == null || (to != null && to.Value >= balance.Transactions.Count) )
+                {
+                    to = balance.Transactions.Count() - 1;
+                }
+                Tuple<bool, string> validationResult = ValidateParameters(from.Value, to.Value);
+                if( ! validationResult.Item1 )
+                {
+                    return StatusCode((int)System.Net.HttpStatusCode.BadRequest, validationResult.Item2);
+                }
+                historyJson.transactions = balance.Transactions.GetRange(from.Value, to.Value).ToArray();
+            }
+            return Json(historyJson);
         }
 
         // GET: api/addr/{paymentAddress}/balance
@@ -117,31 +130,35 @@ namespace bitprim.insight.Controllers
         private List<object> GetUtxo(string paymentAddress)
         {
             Utils.CheckIfChainIsFresh(chain_, config_.AcceptStaleRequests);
-            Tuple<ErrorCode, HistoryCompactList> getAddressHistoryResult = chain_.GetHistory(new PaymentAddress(paymentAddress), UInt64.MaxValue, 0);
-            Utils.CheckBitprimApiErrorCode(getAddressHistoryResult.Item1, "GetHistory(" + paymentAddress + ") failed, check error log.");
-            HistoryCompactList history = getAddressHistoryResult.Item2;
-            var utxo = new List<dynamic>();
-            Tuple<ErrorCode, UInt64> getLastHeightResult = chain_.GetLastHeight();
-            Utils.CheckBitprimApiErrorCode(getLastHeightResult.Item1, "GetLastHeight failed, check error log");
-            UInt64 topHeight = getLastHeightResult.Item2;
-            foreach(HistoryCompact compact in history)
+            using(DisposableApiCallResult<HistoryCompactList> getAddressHistoryResult = chain_.GetHistory(new PaymentAddress(paymentAddress), UInt64.MaxValue, 0))
             {
-                if(compact.PointKind == PointKind.Output)
+                Utils.CheckBitprimApiErrorCode(getAddressHistoryResult.ErrorCode, "GetHistory(" + paymentAddress + ") failed, check error log.");
+                HistoryCompactList history = getAddressHistoryResult.Result;
+                var utxo = new List<dynamic>();
+                ApiCallResult<UInt64> getLastHeightResult = chain_.GetLastHeight();
+                Utils.CheckBitprimApiErrorCode(getLastHeightResult.ErrorCode, "GetLastHeight failed, check error log");
+                UInt64 topHeight = getLastHeightResult.Result;
+                foreach(HistoryCompact compact in history)
                 {
-                    Tuple<ErrorCode, Point> getSpendResult = chain_.GetSpend(new OutputPoint(compact.Point.Hash, compact.Point.Index));
-                    ErrorCode errorCode = getSpendResult.Item1;
-                    Point outputPoint = getSpendResult.Item2;
-                    if(errorCode == ErrorCode.NotFound) //Unspent = it's an utxo
+                    if(compact.PointKind == PointKind.Output)
                     {
-                        //Get the tx to get the script
-                        Tuple<ErrorCode, Transaction, UInt64, UInt64> getTxResult = chain_.GetTransaction(outputPoint.Hash, true);
-                        ErrorCode getTxEc = getTxResult.Item1;
-                        Transaction tx = getTxResult.Item2;
-                        utxo.Add(UtxoToJSON(paymentAddress, outputPoint, getTxEc, tx, compact, topHeight));
+                        ApiCallResult<Point> getSpendResult = chain_.GetSpend(new OutputPoint(compact.Point.Hash, compact.Point.Index));
+                        Point outputPoint = getSpendResult.Result;
+                        if(getSpendResult.ErrorCode == ErrorCode.NotFound) //Unspent = it's an utxo
+                        {
+                            //Get the tx to get the script
+                            using(DisposableApiCallResult<GetTxDataResult> getTxResult = chain_.GetTransaction(outputPoint.Hash, true))
+                            {
+                                utxo.Add(UtxoToJSON
+                                (
+                                    paymentAddress, outputPoint, getTxResult.ErrorCode, getTxResult.Result.Tx, compact, topHeight)
+                                );
+                            }
+                        }
                     }
                 }
+                return utxo;
             }
-            return utxo;
         }
 
         private static object UtxoToJSON(string paymentAddress, Point outputPoint, ErrorCode getTxEc, Transaction tx, HistoryCompact compact, UInt64 topHeight)
@@ -161,27 +178,29 @@ namespace bitprim.insight.Controllers
 
         private AddressBalance GetBalance(string paymentAddress)
         {
-            Tuple<ErrorCode, HistoryCompactList> getAddressHistoryResult = chain_.GetHistory(new PaymentAddress(paymentAddress), UInt64.MaxValue, 0);
-            Utils.CheckBitprimApiErrorCode(getAddressHistoryResult.Item1, "GetHistory(" + paymentAddress + ") failed, check error log.");
-            HistoryCompactList history = getAddressHistoryResult.Item2;
-            UInt64 received = 0;
-            UInt64 addressBalance = 0;
-            var txs = new List<string>();
-            foreach(HistoryCompact compact in history)
+            using(DisposableApiCallResult<HistoryCompactList> getAddressHistoryResult = chain_.GetHistory(new PaymentAddress(paymentAddress), UInt64.MaxValue, 0))
             {
-                if(compact.PointKind == PointKind.Output)
+                Utils.CheckBitprimApiErrorCode(getAddressHistoryResult.ErrorCode, "GetHistory(" + paymentAddress + ") failed, check error log.");
+                HistoryCompactList history = getAddressHistoryResult.Result;
+                UInt64 received = 0;
+                UInt64 addressBalance = 0;
+                var txs = new List<string>();
+                foreach(HistoryCompact compact in history)
                 {
-                    received += compact.ValueOrChecksum;
-                    Tuple<ErrorCode, Point> getSpendResult = chain_.GetSpend(new OutputPoint(compact.Point.Hash, compact.Point.Index));
-                    txs.Add(Binary.ByteArrayToHexString(compact.Point.Hash));
-                    if(getSpendResult.Item1 == ErrorCode.NotFound)
+                    if(compact.PointKind == PointKind.Output)
                     {
-                        addressBalance += compact.ValueOrChecksum;
+                        received += compact.ValueOrChecksum;
+                        ApiCallResult<Point> getSpendResult = chain_.GetSpend(new OutputPoint(compact.Point.Hash, compact.Point.Index));
+                        txs.Add(Binary.ByteArrayToHexString(compact.Point.Hash));
+                        if(getSpendResult.ErrorCode == ErrorCode.NotFound)
+                        {
+                            addressBalance += compact.ValueOrChecksum;
+                        }
                     }
                 }
+                UInt64 totalSent = received - addressBalance;
+                return new AddressBalance{ Balance = addressBalance, Received = received, Sent = totalSent, Transactions = txs };
             }
-            UInt64 totalSent = received - addressBalance;
-            return new AddressBalance{ Balance = addressBalance, Received = received, Sent = totalSent, Transactions = txs };
         }
 
         private ActionResult GetBalanceProperty(string paymentAddress, string propertyName)
@@ -196,6 +215,23 @@ namespace bitprim.insight.Controllers
             {
                 return StatusCode((int)System.Net.HttpStatusCode.InternalServerError, ex.Message);
             }
+        }
+
+        private Tuple<bool, string> ValidateParameters(int from, int to)
+        {
+            if(from < 0)
+            {
+                return new Tuple<bool, string>(false, "from(" + from + ") must be greater than or equal to zero");
+            }
+            if(to <= 0)
+            {
+                return new Tuple<bool, string>(false, "to(" + to + ") must be greater than zero");
+            }
+            if(to >= from)
+            {
+                return new Tuple<bool, string>(false, "to(" + to +  ") must be greater than from(" + from + ")");
+            }
+            return new Tuple<bool, string>(true, "");
         }
     }
 }
