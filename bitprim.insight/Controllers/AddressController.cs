@@ -54,16 +54,19 @@ namespace api.Controllers
             historyJson.txApperances = balance.Transactions.Count;
             if( ! noTxList.Value )
             {
-                Tuple<bool, string> validationResult = ValidateParameters(from, to);
-                if( ! validationResult.Item1 )
+                if(from == null)
                 {
-                    return StatusCode((int)System.Net.HttpStatusCode.BadRequest, validationResult.Item2);
-                }                
-                if(to == null)
+                    from = 0;
+                }
+                if(to == null || (to != null && to.Value >= balance.Transactions.Count) )
                 {
                     to = balance.Transactions.Count() - 1;
                 }
-                to = Math.Min(to.Value, balance.Transactions.Count - 1);
+                Tuple<bool, string> validationResult = ValidateParameters(from.Value, to.Value);
+                if( ! validationResult.Item1 )
+                {
+                    return StatusCode((int)System.Net.HttpStatusCode.BadRequest, validationResult.Item2);
+                }
                 historyJson.transactions = balance.Transactions.GetRange(from.Value, to.Value).ToArray();
             }
             return Json(historyJson);
@@ -208,19 +211,19 @@ namespace api.Controllers
             }
         }
 
-        private Tuple<bool, string> ValidateParameters(int? from, int? to)
+        private Tuple<bool, string> ValidateParameters(int from, int to)
         {
             if(from < 0)
             {
-                return new Tuple<bool, string>(false, "from(" + from.Value + ") must be greater than or equal to zero");
+                return new Tuple<bool, string>(false, "from(" + from + ") must be greater than or equal to zero");
             }
-            if(to != null && to.Value <= 0)
+            if(to <= 0)
             {
-                return new Tuple<bool, string>(false, "to(" + to.Value + ") must be greater than zero");
+                return new Tuple<bool, string>(false, "to(" + to + ") must be greater than zero");
             }
-            if(to != null && to >= from.Value)
+            if(to >= from)
             {
-                return new Tuple<bool, string>(false, "to(" + to.Value +  ") must be greater than from(" + from.Value + ")");
+                return new Tuple<bool, string>(false, "to(" + to +  ") must be greater than from(" + from + ")");
             }
             return new Tuple<bool, string>(true, "");
         }
