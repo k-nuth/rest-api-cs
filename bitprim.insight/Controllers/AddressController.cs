@@ -130,31 +130,35 @@ namespace api.Controllers
         private List<object> GetUtxo(string paymentAddress)
         {
             Utils.CheckIfChainIsFresh(chain_, config_.AcceptStaleRequests);
-            Tuple<ErrorCode, HistoryCompactList> getAddressHistoryResult = chain_.GetHistory(new PaymentAddress(paymentAddress), UInt64.MaxValue, 0);
-            Utils.CheckBitprimApiErrorCode(getAddressHistoryResult.Item1, "GetHistory(" + paymentAddress + ") failed, check error log.");
-            HistoryCompactList history = getAddressHistoryResult.Item2;
-            var utxo = new List<dynamic>();
-            Tuple<ErrorCode, UInt64> getLastHeightResult = chain_.GetLastHeight();
-            Utils.CheckBitprimApiErrorCode(getLastHeightResult.Item1, "GetLastHeight failed, check error log");
-            UInt64 topHeight = getLastHeightResult.Item2;
-            foreach(HistoryCompact compact in history)
+            using(DisposableApiCallResult<HistoryCompactList> getAddressHistoryResult = chain_.GetHistory(new PaymentAddress(paymentAddress), UInt64.MaxValue, 0))
             {
-                if(compact.PointKind == PointKind.Output)
+                Utils.CheckBitprimApiErrorCode(getAddressHistoryResult.ErrorCode, "GetHistory(" + paymentAddress + ") failed, check error log.");
+                HistoryCompactList history = getAddressHistoryResult.Result;
+                var utxo = new List<dynamic>();
+                ApiCallResult<UInt64> getLastHeightResult = chain_.GetLastHeight();
+                Utils.CheckBitprimApiErrorCode(getLastHeightResult.ErrorCode, "GetLastHeight failed, check error log");
+                UInt64 topHeight = getLastHeightResult.Result;
+                foreach(HistoryCompact compact in history)
                 {
-                    Tuple<ErrorCode, Point> getSpendResult = chain_.GetSpend(new OutputPoint(compact.Point.Hash, compact.Point.Index));
-                    ErrorCode errorCode = getSpendResult.Item1;
-                    Point outputPoint = getSpendResult.Item2;
-                    if(errorCode == ErrorCode.NotFound) //Unspent = it's an utxo
+                    if(compact.PointKind == PointKind.Output)
                     {
-                        //Get the tx to get the script
-                        Tuple<ErrorCode, Transaction, UInt64, UInt64> getTxResult = chain_.GetTransaction(outputPoint.Hash, true);
-                        ErrorCode getTxEc = getTxResult.Item1;
-                        Transaction tx = getTxResult.Item2;
-                        utxo.Add(UtxoToJSON(paymentAddress, outputPoint, getTxEc, tx, compact, topHeight));
+                        ApiCallResult<Point> getSpendResult = chain_.GetSpend(new OutputPoint(compact.Point.Hash, compact.Point.Index));
+                        Point outputPoint = getSpendResult.Result;
+                        if(getSpendResult.ErrorCode == ErrorCode.NotFound) //Unspent = it's an utxo
+                        {
+                            //Get the tx to get the script
+                            using(DisposableApiCallResult<GetTxDataResult> getTxResult = chain_.GetTransaction(outputPoint.Hash, true))
+                            {
+                                utxo.Add(UtxoToJSON
+                                (
+                                    paymentAddress, outputPoint, getTxResult.ErrorCode, getTxResult.Result.Tx, compact, topHeight)
+                                );
+                            }
+                        }
                     }
                 }
+                return utxo;
             }
-            return utxo;
         }
 
         private static object UtxoToJSON(string paymentAddress, Point outputPoint, ErrorCode getTxEc, Transaction tx, HistoryCompact compact, UInt64 topHeight)
@@ -174,27 +178,29 @@ namespace api.Controllers
 
         private AddressBalance GetBalance(string paymentAddress)
         {
-            Tuple<ErrorCode, HistoryCompactList> getAddressHistoryResult = chain_.GetHistory(new PaymentAddress(paymentAddress), UInt64.MaxValue, 0);
-            Utils.CheckBitprimApiErrorCode(getAddressHistoryResult.Item1, "GetHistory(" + paymentAddress + ") failed, check error log.");
-            HistoryCompactList history = getAddressHistoryResult.Item2;
-            UInt64 received = 0;
-            UInt64 addressBalance = 0;
-            var txs = new List<string>();
-            foreach(HistoryCompact compact in history)
+            using(DisposableApiCallResult<HistoryCompactList> getAddressHistoryResult = chain_.GetHistory(new PaymentAddress(paymentAddress), UInt64.MaxValue, 0))
             {
-                if(compact.PointKind == PointKind.Output)
+                Utils.CheckBitprimApiErrorCode(getAddressHistoryResult.ErrorCode, "GetHistory(" + paymentAddress + ") failed, check error log.");
+                HistoryCompactList history = getAddressHistoryResult.Result;
+                UInt64 received = 0;
+                UInt64 addressBalance = 0;
+                var txs = new List<string>();
+                foreach(HistoryCompact compact in history)
                 {
-                    received += compact.ValueOrChecksum;
-                    Tuple<ErrorCode, Point> getSpendResult = chain_.GetSpend(new OutputPoint(compact.Point.Hash, compact.Point.Index));
-                    txs.Add(Binary.ByteArrayToHexString(compact.Point.Hash));
-                    if(getSpendResult.Item1 == ErrorCode.NotFound)
+                    if(compact.PointKind == PointKind.Output)
                     {
-                        addressBalance += compact.ValueOrChecksum;
+                        received += compact.ValueOrChecksum;
+                        ApiCallResult<Point> getSpendResult = chain_.GetSpend(new OutputPoint(compact.Point.Hash, compact.Point.Index));
+                        txs.Add(Binary.ByteArrayToHexString(compact.Point.Hash));
+                        if(getSpendResult.ErrorCode == ErrorCode.NotFound)
+                        {
+                            addressBalance += compact.ValueOrChecksum;
+                        }
                     }
                 }
+                UInt64 totalSent = received - addressBalance;
+                return new AddressBalance{ Balance = addressBalance, Received = received, Sent = totalSent, Transactions = txs };
             }
-            UInt64 totalSent = received - addressBalance;
-            return new AddressBalance{ Balance = addressBalance, Received = received, Sent = totalSent, Transactions = txs };
         }
 
         private ActionResult GetBalanceProperty(string paymentAddress, string propertyName)
