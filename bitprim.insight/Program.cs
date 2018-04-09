@@ -1,16 +1,13 @@
-﻿using System.Collections.Generic;
+﻿using System;
 using System.Globalization;
 using System.IO;
 using System.Net;
-using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Logging;
 using Serilog;
 using Serilog.Events;
-using System;
 
-namespace api
+namespace bitprim.insight
 {
     public class Program
     {
@@ -18,11 +15,14 @@ namespace api
 
         public static void Main(string[] args)
         {
+            ConfigureLogging();
             try
             {
-                ConfigureLogging();
-                var config = GetServerPortFromCommandLine(args);
-                var serverPort = config.GetValue<int>("server.port");
+                var config = new ConfigurationBuilder()
+                    .AddCommandLine(args)
+                    .Build();
+
+                var serverPort = config.GetValue<int>("server.port",DEFAULT_PORT);
                 var host = new WebHostBuilder()
                     .UseKestrel(options => {
                         options.Listen(IPAddress.Loopback, serverPort);
@@ -32,7 +32,7 @@ namespace api
                     .UseIISIntegration()
                     .UseStartup<Startup>()
                     .Build();
-                Log.Information("Starting web host");
+
                 host.Run();
             }
             catch(Exception ex)
@@ -43,22 +43,6 @@ namespace api
             {
                 Log.CloseAndFlush();
             }
-        }
-
-        private static IConfigurationRoot GetServerPortFromCommandLine(string[] args)
-        {
-            var config = new ConfigurationBuilder()
-                .AddCommandLine(args)
-                .Build();
-            var serverPort = config.GetValue<int>("server.port", DEFAULT_PORT);
-            var configDictionary = new Dictionary<string, string>
-            {
-                {"server.port", serverPort.ToString()}
-            };            
-            return new ConfigurationBuilder()
-                .AddCommandLine(args)
-                .AddInMemoryCollection(configDictionary)
-                .Build(); 
         }
 
         private static void ConfigureLogging()

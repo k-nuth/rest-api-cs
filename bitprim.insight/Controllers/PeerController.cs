@@ -1,10 +1,7 @@
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Options;
-using Bitprim;
-using System;
 using System.Dynamic;
+using Microsoft.AspNetCore.Mvc;
 
-namespace api.Controllers
+namespace bitprim.insight.Controllers
 {
     [Route("api/[controller]")]
     public class PeerController : Controller

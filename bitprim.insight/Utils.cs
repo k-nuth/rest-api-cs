@@ -1,7 +1,7 @@
 using System;
 using Bitprim;
 
-namespace api
+namespace bitprim.insight
 {
     internal static class Utils
     {

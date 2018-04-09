@@ -1,4 +1,4 @@
-namespace api.DTOs
+namespace bitprim.insight.DTOs
 {
     public class GetUtxosForMultipleAddressesRequest
     {

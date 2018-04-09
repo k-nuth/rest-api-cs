@@ -1,16 +1,14 @@
-using Bitprim;
 using System;
-using System.Net.WebSockets;
-using System.Threading.Tasks;
+using Bitprim;
 using Newtonsoft.Json;
 
-namespace api
+namespace bitprim.insight
 {
     public class BlockChainObserver
     {
-        private Executor.BlockHandler blockHandler_;
-        private Executor.TransactionHandler txHandler_;
-        private WebSocketHandler webSocketHandler_;
+        private readonly Executor.BlockHandler blockHandler_;
+        private readonly Executor.TransactionHandler txHandler_;
+        private readonly WebSocketHandler webSocketHandler_;
 
         public BlockChainObserver(Executor executor, WebSocketHandler webSocketHandler)
         {

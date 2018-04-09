@@ -1,11 +1,11 @@
+using System;
+using System.Collections.Generic;
+using System.Dynamic;
+using Bitprim;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
-using Bitprim;
-using System;
-using System.Dynamic;
-using System.Collections.Generic;
 
-namespace api.Controllers
+namespace bitprim.insight.Controllers
 {
     [Route("api/[controller]")]
     public class ChainController : Controller

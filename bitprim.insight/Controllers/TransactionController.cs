@@ -2,14 +2,12 @@
 using System.Collections.Generic;
 using System.Dynamic;
 using System.Linq;
-using System.Threading.Tasks;
+using bitprim.insight.DTOs;
+using Bitprim;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
-using Bitprim;
-using Bitprim.Native;
-using api.DTOs;
 
-namespace api.Controllers
+namespace bitprim.insight.Controllers
 {
     [Route("api/[controller]")]
     public class TransactionController : Controller
@@ -94,7 +92,7 @@ namespace api.Controllers
         }
 
         [HttpPost("/api/addrs/txs")]
-        public ActionResult GetTransactionsForMultipleAddresses(GetTxsForMultipleAddressesRequest request)
+        public ActionResult GetTransactionsForMultipleAddresses([FromBody] GetTxsForMultipleAddressesRequest request)
         {
             return DoGetTransactionsForMultipleAddresses(request.addrs, request.from.Value, request.to.Value, request.noAsm.Value, request.noScriptSig.Value, request.noSpend.Value);
         }

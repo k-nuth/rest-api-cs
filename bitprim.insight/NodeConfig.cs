@@ -1,13 +1,18 @@
 using System;
 
-public class NodeConfig
+namespace bitprim.insight
 {
-    public bool AcceptStaleRequests { get; set; }
-    public bool StartDatabaseFromScratch { get; set; }
-    public int MaxBlockSummarySize { get; set; }
-    public int TransactionsByAddressPageSize { get; set; }
-    public string DateInputFormat { get; set; }
-    public string NodeConfigFile { get; set; }
-    public string NodeType { get; set; }
-    public UInt64 BlockchainHeight { get; set; }
+    public class NodeConfig
+    {
+        public bool AcceptStaleRequests { get; set; }
+        public bool StartDatabaseFromScratch { get; set; }
+        public int MaxBlockSummarySize { get; set; }
+        public int TransactionsByAddressPageSize { get; set; }
+        public string DateInputFormat { get; set; }
+        public string NodeConfigFile { get; set; }
+        public string NodeType { get; set; }
+        public UInt64 BlockchainHeight { get; set; }
+        public bool InitializeNode { get; set; }
+        public string ForwardUrl { get; set; }
+    }
 }

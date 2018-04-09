@@ -1,13 +1,13 @@
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Options;
-using Bitprim;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using api.DTOs;
+using bitprim.insight.DTOs;
+using Bitprim;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Options;
 using System.Dynamic;
 
-namespace api.Controllers
+namespace bitprim.insight.Controllers
 {
 
     [Route("api/[controller]")]
