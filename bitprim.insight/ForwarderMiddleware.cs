@@ -18,16 +18,21 @@ namespace bitprim.insight
         private readonly ILogger<ForwarderMiddleware> logger_;
         private static readonly HttpClient client = new HttpClient();
 
+        private const int REQUEST_SECONDS_TIMEOUT = 5;
+        private const int MAX_RETRIES = 3;
+        private const int SEED_DELAY = 100;
+        private const int MAX_DELAY = 2;
+
         private readonly Policy retryPolicy_ = Policy
             .Handle<Exception>()
-            .WaitAndRetryAsync(DecorrelatedJitter(3, TimeSpan.FromMilliseconds(100), TimeSpan.FromSeconds(2)));
+            .WaitAndRetryAsync(DecorrelatedJitter(MAX_RETRIES, TimeSpan.FromMilliseconds(SEED_DELAY), TimeSpan.FromSeconds(MAX_DELAY)));
 
         public ForwarderMiddleware(RequestDelegate next, ILogger<ForwarderMiddleware> logger, IOptions<NodeConfig> config)
         {
             next_ = next ?? throw new ArgumentNullException(nameof(next));
             logger_ = logger;
             client.BaseAddress = new Uri(config.Value.ForwardUrl);
-            client.Timeout = TimeSpan.FromSeconds(5);
+            client.Timeout = TimeSpan.FromSeconds(REQUEST_SECONDS_TIMEOUT);
         }
 
         public async Task Invoke(HttpContext context)
