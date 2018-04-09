@@ -1,4 +1,4 @@
-namespace api
+namespace bitprim.insight
 {
     internal enum BitprimWebSocketMessageType
     {

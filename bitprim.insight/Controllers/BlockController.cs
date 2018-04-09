@@ -1,24 +1,43 @@
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Options;
-using Bitprim;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
+using Bitprim;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Options;
+using Newtonsoft.Json;
 
-namespace api.Controllers
+namespace bitprim.insight.Controllers
 {
     [Route("api/[controller]")]
     public class BlockController : Controller
     {
         private Chain chain_;
+        private readonly WebSocketHandler webSocketHandler_;
         private readonly NodeConfig config_;
 
-        public BlockController(IOptions<NodeConfig> config, Chain chain)
+        public BlockController(IOptions<NodeConfig> config, Chain chain, WebSocketHandler webSocketHandler)
         {
             config_ = config.Value;
             chain_ = chain;
+            webSocketHandler_ = webSocketHandler;
         }
+
+        // GET: api/block/simulate
+        [HttpGet("/api/block/simulate")]
+        public ActionResult Simulate()
+        {
+            var newBlocksNotification = new
+            {
+                eventname = "block"
+            };
+
+            var task = webSocketHandler_.PublishBlock(JsonConvert.SerializeObject(newBlocksNotification));
+            task.Wait();
+
+            return Ok();
+        }
+
 
         // GET: api/block/{hash}
         [HttpGet("/api/block/{hash}")]

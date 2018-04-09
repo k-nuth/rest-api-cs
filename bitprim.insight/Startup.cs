@@ -1,19 +1,16 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Threading.Tasks;
+using Bitprim;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using Swashbuckle.AspNetCore.Swagger;
-using Bitprim;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.Cors.Internal;
+using Microsoft.Extensions.Options;
 using Serilog;
+using Swashbuckle.AspNetCore.Swagger;
 
-namespace api
+namespace bitprim.insight
 {
     public class Startup
     {
@@ -21,6 +18,8 @@ namespace api
         private const string CORS_POLICY_NAME = "BI_CORS_POLICY";
         private Executor exec_;
         private WebSocketHandler webSocketHandler_;
+        private WebSocketForwarderClient webSocketForwarderClient_;
+        private readonly NodeConfig nodeConfig_;     
 
         public Startup(IHostingEnvironment env)
         {
@@ -30,6 +29,7 @@ namespace api
                 .AddJsonFile($"appsettings.{env.EnvironmentName}.json", optional: true)
                 .AddEnvironmentVariables();
             Configuration = builder.Build();
+            nodeConfig_ = Configuration.Get<NodeConfig>();
         }
 
         public IConfigurationRoot Configuration { get; }
@@ -49,7 +49,27 @@ namespace api
             {  
                 c.SwaggerDoc("v1", new Info { Title = "bitprim", Version = "v1" });  
             });
-            StartBitprimNode(services);
+
+            webSocketHandler_ = new WebSocketHandler(services.BuildServiceProvider().GetService<ILogger<WebSocketHandler>>());
+
+            services.AddSingleton<WebSocketHandler>(webSocketHandler_);
+
+            if (nodeConfig_.InitializeNode)
+            {
+                StartBitprimNode(services);
+            }
+            else
+            {
+                if (string.IsNullOrWhiteSpace(nodeConfig_.ForwardUrl))
+                {
+                    throw new ApplicationException("You must configure the ForwardUrl setting");
+                }
+
+                webSocketForwarderClient_ = new WebSocketForwarderClient(
+                    services.BuildServiceProvider().GetService<IOptions<NodeConfig>>(),
+                    services.BuildServiceProvider().GetService<ILogger<WebSocketForwarderClient>>(), webSocketHandler_);
+                Task.Run(() => webSocketForwarderClient_.Init());
+            }
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
@@ -70,6 +90,12 @@ namespace api
             app.UseCors(CORS_POLICY_NAME);
             app.UseStaticFiles(); //TODO For testing web sockets
             app.UseHttpStatusCodeExceptionMiddleware();
+
+            if (!nodeConfig_.InitializeNode)
+            {
+                app.UseForwarderMiddleware();
+            }
+            
             app.UseMvc();
         }
 
@@ -101,9 +127,10 @@ namespace api
         private void StartBitprimNode(IServiceCollection services)
         {
             // Initialize and register chain service
-            NodeConfig config = Configuration.Get<NodeConfig>();
-            exec_ = new Executor(config.NodeConfigFile);
-            if(config.StartDatabaseFromScratch)
+         
+            exec_ = new Executor(nodeConfig_.NodeConfigFile);
+            
+            if(nodeConfig_.StartDatabaseFromScratch)
             {
                 bool ok = exec_.InitChain();
                 if(!ok)
@@ -111,12 +138,13 @@ namespace api
                     throw new ApplicationException("Executor::InitChain failed; check log");
                 }
             }
+            
             int result = exec_.RunWait();
             if (result != 0)
             {
                 throw new ApplicationException("Executor::RunWait failed; error code: " + result);
             }
-            webSocketHandler_ = new WebSocketHandler(services.BuildServiceProvider().GetService<ILogger<WebSocketHandler>>());
+                
             blockChainObserver_ = new BlockChainObserver(exec_, webSocketHandler_);
             services.AddSingleton<Executor>(exec_);
             services.AddSingleton<Chain>(exec_.Chain);
@@ -127,6 +155,17 @@ namespace api
             Log.Information("Cancelling subscriptions...");
             var task = webSocketHandler_.Shutdown();
             task.Wait();
+
+            if (webSocketForwarderClient_ != null)
+            {
+                Log.Information("Cancelling websocket forwarder...");
+                webSocketForwarderClient_.Close().Wait();
+                webSocketForwarderClient_.Dispose();
+            }
+
+            if (exec_ == null) 
+                return;
+            
             Log.Information("Stopping node...");
             exec_.Stop();
             Log.Information("Destroying node...");

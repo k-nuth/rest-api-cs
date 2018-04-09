@@ -1,21 +1,20 @@
 using System;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Net.WebSockets;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
-using System.Collections.Concurrent;
-using System.Collections.Generic;
 using Nito.AsyncEx;
-using Serilog;
 
-namespace api
+namespace bitprim.insight
 {
     public class WebSocketHandler
     {
-        private AsyncProducerConsumerQueue<BitprimWebSocketMessage> messageQueue_;
-        private ConcurrentDictionary<WebSocket, ConcurrentDictionary<string, byte>> subscriptions_;
+        private readonly AsyncProducerConsumerQueue<BitprimWebSocketMessage> messageQueue_;
+        private readonly ConcurrentDictionary<WebSocket, ConcurrentDictionary<string, byte>> subscriptions_;
         private const int DICT_REMOVAL_HOLDOFF = 5;
         private const int MAX_CHANNEL_REMOVAL_TRIES = 5;
         private const int RECEPTION_BUFFER_SIZE = 1024 * 4;
@@ -23,11 +22,10 @@ namespace api
         private const string BLOCKS_SUBSCRIPTION_MESSAGE = "SubscribeToBlocks";
         private const string SERVER_ABORT_MESSAGE = "ServerAbort";
         private const string SERVER_CLOSE_MESSAGE = "ServerClose";
-        private const string SUBSCRIPTION_END_MESSAGE = "Unsubscribe";
         private const string TXS_CHANNEL_NAME = "TxsChannel";
         private const string TXS_SUBSCRIPTION_MESSAGE = "SubscribeToTxs";
         private int acceptSubscriptions_ = 1; //It is an int because Interlocked does not support bool 
-        private ILogger<WebSocketHandler> logger_;
+        private readonly ILogger<WebSocketHandler> logger_;
 
         public WebSocketHandler(ILogger<WebSocketHandler> logger)
         {
@@ -48,45 +46,61 @@ namespace api
                 var result = await webSocket.ReceiveAsync(new ArraySegment<byte>(buffer), CancellationToken.None);
                 LogFrame(result, buffer);
                 // If the client sends "ServerClose", then they want a server-originated close to take place
-                string content = "";
-                var subLoops = new List<Task>();
                 bool keepListening = true;
-                while(keepListening) //TODO Check shutdown even when client doesnt send close message
+                while (keepListening)
                 {
                     if (result.MessageType == WebSocketMessageType.Text)
                     {
-                        content = Encoding.UTF8.GetString(buffer, 0, result.Count);
+                        var content = Encoding.UTF8.GetString(buffer, 0, result.Count);
                         if (content.Equals(SERVER_CLOSE_MESSAGE))
                         {
-                            await webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Closing from Server", CancellationToken.None);
-                            logger_.LogDebug($"Sent Frame Close: {WebSocketCloseStatus.NormalClosure} Closing from Server");
+                            logger_.LogDebug("Server close message received");
                             keepListening = false;
                         }
                         else if (content.Equals(SERVER_ABORT_MESSAGE))
                         {
-                            context.Abort();
+                            logger_.LogDebug("Server abort message received");
                             keepListening = false;
                         }
-                        else if(content.Equals(BLOCKS_SUBSCRIPTION_MESSAGE) && Interlocked.CompareExchange(ref acceptSubscriptions_, 0, 0) > 0)
+                        else if (content.Equals(BLOCKS_SUBSCRIPTION_MESSAGE) &&
+                                 Interlocked.CompareExchange(ref acceptSubscriptions_, 0, 0) > 0)
                         {
                             RegisterChannel(webSocket, BLOCKS_CHANNEL_NAME);
-                        }else if(content.Equals(TXS_SUBSCRIPTION_MESSAGE) && Interlocked.CompareExchange(ref acceptSubscriptions_, 0, 0) > 0)
+                        }
+                        else if (content.Equals(TXS_SUBSCRIPTION_MESSAGE) &&
+                                 Interlocked.CompareExchange(ref acceptSubscriptions_, 0, 0) > 0)
                         {
                             RegisterChannel(webSocket, TXS_CHANNEL_NAME);
                         }
                     }
-                    if(keepListening)
+                    else if (result.MessageType == WebSocketMessageType.Close)
+                    {
+                        logger_.LogDebug("Messege close received");
+                        keepListening = false;
+                    }
+
+                    if (keepListening)
                     {
                         result = await webSocket.ReceiveAsync(new ArraySegment<byte>(buffer), CancellationToken.None);
                         LogFrame(result, buffer);
                     }
                 }
+
                 await UnregisterChannels(webSocket);
             }
-            catch(WebSocketException ex)
+            catch (WebSocketException ex)
             {
-                logger_.LogWarning("Subscribe - Web socket error, closing connection; " + ex);
-                context.Abort();
+                logger_.LogDebug("Status " + webSocket.State);
+                logger_.LogDebug("Close Status " + webSocket.CloseStatus);
+
+                if (webSocket.State != WebSocketState.CloseSent)
+                {
+                    logger_.LogWarning("Subscribe - Web socket error, closing connection; " + ex);
+                }
+            }
+            catch (Exception e)
+            {
+                logger_.LogWarning("Subscribe - error, closing connection; " + e);
             }
         }
 
@@ -114,6 +128,9 @@ namespace api
                     logger_.LogWarning("Error unregistering channel: " + ex.ToString());
                 }
             }
+
+            logger_.LogInformation("Sending shutdown message");
+
             await messageQueue_.EnqueueAsync
             (
                 new BitprimWebSocketMessage
@@ -170,17 +187,24 @@ namespace api
         {
             bool removedSocket = false;
             int tries = 0;
+            logger_.LogInformation("Removing websocket");
             while(!removedSocket && tries < MAX_CHANNEL_REMOVAL_TRIES)
             {
-                ConcurrentDictionary<string, byte> removed;
-                removedSocket = subscriptions_.TryRemove(webSocket, out removed);
+                removedSocket = subscriptions_.TryRemove(webSocket, out _);
                 if( ! removedSocket )
                 {
                     ++tries;
                     await Task.Delay(TimeSpan.FromSeconds(DICT_REMOVAL_HOLDOFF));
                 }
             }
-            await webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "All subscriptions cancelled", CancellationToken.None);
+
+            logger_.LogDebug("WebSocket status " + webSocket.State);
+
+            logger_.LogInformation("Closing websocket");
+            
+            await webSocket.CloseOutputAsync (WebSocketCloseStatus.EndpointUnavailable, "All subscriptions cancelled", CancellationToken.None);
+           
+            logger_.LogInformation("Websocket closed");
         }
 
         private bool RegisterChannel(WebSocket webSocket, string channelName)
@@ -188,7 +212,7 @@ namespace api
             // Wait for first subscription to launch publisher worker thread  
             if(subscriptions_.Count == 0)
             {
-                Task.Run( () => PublisherThread() );
+                Task.Run(PublisherThread);
             }
             subscriptions_.TryAdd(webSocket, new ConcurrentDictionary<string, byte>());
             return subscriptions_[webSocket].TryAdd(channelName, 1);
@@ -229,6 +253,5 @@ namespace api
                 );
             }
         }
-
     }
 }
