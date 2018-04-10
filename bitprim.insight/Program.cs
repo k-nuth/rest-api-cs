@@ -50,6 +50,7 @@ namespace bitprim.insight
             var timeZone = DateTimeOffset.Now.ToString("%K").Replace(CultureInfo.CurrentCulture.DateTimeFormat.TimeSeparator, "");
             Log.Logger = new LoggerConfiguration()
                 .MinimumLevel.Debug()
+                //.MinimumLevel.Error()
                 .MinimumLevel.Override("Microsoft", LogEventLevel.Information)
                 .Enrich.FromLogContext()
                 .Enrich.WithProperty(LogPropertyNames.TIME_ZONE, timeZone)

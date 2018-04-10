@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Threading.Tasks;
 using Bitprim;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
@@ -51,6 +50,7 @@ namespace bitprim.insight
             });
 
             webSocketHandler_ = new WebSocketHandler(services.BuildServiceProvider().GetService<ILogger<WebSocketHandler>>());
+            webSocketHandler_.Init();
 
             services.AddSingleton<WebSocketHandler>(webSocketHandler_);
 
@@ -68,7 +68,7 @@ namespace bitprim.insight
                 webSocketForwarderClient_ = new WebSocketForwarderClient(
                     services.BuildServiceProvider().GetService<IOptions<NodeConfig>>(),
                     services.BuildServiceProvider().GetService<ILogger<WebSocketForwarderClient>>(), webSocketHandler_);
-                Task.Run(() => webSocketForwarderClient_.Init());
+               webSocketForwarderClient_.Init();
             }
         }
 
@@ -106,8 +106,10 @@ namespace bitprim.insight
             {
                 if (context.WebSockets.IsWebSocketRequest)
                 {
-                    var webSocket = await context.WebSockets.AcceptWebSocketAsync();
-                    await webSocketHandler_.Subscribe(context, webSocket);
+                    using (var webSocket = await context.WebSockets.AcceptWebSocketAsync())
+                    {
+                        await webSocketHandler_.Subscribe(context, webSocket);
+                    }
                 }
                 else
                 {

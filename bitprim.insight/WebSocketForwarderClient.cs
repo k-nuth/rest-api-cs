@@ -35,15 +35,10 @@ namespace bitprim.insight
             execPolicy_ = Policy.WrapAsync(retryPolicy_,breakerPolicy_);
         }
 
-        private void InitReceiveHandler()
-        {
-            Task.Run(ReceiveHandler);
-        }
-
         private async Task ReceiveHandler()
         {
             var buffer = new byte[RECEPTION_BUFFER_SIZE];
-
+          
             while (Interlocked.CompareExchange(ref active_, 0, 0) > 0)
             {
                 try
@@ -125,9 +120,16 @@ namespace bitprim.insight
         {
             await execPolicy_.ExecuteAsync(async ()=> await CreateAndOpen());
 
-            InitReceiveHandler();
+            Task receiverTask = ReceiveHandler();
 
             await SendSubscriptions();
+        }
+
+        private static bool WebSocketCanSend(WebSocket ws)
+        {
+            return !(ws.State == WebSocketState.Aborted ||
+                     ws.State == WebSocketState.Closed ||
+                     ws.State == WebSocketState.CloseSent);
         }
 
         public async Task Close()
@@ -135,7 +137,10 @@ namespace bitprim.insight
             Interlocked.Decrement(ref active_);
             try
             {
-                await webSocket_.CloseAsync(WebSocketCloseStatus.EndpointUnavailable, string.Empty, CancellationToken.None);
+                if (WebSocketCanSend(webSocket_))
+                {
+                    await webSocket_.CloseOutputAsync(WebSocketCloseStatus.NormalClosure, string.Empty, CancellationToken.None);
+                }
             }
             catch (Exception e)
             {
