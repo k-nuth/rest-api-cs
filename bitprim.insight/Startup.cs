@@ -49,13 +49,17 @@ namespace bitprim.insight
                 c.SwaggerDoc("v1", new Info { Title = "bitprim", Version = "v1" });  
             });
 
-            webSocketHandler_ = new WebSocketHandler(services.BuildServiceProvider().GetService<ILogger<WebSocketHandler>>());
+
+            var serviceProvider = services.BuildServiceProvider();
+
+            webSocketHandler_ = new WebSocketHandler(serviceProvider.GetService<ILogger<WebSocketHandler>>());
             webSocketHandler_.Init();
 
             services.AddSingleton<WebSocketHandler>(webSocketHandler_);
 
             if (nodeConfig_.InitializeNode)
             {
+                Log.Information("Initializing full node mode");
                 StartBitprimNode(services);
             }
             else
@@ -65,10 +69,13 @@ namespace bitprim.insight
                     throw new ApplicationException("You must configure the ForwardUrl setting");
                 }
 
+                Log.Information("Initializing forwarder mode");
+                Log.Information("Forward Url " + nodeConfig_.ForwardUrl);
+                
                 webSocketForwarderClient_ = new WebSocketForwarderClient(
-                    services.BuildServiceProvider().GetService<IOptions<NodeConfig>>(),
-                    services.BuildServiceProvider().GetService<ILogger<WebSocketForwarderClient>>(), webSocketHandler_);
-               webSocketForwarderClient_.Init();
+                    serviceProvider.GetService<IOptions<NodeConfig>>(),
+                    serviceProvider.GetService<ILogger<WebSocketForwarderClient>>(), webSocketHandler_);
+               _ = webSocketForwarderClient_.Init();
             }
         }
 
@@ -163,6 +170,7 @@ namespace bitprim.insight
                 Log.Information("Cancelling websocket forwarder...");
                 webSocketForwarderClient_.Close().Wait();
                 webSocketForwarderClient_.Dispose();
+                Log.Information("Websocket forwarder shutdown ok");
             }
 
             if (exec_ == null) 

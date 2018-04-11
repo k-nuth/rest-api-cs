@@ -35,7 +35,7 @@ namespace bitprim.insight
 
         public void Init()
         {
-            PublisherThread();
+            _ = PublisherThread();
         }
 
         ///<summary>
