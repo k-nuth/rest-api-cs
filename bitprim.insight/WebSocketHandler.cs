@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Concurrent;
-using System.Collections.Generic;
 using System.Net.WebSockets;
 using System.Text;
 using System.Threading;
@@ -34,6 +33,11 @@ namespace bitprim.insight
             logger_ = logger;
         }
 
+        public void Init()
+        {
+            _ = PublisherThread();
+        }
+
         ///<summary>
         /// Wait for a subscription message, and start subscription loop. Close
         /// connection when loop ends
@@ -43,15 +47,18 @@ namespace bitprim.insight
             try
             {
                 var buffer = new byte[RECEPTION_BUFFER_SIZE];
-                var result = await webSocket.ReceiveAsync(new ArraySegment<byte>(buffer), CancellationToken.None);
-                LogFrame(result, buffer);
+                
                 // If the client sends "ServerClose", then they want a server-originated close to take place
                 bool keepListening = true;
                 while (keepListening)
                 {
+                    var result = await webSocket.ReceiveAsync(new ArraySegment<byte>(buffer), CancellationToken.None);
+                
                     if (result.MessageType == WebSocketMessageType.Text)
                     {
                         var content = Encoding.UTF8.GetString(buffer, 0, result.Count);
+                        LogFrame(result, content);
+                        
                         if (content.Equals(SERVER_CLOSE_MESSAGE))
                         {
                             logger_.LogDebug("Server close message received");
@@ -75,14 +82,8 @@ namespace bitprim.insight
                     }
                     else if (result.MessageType == WebSocketMessageType.Close)
                     {
-                        logger_.LogDebug("Messege close received");
+                        LogFrame(result, "Close message");
                         keepListening = false;
-                    }
-
-                    if (keepListening)
-                    {
-                        result = await webSocket.ReceiveAsync(new ArraySegment<byte>(buffer), CancellationToken.None);
-                        LogFrame(result, buffer);
                     }
                 }
 
@@ -117,7 +118,7 @@ namespace bitprim.insight
         public async Task Shutdown()
         {
             Interlocked.Decrement(ref acceptSubscriptions_);
-            foreach(WebSocket ws in subscriptions_.Keys)
+            foreach(var ws in subscriptions_.Keys)
             {
                 try
                 {
@@ -144,24 +145,25 @@ namespace bitprim.insight
         {
             try
             {
-                bool keepRunning = true;
+                var keepRunning = true;
                 while(keepRunning)
                 {
                     //This call blocks on an empty queue
-                    BitprimWebSocketMessage message = await messageQueue_.DequeueAsync();
-                    keepRunning = (message.MessageType != BitprimWebSocketMessageType.SHUTDOWN);
+                    var message = await messageQueue_.DequeueAsync();
+                    keepRunning = message.MessageType != BitprimWebSocketMessageType.SHUTDOWN;
                     if(keepRunning)
                     {
-                        foreach(KeyValuePair<WebSocket, ConcurrentDictionary<string, byte>> ws in subscriptions_)
+                        var buffer = Encoding.UTF8.GetBytes(message.Content);
+                       
+                        foreach(var ws in subscriptions_)
                         {
-                            byte dummy;
-                            if(ws.Value.TryGetValue(message.ChannelName, out dummy))
+                            if(ws.Value.TryGetValue(message.ChannelName, out var dummy))
                             {
                                 try
                                 {
                                     await ws.Key.SendAsync
                                     (
-                                        new ArraySegment<byte>(Encoding.UTF8.GetBytes(message.Content), 0, message.Content.Length),
+                                        new ArraySegment<byte>(buffer, 0, message.Content.Length),
                                         WebSocketMessageType.Text,
                                         true,
                                         CancellationToken.None
@@ -201,24 +203,21 @@ namespace bitprim.insight
             logger_.LogDebug("WebSocket status " + webSocket.State);
 
             logger_.LogInformation("Closing websocket");
-            
-            await webSocket.CloseOutputAsync (WebSocketCloseStatus.EndpointUnavailable, "All subscriptions cancelled", CancellationToken.None);
+            if (WebSocketCanSend(webSocket))
+            {
+                await webSocket.CloseOutputAsync (WebSocketCloseStatus.EndpointUnavailable, "All subscriptions cancelled", CancellationToken.None);
+            }
            
             logger_.LogInformation("Websocket closed");
         }
 
-        private bool RegisterChannel(WebSocket webSocket, string channelName)
+        private void RegisterChannel(WebSocket webSocket, string channelName)
         {
-            // Wait for first subscription to launch publisher worker thread  
-            if(subscriptions_.Count == 0)
-            {
-                Task.Run(PublisherThread);
-            }
             subscriptions_.TryAdd(webSocket, new ConcurrentDictionary<string, byte>());
-            return subscriptions_[webSocket].TryAdd(channelName, 1);
+            subscriptions_[webSocket].TryAdd(channelName, 1);
         }
 
-        private void LogFrame(WebSocketReceiveResult frame, byte[] buffer)
+        private void LogFrame(WebSocketReceiveResult frame, string msgContent)
         {
             var close = frame.CloseStatus != null;
             string message;
@@ -231,7 +230,7 @@ namespace bitprim.insight
                 string content = "<<binary>>";
                 if (frame.MessageType == WebSocketMessageType.Text)
                 {
-                    content = Encoding.UTF8.GetString(buffer, 0, frame.Count);
+                    content = msgContent;
                 }
                 message = $"{frame.MessageType}: Len={frame.Count}, Fin={frame.EndOfMessage}: {content}";
             }
@@ -252,6 +251,13 @@ namespace bitprim.insight
                     }
                 );
             }
+        }
+
+        private static bool WebSocketCanSend(WebSocket ws)
+        {
+            return !(ws.State == WebSocketState.Aborted ||
+                     ws.State == WebSocketState.Closed ||
+                     ws.State == WebSocketState.CloseSent);
         }
     }
 }
