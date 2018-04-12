@@ -22,10 +22,18 @@ namespace bitprim.insight
                     .AddCommandLine(args)
                     .Build();
 
-                var serverPort = config.GetValue<int>("server.port",DEFAULT_PORT);
+                var address = config.GetValue("server.address", IPAddress.Loopback.ToString());
+
+                if (!IPAddress.TryParse(address,out var ip))
+                {
+                    throw new ArgumentException("Error parsing server.address parameter",nameof(address));
+                }
+
+                var serverPort = config.GetValue("server.port",DEFAULT_PORT);
+
                 var host = new WebHostBuilder()
                     .UseKestrel(options => {
-                        options.Listen(IPAddress.Loopback, serverPort);
+                        options.Listen(ip, serverPort);
                     })
                     .UseContentRoot(Directory.GetCurrentDirectory())
                     .UseSerilog()
