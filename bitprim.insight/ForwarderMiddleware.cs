@@ -59,7 +59,7 @@ namespace bitprim.insight
             });
 
             context.Response.StatusCode = (int)ret.StatusCode;
-            context.Response.ContentType = ret.Content.Headers.ContentType.ToString();
+            context.Response.ContentType = ret.Content.Headers.ContentType?.ToString();
             await context.Response.WriteAsync(await ret.Content.ReadAsStringAsync());
         }
 
