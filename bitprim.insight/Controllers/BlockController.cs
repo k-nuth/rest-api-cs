@@ -49,7 +49,7 @@ namespace bitprim.insight.Controllers
             }
             Utils.CheckIfChainIsFresh(chain_, config_.AcceptStaleRequests);
             byte[] binaryHash = Binary.HexStringToByteArray(hash);
-            using(DisposableApiCallResult<GetBlockByHashTxSizeResult> getBlockResult = chain_.GetBlockByHashTxSizes(binaryHash))
+            using(DisposableApiCallResult<GetBlockHeaderByHashTxSizeResult> getBlockResult = chain_.GetBlockHeaderByHashTxSizes(binaryHash))
             {
                 Utils.CheckBitprimApiErrorCode(getBlockResult.ErrorCode, "GetBlockByHashTxSizes(" + hash + ") failed, check error log");
                 ApiCallResult<UInt64> getLastHeightResult = chain_.GetLastHeight();
@@ -264,27 +264,26 @@ namespace bitprim.insight.Controllers
             };
         }
 
-        private static object BlockToJSON(Block block, UInt64 blockHeight, HashList txHashes, byte[] nextBlockHash, UInt64 serializedBlockSize)
+        private static object BlockToJSON(Header blockHeader, UInt64 blockHeight, HashList txHashes, byte[] nextBlockHash, UInt64 serializedBlockSize)
         {
-            Header blockHeader = block.Header;
-            BigInteger proof;
-            BigInteger.TryParse(block.Proof, out proof);
+            //BigInteger proof;
+            //BigInteger.TryParse(blockHeader.Proof, out proof);
             return new
             {
-                hash = Binary.ByteArrayToHexString(block.Hash),
+                hash = Binary.ByteArrayToHexString(blockHeader.Hash),
                 size = serializedBlockSize,
                 height = blockHeight,
                 version = blockHeader.Version,
-                merkleroot = Binary.ByteArrayToHexString(block.MerkleRoot),
+                merkleroot = Binary.ByteArrayToHexString(blockHeader.Merkle),
                 tx = BlockTxsToJSON(txHashes),
                 time = blockHeader.Timestamp,
                 nonce = blockHeader.Nonce,
                 bits = Utils.EncodeInBase16(blockHeader.Bits),
                 difficulty = Utils.BitsToDifficulty(blockHeader.Bits), //TODO Use bitprim API when implemented
-                chainwork = (proof * 2).ToString("X64"), //TODO Does not match Blockdozer value; check how bitpay calculates it
+                //chainwork = (proof * 2).ToString("X64"), //TODO Does not match Blockdozer value; check how bitpay calculates it
                 previousblockhash = Binary.ByteArrayToHexString(blockHeader.PreviousBlockHash),
                 nextblockhash = Binary.ByteArrayToHexString(nextBlockHash),
-                reward = block.GetBlockReward(blockHeight) / 100000000,
+                //reward = blockHeader.GetBlockReward(blockHeight) / 100000000,
                 isMainChain = true, //TODO Check value
                 poolInfo = new{} //TODO Check value
             };
