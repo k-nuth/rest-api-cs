@@ -227,7 +227,7 @@ namespace bitprim.insight.Controllers
             {
                 return new Tuple<bool, string>(false, "to(" + to + ") must be greater than zero");
             }
-            if(to >= from)
+            if(from >= to)
             {
                 return new Tuple<bool, string>(false, "to(" + to +  ") must be greater than from(" + from + ")");
             }
