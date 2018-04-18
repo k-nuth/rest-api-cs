@@ -61,10 +61,15 @@ namespace bitprim.insight.Controllers
                 (
                     getNextBlockResult.ErrorCode, "GetBlockByHeight(" + blockHeight + 1 + ") failed, check error log"
                 );
+                double blockReward = 0;
+                using(DisposableApiCallResult<GetTxDataResult> coinbase = chain_.GetTransaction(getBlockResult.Result.TransactionHashes[0], true))
+                {
+                    blockReward = Utils.SatoshisToBTC(coinbase.Result.Tx.TotalOutputValue);
+                }
                 return Json(BlockToJSON
                 (
-                    getBlockResult.Result.Block.BlockData, blockHeight, getBlockResult.Result.TransactionHashes, getNextBlockResult.Result,
-                    getBlockResult.Result.SerializedBlockSize)
+                    getBlockResult.Result.Block.BlockData, blockHeight, getBlockResult.Result.TransactionHashes,
+                    blockReward, getNextBlockResult.Result, getBlockResult.Result.SerializedBlockSize)
                 );
             }
         }
@@ -264,10 +269,11 @@ namespace bitprim.insight.Controllers
             };
         }
 
-        private static object BlockToJSON(Header blockHeader, UInt64 blockHeight, HashList txHashes, byte[] nextBlockHash, UInt64 serializedBlockSize)
+        private static object BlockToJSON(Header blockHeader, UInt64 blockHeight, HashList txHashes,
+                                          double blockReward, byte[] nextBlockHash, UInt64 serializedBlockSize)
         {
-            //BigInteger proof;
-            //BigInteger.TryParse(blockHeader.Proof, out proof);
+            BigInteger proof;
+            BigInteger.TryParse(blockHeader.ProofString, out proof);
             return new
             {
                 hash = Binary.ByteArrayToHexString(blockHeader.Hash),
@@ -280,10 +286,10 @@ namespace bitprim.insight.Controllers
                 nonce = blockHeader.Nonce,
                 bits = Utils.EncodeInBase16(blockHeader.Bits),
                 difficulty = Utils.BitsToDifficulty(blockHeader.Bits), //TODO Use bitprim API when implemented
-                //chainwork = (proof * 2).ToString("X64"), //TODO Does not match Blockdozer value; check how bitpay calculates it
+                chainwork = (proof * 2).ToString("X64"), //TODO Does not match Blockdozer value; check how bitpay calculates it
                 previousblockhash = Binary.ByteArrayToHexString(blockHeader.PreviousBlockHash),
                 nextblockhash = Binary.ByteArrayToHexString(nextBlockHash),
-                //reward = blockHeader.GetBlockReward(blockHeight) / 100000000,
+                reward = blockReward,
                 isMainChain = true, //TODO Check value
                 poolInfo = new{} //TODO Check value
             };

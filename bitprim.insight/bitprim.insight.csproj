@@ -8,7 +8,7 @@
     <Folder Include="wwwroot\" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="bitprim" Version="0.2.199" />
+    <PackageReference Include="bitprim" Version="0.2.201" />
     <!-- <ProjectReference Include="../../bitprim-cs/bitprim/bitprim.csproj" /> -->
     <PackageReference Include="Microsoft.AspNetCore.All" Version="2.0.6" />
     <PackageReference Include="Polly" Version="5.9.0" />
