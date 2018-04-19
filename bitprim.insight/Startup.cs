@@ -8,6 +8,8 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Serilog;
 using Swashbuckle.AspNetCore.Swagger;
+using System.Globalization;
+using Serilog.Events;
 
 namespace bitprim.insight
 {
@@ -28,6 +30,7 @@ namespace bitprim.insight
                 .AddJsonFile($"appsettings.{env.EnvironmentName}.json", optional: true)
                 .AddEnvironmentVariables();
             Configuration = builder.Build();
+            ConfigureLogging();
             nodeConfig_ = Configuration.Get<NodeConfig>();
         }
 
@@ -104,6 +107,16 @@ namespace bitprim.insight
             }
             
             app.UseMvc();
+        }
+
+        private void ConfigureLogging()
+        {
+            var timeZone = DateTimeOffset.Now.ToString("%K").Replace(CultureInfo.CurrentCulture.DateTimeFormat.TimeSeparator, "");
+            Log.Logger = new LoggerConfiguration()
+                .ReadFrom.Configuration(Configuration)
+                .Enrich.WithProperty(LogPropertyNames.TIME_ZONE, timeZone)
+                .MinimumLevel.Override("Microsoft", LogEventLevel.Information)
+                .CreateLogger();
         }
 
         private void ConfigureWebSockets(IApplicationBuilder app)
