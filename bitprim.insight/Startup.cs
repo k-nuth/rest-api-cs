@@ -115,7 +115,6 @@ namespace bitprim.insight
             Log.Logger = new LoggerConfiguration()
                 .ReadFrom.Configuration(Configuration)
                 .Enrich.WithProperty(LogPropertyNames.TIME_ZONE, timeZone)
-                .MinimumLevel.Override("Microsoft", LogEventLevel.Information)
                 .CreateLogger();
         }
 
