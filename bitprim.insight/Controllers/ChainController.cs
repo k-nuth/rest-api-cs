@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Dynamic;
+using System.Threading.Tasks;
 using Bitprim;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
@@ -25,13 +26,15 @@ namespace bitprim.insight.Controllers
         }
 
         [HttpGet("/api/sync")]
-        public ActionResult GetSyncStatus()
+        public async Task<ActionResult> GetSyncStatus()
         {
             //TODO Try a more reliable way to know network max height (i.e. ask another node, or some service)
-            ApiCallResult<UInt64> getLastHeightResult = chain_.GetLastHeight();
+            var getLastHeightResult = await chain_.FetchLastHeightAsync();
             Utils.CheckBitprimApiErrorCode(getLastHeightResult.ErrorCode, "GetLastHeight() failed");
-            UInt64 currentHeight = getLastHeightResult.Result;
-            bool synced = currentHeight >= config_.BlockchainHeight;
+            
+            var currentHeight = getLastHeightResult.Result;
+            var synced = currentHeight >= config_.BlockchainHeight;
+            
             dynamic syncStatus = new ExpandoObject();
             syncStatus.status = synced? "finished" : "synchronizing";
             syncStatus.blockChainHeight = config_.BlockchainHeight;
@@ -42,28 +45,23 @@ namespace bitprim.insight.Controllers
         }
 
         [HttpGet("/api/status")]
-        public ActionResult GetStatus(string method)
+        public async Task<ActionResult> GetStatus(string method)
         {
-            if(method == GET_DIFFICULTY)
+            switch (method)
             {
-                return GetDifficulty();
+                case GET_DIFFICULTY:
+                    return await GetDifficulty();
+                case GET_BEST_BLOCK_HASH:
+                    return await GetBestBlockHash();
+                case GET_LAST_BLOCK_HASH:
+                    return await GetLastBlockHash();
             }
-            else if(method == GET_BEST_BLOCK_HASH)
-            {
-                return GetBestBlockHash();
-            }
-            else if(method == GET_LAST_BLOCK_HASH)
-            {
-                return GetLastBlockHash();
-            }
-            else
-            {
-                return GetInfo();
-            }   
+
+            return await GetInfo();
         }
 
         [HttpGet("/api/utils/estimatefee")]
-        public ActionResult GetEstimateFee([FromQuery] int? nbBlocks = 2)
+        public ActionResult GetEstimateFee([FromQuery] int nbBlocks = 2)
         {
             var estimateFee = new ExpandoObject() as IDictionary<string, Object>;
             //TODO Check which algorithm to use (see bitcoin-abc's median, at src/policy/fees.cpp for an example)
@@ -84,9 +82,9 @@ namespace bitprim.insight.Controllers
             });
         }
 
-        private ActionResult GetDifficulty()
+        private async Task<ActionResult> GetDifficulty()
         {
-            using(DisposableApiCallResult<GetBlockDataResult<Block>> getLastBlockResult = GetLastBlock())
+            using(var getLastBlockResult = await GetLastBlock())
             {
                 return Json
                 (
@@ -98,9 +96,9 @@ namespace bitprim.insight.Controllers
             }
         }
 
-        private ActionResult GetBestBlockHash()
+        private async Task<ActionResult> GetBestBlockHash()
         {
-            using(DisposableApiCallResult<GetBlockDataResult<Block>> getLastBlockResult = GetLastBlock())
+            using(var getLastBlockResult = await GetLastBlock())
             {
                 return Json
                 (
@@ -112,11 +110,11 @@ namespace bitprim.insight.Controllers
             }
         }
 
-        private ActionResult GetLastBlockHash()
+        private async Task<ActionResult> GetLastBlockHash()
         {
-            using(DisposableApiCallResult<GetBlockDataResult<Block>> getLastBlockResult = GetLastBlock())
+            using(var getLastBlockResult = await GetLastBlock())
             {
-                string hashHexString = Binary.ByteArrayToHexString(getLastBlockResult.Result.BlockData.Hash); 
+                var hashHexString = Binary.ByteArrayToHexString(getLastBlockResult.Result.BlockData.Hash); 
                 return Json
                 (
                     new
@@ -128,9 +126,9 @@ namespace bitprim.insight.Controllers
             }
         }
 
-        private ActionResult GetInfo()
+        private async Task<ActionResult> GetInfo()
         {
-            using(DisposableApiCallResult<GetBlockDataResult<Block>> getLastBlockResult = GetLastBlock())
+            using(var getLastBlockResult = await GetLastBlock())
             {
                 return Json
                 (
@@ -155,15 +153,16 @@ namespace bitprim.insight.Controllers
             }
         }
 
-        private DisposableApiCallResult<GetBlockDataResult<Block>> GetLastBlock()
+        private async Task<DisposableApiCallResult<GetBlockDataResult<Block>>> GetLastBlock()
         {
-            ApiCallResult<UInt64> getLastHeightResult = chain_.GetLastHeight();
-            Utils.CheckBitprimApiErrorCode(getLastHeightResult.ErrorCode, "GetLastHeight() failed");
-            UInt64 currentHeight = getLastHeightResult.Result;
-            DisposableApiCallResult<GetBlockDataResult<Block>> getBlockResult = chain_.GetBlockByHeight(currentHeight);
-            Utils.CheckBitprimApiErrorCode(getBlockResult.ErrorCode, "GetBlockByHeight(" + currentHeight + ") failed");
+            var getLastHeightResult = await chain_.FetchLastHeightAsync();
+            Utils.CheckBitprimApiErrorCode(getLastHeightResult.ErrorCode, "FetchLastHeightAsync() failed");
+            
+            var currentHeight = getLastHeightResult.Result;
+            var getBlockResult = await chain_.FetchBlockByHeightAsync(currentHeight);
+            Utils.CheckBitprimApiErrorCode(getBlockResult.ErrorCode, "FetchBlockByHeightAsync(" + currentHeight + ") failed");
+
             return getBlockResult;
         }
-
     }
 }
