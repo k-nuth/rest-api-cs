@@ -9,7 +9,6 @@ using Microsoft.Extensions.Options;
 using Serilog;
 using Swashbuckle.AspNetCore.Swagger;
 using System.Globalization;
-using Serilog.Events;
 
 namespace bitprim.insight
 {
@@ -44,7 +43,16 @@ namespace bitprim.insight
             // Add our Config object so it can be injected
             services.Configure<NodeConfig>(Configuration);
             // Add framework services.
-            services.AddMvc();
+            services.AddMvcCore(opt =>
+                {
+                    opt.RespectBrowserAcceptHeader = true;
+                })
+            .AddApiExplorer()
+            .AddFormatterMappings()
+            .AddJsonFormatters()
+            .AddCors();
+           
+            
             ConfigureCors(services);
             // Register the Swagger generator, defining one or more Swagger documents  
             services.AddSwaggerGen(c =>  

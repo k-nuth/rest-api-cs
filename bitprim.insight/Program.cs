@@ -1,11 +1,9 @@
 ﻿using System;
-using System.Globalization;
 using System.IO;
 using System.Net;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Serilog;
-using Serilog.Events;
 
 namespace bitprim.insight
 {
