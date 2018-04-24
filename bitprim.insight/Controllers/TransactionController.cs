@@ -240,27 +240,28 @@ namespace bitprim.insight.Controllers
             using(var getBlockHeaderResult = await chain_.FetchBlockHeaderByHeightAsync(blockHeight))
             {
                 Utils.CheckBitprimApiErrorCode(getBlockHeaderResult.ErrorCode, "FetchBlockHeaderByHeightAsync(" + blockHeight + ") failed, check error log");
-                
-                var blockHeader = getBlockHeaderResult.Result.BlockData;
-                var getLastHeightResult = await chain_.FetchLastHeightAsync();
-                Utils.CheckBitprimApiErrorCode(getLastHeightResult.ErrorCode, "FetchLastHeightAsync failed, check error log");
-                
-                return new
+                Header blockHeader = getBlockHeaderResult.Result.BlockData;
+                ApiCallResult<UInt64> getLastHeightResult = await chain_.FetchLastHeightAsync();
+                Utils.CheckBitprimApiErrorCode(getLastHeightResult.ErrorCode, "GetLastHeight failed, check error log");
+                dynamic txJson = new ExpandoObject();
+                txJson.txid = Binary.ByteArrayToHexString(tx.Hash);
+                txJson.version = tx.Version;
+                txJson.locktime = tx.Locktime;
+                txJson.vin = TxInputsToJSON(tx, noAsm, noScriptSig);
+                txJson.vout = TxOutputsToJSON(tx, noAsm, noSpend);
+                txJson.blockhash = Binary.ByteArrayToHexString(blockHeader.Hash);
+                txJson.blockheight = blockHeight;
+                txJson.confirmations = getLastHeightResult.Result - blockHeight + 1;
+                txJson.time = blockHeader.Timestamp;
+                txJson.blocktime = blockHeader.Timestamp;
+                txJson.isCoinBase = tx.IsCoinbase;
+                txJson.valueOut = Utils.SatoshisToCoinUnits(tx.TotalOutputValue);
+                txJson.size = tx.GetSerializedSize();
+                if ( !tx.IsCoinbase && ! nodeExecutor_.UseTestnetRules )
                 {
-                    txid = Binary.ByteArrayToHexString(tx.Hash),
-                    version = tx.Version,
-                    locktime = tx.Locktime,
-                    vin = await TxInputsToJSON(tx, noAsm, noScriptSig),
-                    vout = await TxOutputsToJSON(tx, noAsm, noSpend),
-                    blockhash = Binary.ByteArrayToHexString(blockHeader.Hash),
-                    blockheight = blockHeight,
-                    confirmations = getLastHeightResult.Result - blockHeight + 1,
-                    time = blockHeader.Timestamp,
-                    blocktime = blockHeader.Timestamp,
-                    isCoinBase = tx.IsCoinbase,
-                    valueOut = Utils.SatoshisToBTC(tx.TotalOutputValue),
-                    size = tx.GetSerializedSize()
-                };
+                    txJson.fees = Utils.SatoshisToCoinUnits(tx.Fees);
+                }
+                return txJson;
             }
         }
 
@@ -306,7 +307,7 @@ namespace bitprim.insight.Controllers
                 var output = getTxResult.Result.Tx.Outputs[(int)previousOutput.Index];
                 jsonInput.addr =  output.PaymentAddress(nodeExecutor_.UseTestnetRules).Encoded;
                 jsonInput.valueSat = output.Value;
-                jsonInput.value = Utils.SatoshisToBTC(output.Value);
+                jsonInput.value = Utils.SatoshisToCoinUnits(output.Value);
                 jsonInput.doubleSpentTxID = null; //We don't handle double spent transactions
             }
         }
@@ -332,7 +333,7 @@ namespace bitprim.insight.Controllers
             {
                 var output = outputs[i];
                 dynamic jsonOutput = new ExpandoObject();
-                jsonOutput.value = Utils.SatoshisToBTC(output.Value);
+                jsonOutput.value = Utils.SatoshisToCoinUnits(output.Value);
                 jsonOutput.n = i;
                 jsonOutput.scriptPubKey = OutputScriptToJSON(output, noAsm);
                 if(!noSpend)
