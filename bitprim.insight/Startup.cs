@@ -52,7 +52,6 @@ namespace bitprim.insight
             .AddJsonFormatters()
             .AddCors();
            
-            
             ConfigureCors(services);
             // Register the Swagger generator, defining one or more Swagger documents  
             services.AddSwaggerGen(c =>  
@@ -60,6 +59,7 @@ namespace bitprim.insight
                 c.SwaggerDoc("v1", new Info { Title = "bitprim", Version = "v1" });  
             });
 
+            services.AddMemoryCache();
 
             var serviceProvider = services.BuildServiceProvider();
 
@@ -68,26 +68,7 @@ namespace bitprim.insight
 
             services.AddSingleton<WebSocketHandler>(webSocketHandler_);
 
-            if (nodeConfig_.InitializeNode)
-            {
-                Log.Information("Initializing full node mode");
-                StartBitprimNode(services);
-            }
-            else
-            {
-                if (string.IsNullOrWhiteSpace(nodeConfig_.ForwardUrl))
-                {
-                    throw new ApplicationException("You must configure the ForwardUrl setting");
-                }
-
-                Log.Information("Initializing forwarder mode");
-                Log.Information("Forward Url " + nodeConfig_.ForwardUrl);
-                
-                webSocketForwarderClient_ = new WebSocketForwarderClient(
-                    serviceProvider.GetService<IOptions<NodeConfig>>(),
-                    serviceProvider.GetService<ILogger<WebSocketForwarderClient>>(), webSocketHandler_);
-               _ = webSocketForwarderClient_.Init();
-            }
+            StartNode(services, serviceProvider);
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
@@ -153,7 +134,31 @@ namespace bitprim.insight
             }));
         }
 
-        private void StartBitprimNode(IServiceCollection services)
+        private void StartNode(IServiceCollection services, ServiceProvider serviceProvider)
+        {
+            if (nodeConfig_.InitializeNode)
+            {
+                Log.Information("Initializing full node mode");
+                StartFullNode(services);
+            }
+            else
+            {
+                if (string.IsNullOrWhiteSpace(nodeConfig_.ForwardUrl))
+                {
+                    throw new ApplicationException("You must configure the ForwardUrl setting");
+                }
+
+                Log.Information("Initializing forwarder mode");
+                Log.Information("Forward Url " + nodeConfig_.ForwardUrl);
+                
+                webSocketForwarderClient_ = new WebSocketForwarderClient(
+                    serviceProvider.GetService<IOptions<NodeConfig>>(),
+                    serviceProvider.GetService<ILogger<WebSocketForwarderClient>>(), webSocketHandler_);
+               _ = webSocketForwarderClient_.Init();
+            }
+        }
+
+        private void StartFullNode(IServiceCollection services)
         {
             // Initialize and register chain service
          

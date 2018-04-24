@@ -5,6 +5,7 @@ using System.Numerics;
 using System.Threading.Tasks;
 using Bitprim;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Options;
 using Newtonsoft.Json;
 
@@ -14,14 +15,16 @@ namespace bitprim.insight.Controllers
     public class BlockController : Controller
     {
         private Chain chain_;
+        private IMemoryCache memoryCache_;
         private readonly WebSocketHandler webSocketHandler_;
         private readonly NodeConfig config_;
 
-        public BlockController(IOptions<NodeConfig> config, Chain chain, WebSocketHandler webSocketHandler)
+        public BlockController(IOptions<NodeConfig> config, Chain chain, WebSocketHandler webSocketHandler, IMemoryCache memoryCache)
         {
             config_ = config.Value;
             chain_ = chain;
             webSocketHandler_ = webSocketHandler;
+            memoryCache_ = memoryCache;
         }
 
       
@@ -51,6 +54,12 @@ namespace bitprim.insight.Controllers
             }
 
             Utils.CheckIfChainIsFresh(chain_, config_.AcceptStaleRequests);
+
+            JsonResult cachedBlockJson;
+            if(memoryCache_.TryGetValue("block" + hash, out cachedBlockJson))
+            {
+                return cachedBlockJson;
+            };
             
             var binaryHash = Binary.HexStringToByteArray(hash);
             
@@ -71,12 +80,13 @@ namespace bitprim.insight.Controllers
                 {
                     blockReward = Utils.SatoshisToBTC(coinbase.Result.Tx.TotalOutputValue);
                 }
-                
-                return Json(BlockToJSON
+                JsonResult blockJson = Json(BlockToJSON
                 (
                     getBlockResult.Result.Block.BlockData, blockHeight, getBlockResult.Result.TransactionHashes,
                     blockReward, getNextBlockResult.Result.BlockHash, getBlockResult.Result.SerializedBlockSize)
                 );
+                memoryCache_.Set("block" + hash, cachedBlockJson);
+                return blockJson;
             }
         }
 
