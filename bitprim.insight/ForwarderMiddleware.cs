@@ -18,7 +18,6 @@ namespace bitprim.insight
         private readonly ILogger<ForwarderMiddleware> logger_;
         private static readonly HttpClient client = new HttpClient();
 
-        private const int REQUEST_SECONDS_TIMEOUT = 5;
         private const int MAX_RETRIES = 3;
         private const int SEED_DELAY = 100;
         private const int MAX_DELAY = 2;
@@ -32,7 +31,7 @@ namespace bitprim.insight
             next_ = next ?? throw new ArgumentNullException(nameof(next));
             logger_ = logger;
             client.BaseAddress = new Uri(config.Value.ForwardUrl);
-            client.Timeout = TimeSpan.FromSeconds(REQUEST_SECONDS_TIMEOUT);
+            client.Timeout = TimeSpan.FromSeconds(config.Value.WebSocketTimeoutInSeconds);
         }
 
         public async Task Invoke(HttpContext context)

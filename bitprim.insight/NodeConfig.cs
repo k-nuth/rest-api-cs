@@ -8,6 +8,7 @@ namespace bitprim.insight
         public bool StartDatabaseFromScratch { get; set; }
         public int MaxBlockSummarySize { get; set; }
         public int TransactionsByAddressPageSize { get; set; }
+        public int WebSocketTimeoutInSeconds { get; set; }
         public string DateInputFormat { get; set; }
         public string NodeConfigFile { get; set; }
         public string NodeType { get; set; }

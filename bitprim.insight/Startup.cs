@@ -8,6 +8,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Serilog;
 using Swashbuckle.AspNetCore.Swagger;
+using System.Globalization;
 
 namespace bitprim.insight
 {
@@ -28,6 +29,7 @@ namespace bitprim.insight
                 .AddJsonFile($"appsettings.{env.EnvironmentName}.json", optional: true)
                 .AddEnvironmentVariables();
             Configuration = builder.Build();
+            ConfigureLogging();
             nodeConfig_ = Configuration.Get<NodeConfig>();
         }
 
@@ -41,7 +43,16 @@ namespace bitprim.insight
             // Add our Config object so it can be injected
             services.Configure<NodeConfig>(Configuration);
             // Add framework services.
-            services.AddMvc();
+            services.AddMvcCore(opt =>
+                {
+                    opt.RespectBrowserAcceptHeader = true;
+                })
+            .AddApiExplorer()
+            .AddFormatterMappings()
+            .AddJsonFormatters()
+            .AddCors();
+           
+            
             ConfigureCors(services);
             // Register the Swagger generator, defining one or more Swagger documents  
             services.AddSwaggerGen(c =>  
@@ -104,6 +115,15 @@ namespace bitprim.insight
             }
             
             app.UseMvc();
+        }
+
+        private void ConfigureLogging()
+        {
+            var timeZone = DateTimeOffset.Now.ToString("%K").Replace(CultureInfo.CurrentCulture.DateTimeFormat.TimeSeparator, "");
+            Log.Logger = new LoggerConfiguration()
+                .ReadFrom.Configuration(Configuration)
+                .Enrich.WithProperty(LogPropertyNames.TIME_ZONE, timeZone)
+                .CreateLogger();
         }
 
         private void ConfigureWebSockets(IApplicationBuilder app)
