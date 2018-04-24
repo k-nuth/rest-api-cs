@@ -64,7 +64,7 @@ namespace bitprim.insight.Controllers
                 double blockReward = 0;
                 using(DisposableApiCallResult<GetTxDataResult> coinbase = chain_.GetTransaction(getBlockResult.Result.TransactionHashes[0], true))
                 {
-                    blockReward = Utils.SatoshisToBTC(coinbase.Result.Tx.TotalOutputValue);
+                    blockReward = Utils.SatoshisToCoinUnits(coinbase.Result.Tx.TotalOutputValue);
                 }
                 return Json(BlockToJSON
                 (

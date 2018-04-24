@@ -41,7 +41,7 @@ namespace bitprim.insight
                 {
                     eventname = "tx",
                     txid = Binary.ByteArrayToHexString(newTransaction.Hash),
-                    valueOut = Utils.SatoshisToBTC(newTransaction.TotalOutputValue)
+                    valueOut = Utils.SatoshisToCoinUnits(newTransaction.TotalOutputValue)
                 };
                 var task = webSocketHandler_.PublishTransaction(JsonConvert.SerializeObject(tx));
                 task.Wait();
