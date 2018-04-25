@@ -247,8 +247,8 @@ namespace bitprim.insight.Controllers
                 txJson.txid = Binary.ByteArrayToHexString(tx.Hash);
                 txJson.version = tx.Version;
                 txJson.locktime = tx.Locktime;
-                txJson.vin = TxInputsToJSON(tx, noAsm, noScriptSig);
-                txJson.vout = TxOutputsToJSON(tx, noAsm, noSpend);
+                txJson.vin = await TxInputsToJSON(tx, noAsm, noScriptSig);
+                txJson.vout = await TxOutputsToJSON(tx, noAsm, noSpend);
                 txJson.blockhash = Binary.ByteArrayToHexString(blockHeader.Hash);
                 txJson.blockheight = blockHeight;
                 txJson.confirmations = getLastHeightResult.Result - blockHeight + 1;
