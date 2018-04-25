@@ -39,7 +39,7 @@ namespace bitprim.insight.Controllers
             using(var getTxResult = await chain_.FetchTransactionAsync(binaryHash, requireConfirmed))
             {
                 Utils.CheckBitprimApiErrorCode(getTxResult.ErrorCode, "FetchTransactionAsync(" + hash + ") failed, check error log");
-                return Json(TxToJSON
+                return Json(await TxToJSON
                 (
                     getTxResult.Result.Tx, getTxResult.Result.TxPosition.BlockHeight, noAsm: false, noScriptSig: false, noSpend: false)
                 );
