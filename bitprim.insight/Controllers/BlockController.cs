@@ -326,7 +326,7 @@ namespace bitprim.insight.Controllers
         private static object[] BlockTxsToJSON(HashList txHashes)
         {
             var txs = new List<object>();
-            for(int i = 0; i<txHashes.Count; i++)
+            for(uint i = 0; i<txHashes.Count; i++)
             {
                 txs.Add(Binary.ByteArrayToHexString(txHashes[i]));
             }

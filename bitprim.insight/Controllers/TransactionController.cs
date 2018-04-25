@@ -70,7 +70,7 @@ namespace bitprim.insight.Controllers
 
         // GET: api/txs/?block=HASH
         [HttpGet("/api/txs")]
-        public async Task<ActionResult> GetTransactions(string block = null, string address = null, UInt64 pageNum = 0)
+        public async Task<ActionResult> GetTransactions(string block = null, string address = null, uint pageNum = 0)
         {
             if(block == null && address == null)
             {
@@ -187,7 +187,7 @@ namespace bitprim.insight.Controllers
             }
         }
 
-        private async Task<ActionResult> GetTransactionsByAddress(string address, UInt64 pageNum)
+        private async Task<ActionResult> GetTransactionsByAddress(string address, uint pageNum)
         {
             var txsByAddress = await GetTransactionsBySingleAddress(address, true, pageNum, true, true, true);
             
@@ -208,7 +208,7 @@ namespace bitprim.insight.Controllers
             });
         }
 
-        private async Task<Tuple<List<object>, UInt64>> GetTransactionsBySingleAddress(string paymentAddress, bool pageResults, UInt64 pageNum,bool noAsm, bool noScriptSig, bool noSpend)
+        private async Task<Tuple<List<object>, UInt64>> GetTransactionsBySingleAddress(string paymentAddress, bool pageResults, uint pageNum,bool noAsm, bool noScriptSig, bool noSpend)
         {
             Utils.CheckIfChainIsFresh(chain_, config_.AcceptStaleRequests);
 
@@ -219,11 +219,11 @@ namespace bitprim.insight.Controllers
                 
                 var history = getAddressHistoryResult.Result;
                 var txs = new List<object>();
-                var pageSize = pageResults? (UInt64) config_.TransactionsByAddressPageSize : history.Count;
+                var pageSize = pageResults? (uint) config_.TransactionsByAddressPageSize : history.Count;
                 
-                for(UInt64 i=0; i<pageSize && (pageNum * pageSize + i < history.Count); i++)
+                for(uint i=0; i<pageSize && (pageNum * pageSize + i < history.Count); i++)
                 {
-                    var compact = history[(int)(pageNum * pageSize + i)];
+                    var compact = history[(pageNum * pageSize + i)];
                     using(var getTxResult = await chain_.FetchTransactionAsync(compact.Point.Hash, true))
                     {
                         Utils.CheckBitprimApiErrorCode(getTxResult.ErrorCode, "GetTransaction(" + Binary.ByteArrayToHexString(compact.Point.Hash) + ") failed, check error log");
@@ -268,7 +268,7 @@ namespace bitprim.insight.Controllers
         {
             var inputs = tx.Inputs;
             var jsonInputs = new List<object>();
-            for(var i=0; i<inputs.Count; i++)
+            for(uint i=0; i<inputs.Count; i++)
             {
                 var input = inputs[i];
                 
@@ -303,7 +303,7 @@ namespace bitprim.insight.Controllers
             {
                 Utils.CheckBitprimApiErrorCode(getTxResult.ErrorCode, "FetchTransactionAsync(" + Binary.ByteArrayToHexString(previousOutput.Hash) + ") failed, check errog log");
                 
-                var output = getTxResult.Result.Tx.Outputs[(int)previousOutput.Index];
+                var output = getTxResult.Result.Tx.Outputs[previousOutput.Index];
                 jsonInput.addr =  output.PaymentAddress(nodeExecutor_.UseTestnetRules).Encoded;
                 jsonInput.valueSat = output.Value;
                 jsonInput.value = Utils.SatoshisToBTC(output.Value);
@@ -328,7 +328,7 @@ namespace bitprim.insight.Controllers
         {
             var outputs = tx.Outputs;
             var jsonOutputs = new List<object>();
-            for(var i=0; i<outputs.Count; i++)
+            for(uint i=0; i<outputs.Count; i++)
             {
                 var output = outputs[i];
                 dynamic jsonOutput = new ExpandoObject();

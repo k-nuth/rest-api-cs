@@ -175,7 +175,7 @@ namespace bitprim.insight.Controllers
                 address = paymentAddress,
                 txid = Binary.ByteArrayToHexString(outputPoint.Hash),
                 vout = outputPoint.Index,
-                scriptPubKey = getTxEc == ErrorCode.Success? tx.Outputs[(int)outputPoint.Index].Script.ToData(false) : null,
+                scriptPubKey = getTxEc == ErrorCode.Success? tx.Outputs[outputPoint.Index].Script.ToData(false) : null,
                 amount = Utils.SatoshisToBTC(compact.ValueOrChecksum),
                 satoshis = compact.ValueOrChecksum,
                 height = compact.Height,
