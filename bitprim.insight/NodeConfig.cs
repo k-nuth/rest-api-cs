@@ -6,7 +6,9 @@ namespace bitprim.insight
     {
         public bool AcceptStaleRequests { get; set; }
         public bool StartDatabaseFromScratch { get; set; }
+        public int LongResponseCacheDurationInSeconds { get; set; }
         public int MaxBlockSummarySize { get; set; }
+        public int ShortResponseCacheDurationInSeconds { get; set; }
         public int TransactionsByAddressPageSize { get; set; }
         public int WebSocketTimeoutInSeconds { get; set; }
         public string DateInputFormat { get; set; }

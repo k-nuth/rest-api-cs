@@ -9,6 +9,7 @@ using Microsoft.Extensions.Options;
 using Serilog;
 using Swashbuckle.AspNetCore.Swagger;
 using System.Globalization;
+using Microsoft.AspNetCore.Mvc;
 
 namespace bitprim.insight
 {
@@ -43,14 +44,7 @@ namespace bitprim.insight
             // Add our Config object so it can be injected
             services.Configure<NodeConfig>(Configuration);
             // Add framework services.
-            services.AddMvcCore(opt =>
-                {
-                    opt.RespectBrowserAcceptHeader = true;
-                })
-            .AddApiExplorer()
-            .AddFormatterMappings()
-            .AddJsonFormatters()
-            .AddCors();
+            ConfigureFrameworkServices(services);
            
             ConfigureCors(services);
             // Register the Swagger generator, defining one or more Swagger documents  
@@ -96,6 +90,28 @@ namespace bitprim.insight
             }
             
             app.UseMvc();
+        }
+
+        private void ConfigureFrameworkServices(IServiceCollection services)
+        {
+            services.AddMvcCore(opt =>
+                {
+                    opt.CacheProfiles.Add(Constants.SHORT_CACHE_PROFILE_NAME,
+                        new CacheProfile()
+                        {
+                            Duration = nodeConfig_.ShortResponseCacheDurationInSeconds
+                        });
+                    opt.CacheProfiles.Add(Constants.LONG_CACHE_PROFILE_NAME,
+                        new CacheProfile()
+                        {
+                            Duration = nodeConfig_.LongResponseCacheDurationInSeconds
+                        });
+                    opt.RespectBrowserAcceptHeader = true;
+                })
+            .AddApiExplorer()
+            .AddFormatterMappings()
+            .AddJsonFormatters()
+            .AddCors();
         }
 
         private void ConfigureLogging()

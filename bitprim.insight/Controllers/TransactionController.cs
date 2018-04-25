@@ -25,6 +25,7 @@ namespace bitprim.insight.Controllers
         }
 
         // GET: api/tx/{hash}
+        [ResponseCache(CacheProfileName = Constants.LONG_CACHE_PROFILE_NAME)]
         [HttpGet("/api/tx/{hash}")]
         public async Task<ActionResult> GetTransactionByHash(string hash, bool requireConfirmed)
         {
@@ -39,7 +40,7 @@ namespace bitprim.insight.Controllers
             using(var getTxResult = await chain_.FetchTransactionAsync(binaryHash, requireConfirmed))
             {
                 Utils.CheckBitprimApiErrorCode(getTxResult.ErrorCode, "FetchTransactionAsync(" + hash + ") failed, check error log");
-                return Json(TxToJSON
+                return Json(await TxToJSON
                 (
                     getTxResult.Result.Tx, getTxResult.Result.TxPosition.BlockHeight, noAsm: false, noScriptSig: false, noSpend: false)
                 );
@@ -47,6 +48,7 @@ namespace bitprim.insight.Controllers
         }
 
         // GET: api/rawtx/{hash}
+        [ResponseCache(CacheProfileName = Constants.LONG_CACHE_PROFILE_NAME)]
         [HttpGet("/api/rawtx/{hash}")]
         public async Task<ActionResult> GetRawTransactionByHash(string hash)
         {
@@ -69,6 +71,7 @@ namespace bitprim.insight.Controllers
         }
 
         // GET: api/txs/?block=HASH
+        [ResponseCache(CacheProfileName = Constants.SHORT_CACHE_PROFILE_NAME)]
         [HttpGet("/api/txs")]
         public async Task<ActionResult> GetTransactions(string block = null, string address = null, UInt64 pageNum = 0)
         {

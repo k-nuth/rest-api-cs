@@ -30,6 +30,7 @@ namespace bitprim.insight.Controllers
         }
 
         // GET: api/addr/{paymentAddress}
+        [ResponseCache(CacheProfileName = Constants.SHORT_CACHE_PROFILE_NAME)]
         [HttpGet("/api/addr/{paymentAddress}")]
         public async Task<ActionResult> GetAddressHistory(string paymentAddress, bool noTxList = false, int from = 0, int? to = null)
         {
@@ -102,6 +103,7 @@ namespace bitprim.insight.Controllers
         }
 
         // GET: api/addr/{paymentAddress}/utxo
+        [ResponseCache(CacheProfileName = Constants.SHORT_CACHE_PROFILE_NAME)]
         [HttpGet("/api/addr/{paymentAddress}/utxo")]
         public async Task<ActionResult> GetUtxoForSingleAddress(string paymentAddress)
         {
@@ -109,6 +111,7 @@ namespace bitprim.insight.Controllers
             return Json(utxo.ToArray());
         }
 
+        [ResponseCache(CacheProfileName = Constants.SHORT_CACHE_PROFILE_NAME)]
         [HttpGet("/api/addrs/{paymentAddresses}/utxo")]
         public async Task<ActionResult> GetUtxoForMultipleAddresses(string paymentAddresses)
         {

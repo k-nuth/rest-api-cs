@@ -45,6 +45,7 @@ namespace bitprim.insight.Controllers
         
 
         // GET: api/block/{hash}
+        [ResponseCache(CacheProfileName = Constants.SHORT_CACHE_PROFILE_NAME)]
         [HttpGet("/api/block/{hash}")]
         public async Task<ActionResult> GetBlockByHash(string hash)
         {
@@ -91,6 +92,7 @@ namespace bitprim.insight.Controllers
         }
 
         // GET: api/block-index/{height}
+        [ResponseCache(CacheProfileName = Constants.SHORT_CACHE_PROFILE_NAME)]
         [HttpGet("/api/block-index/{height}")]
         public async Task<ActionResult> GetBlockByHeight(UInt64 height)
         {
@@ -109,6 +111,7 @@ namespace bitprim.insight.Controllers
         }
 
         // GET: api/rawblock/{hash}
+        [ResponseCache(CacheProfileName = Constants.LONG_CACHE_PROFILE_NAME)]
         [HttpGet("/api/rawblock/{hash}")]
         public async Task<ActionResult> GetRawBlockByHash(string hash)
         {
@@ -132,6 +135,7 @@ namespace bitprim.insight.Controllers
         }
 
         // GET: api/rawblock-index/{height}
+        [ResponseCache(CacheProfileName = Constants.SHORT_CACHE_PROFILE_NAME)]
         [HttpGet("/api/rawblock-index/{height}")]
         public async Task<ActionResult> GetRawBlockByHeight(UInt64 height)
         {
@@ -153,6 +157,7 @@ namespace bitprim.insight.Controllers
         }
 
         // GET: api/blocks/?limit={limit}&blockDate={blockDate}
+        [ResponseCache(CacheProfileName = Constants.SHORT_CACHE_PROFILE_NAME)]
         [HttpGet("/api/blocks/")]
         public async Task<ActionResult> GetBlocksByDate(int limit = 200, string blockDate = "")
         {
