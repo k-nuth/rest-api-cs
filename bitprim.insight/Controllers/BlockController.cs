@@ -69,7 +69,7 @@ namespace bitprim.insight.Controllers
                 double blockReward;
                 using(var coinbase = await chain_.FetchTransactionAsync(getBlockResult.Result.TransactionHashes[0], true))
                 {
-                    blockReward = Utils.SatoshisToBTC(coinbase.Result.Tx.TotalOutputValue);
+                    blockReward = Utils.SatoshisToCoinUnits(coinbase.Result.Tx.TotalOutputValue);
                 }
                 
                 return Json(BlockToJSON
