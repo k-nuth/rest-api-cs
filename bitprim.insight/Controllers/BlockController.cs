@@ -75,7 +75,8 @@ namespace bitprim.insight.Controllers
                 return Json(BlockToJSON
                 (
                     getBlockResult.Result.Block.BlockData, blockHeight, getBlockResult.Result.TransactionHashes,
-                    blockReward, getNextBlockResult.Result.BlockHash, getBlockResult.Result.SerializedBlockSize)
+                    blockReward, getLastHeightResult.Result, getNextBlockResult.Result.BlockHash,
+                    getBlockResult.Result.SerializedBlockSize)
                 );
             }
         }
@@ -299,7 +300,8 @@ namespace bitprim.insight.Controllers
         }
 
         private static object BlockToJSON(Header blockHeader, UInt64 blockHeight, HashList txHashes,
-                                          double blockReward, byte[] nextBlockHash, UInt64 serializedBlockSize)
+                                          double blockReward, UInt64 currentHeight, byte[] nextBlockHash,
+                                          UInt64 serializedBlockSize)
         {
             BigInteger.TryParse(blockHeader.ProofString, out var proof);
             return new
@@ -315,6 +317,7 @@ namespace bitprim.insight.Controllers
                 bits = Utils.EncodeInBase16(blockHeader.Bits),
                 difficulty = Utils.BitsToDifficulty(blockHeader.Bits), //TODO Use bitprim API when implemented
                 chainwork = (proof * 2).ToString("X64"), //TODO Does not match Blockdozer value; check how bitpay calculates it
+                confirmations = currentHeight - blockHeight,
                 previousblockhash = Binary.ByteArrayToHexString(blockHeader.PreviousBlockHash),
                 nextblockhash = Binary.ByteArrayToHexString(nextBlockHash),
                 reward = blockReward,
