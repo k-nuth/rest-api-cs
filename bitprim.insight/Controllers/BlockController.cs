@@ -86,7 +86,7 @@ namespace bitprim.insight.Controllers
                     getBlockResult.Result.Block.BlockData, blockHeight, getBlockResult.Result.TransactionHashes,
                     blockReward, getNextBlockResult.Result.BlockHash, getBlockResult.Result.SerializedBlockSize)
                 );
-                memoryCache_.Set("block" + hash, blockJson);
+                memoryCache_.Set("block" + hash, blockJson, new MemoryCacheEntryOptions{Size = 1});
                 return blockJson;
             }
         }

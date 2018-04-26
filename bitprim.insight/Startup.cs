@@ -10,6 +10,7 @@ using Serilog;
 using Swashbuckle.AspNetCore.Swagger;
 using System.Globalization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Caching.Memory;
 
 namespace bitprim.insight
 {
@@ -52,8 +53,6 @@ namespace bitprim.insight
             {  
                 c.SwaggerDoc("v1", new Info { Title = "bitprim", Version = "v1" });  
             });
-
-            services.AddMemoryCache();
 
             var serviceProvider = services.BuildServiceProvider();
 
@@ -112,6 +111,11 @@ namespace bitprim.insight
             .AddFormatterMappings()
             .AddJsonFormatters()
             .AddCors();
+            services.AddMemoryCache( opt =>
+                {
+                    opt.SizeLimit = nodeConfig_.MaxCachedBlocks;
+                }
+            );
         }
 
         private void ConfigureLogging()
