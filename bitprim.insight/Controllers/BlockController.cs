@@ -79,12 +79,13 @@ namespace bitprim.insight.Controllers
                 double blockReward;
                 using(var coinbase = await chain_.FetchTransactionAsync(getBlockResult.Result.TransactionHashes[0], true))
                 {
-                    blockReward = Utils.SatoshisToBTC(coinbase.Result.Tx.TotalOutputValue);
+                    blockReward = Utils.SatoshisToCoinUnits(coinbase.Result.Tx.TotalOutputValue);
                 }
                 JsonResult blockJson = Json(BlockToJSON
                 (
                     getBlockResult.Result.Block.BlockData, blockHeight, getBlockResult.Result.TransactionHashes,
-                    blockReward, getNextBlockResult.Result.BlockHash, getBlockResult.Result.SerializedBlockSize)
+                    blockReward, getLastHeightResult.Result, getNextBlockResult.Result.BlockHash,
+                    getBlockResult.Result.SerializedBlockSize)
                 );
                 memoryCache_.Set("block" + hash, blockJson, new MemoryCacheEntryOptions{Size = 1});
                 return blockJson;
@@ -314,7 +315,8 @@ namespace bitprim.insight.Controllers
         }
 
         private static object BlockToJSON(Header blockHeader, UInt64 blockHeight, HashList txHashes,
-                                          double blockReward, byte[] nextBlockHash, UInt64 serializedBlockSize)
+                                          double blockReward, UInt64 currentHeight, byte[] nextBlockHash,
+                                          UInt64 serializedBlockSize)
         {
             BigInteger.TryParse(blockHeader.ProofString, out var proof);
             return new
@@ -330,6 +332,7 @@ namespace bitprim.insight.Controllers
                 bits = Utils.EncodeInBase16(blockHeader.Bits),
                 difficulty = Utils.BitsToDifficulty(blockHeader.Bits), //TODO Use bitprim API when implemented
                 chainwork = (proof * 2).ToString("X64"), //TODO Does not match Blockdozer value; check how bitpay calculates it
+                confirmations = currentHeight - blockHeight,
                 previousblockhash = Binary.ByteArrayToHexString(blockHeader.PreviousBlockHash),
                 nextblockhash = Binary.ByteArrayToHexString(nextBlockHash),
                 reward = blockReward,
@@ -341,7 +344,7 @@ namespace bitprim.insight.Controllers
         private static object[] BlockTxsToJSON(HashList txHashes)
         {
             var txs = new List<object>();
-            for(int i = 0; i<txHashes.Count; i++)
+            for(uint i = 0; i<txHashes.Count; i++)
             {
                 txs.Add(Binary.ByteArrayToHexString(txHashes[i]));
             }

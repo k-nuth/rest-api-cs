@@ -5,7 +5,6 @@ namespace bitprim.insight
     public class NodeConfig
     {
         public bool AcceptStaleRequests { get; set; }
-        public bool StartDatabaseFromScratch { get; set; }
         public int LongResponseCacheDurationInSeconds { get; set; }
         public int MaxBlockSummarySize { get; set; }
         public int MaxCachedBlocks { get; set; }

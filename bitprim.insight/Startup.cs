@@ -183,17 +183,8 @@ namespace bitprim.insight
             // Initialize and register chain service
          
             exec_ = new Executor(nodeConfig_.NodeConfigFile);
-            
-            if(nodeConfig_.StartDatabaseFromScratch)
-            {
-                bool ok = exec_.InitChain();
-                if(!ok)
-                {
-                    throw new ApplicationException("Executor::InitChain failed; check log");
-                }
-            }
-            
-            int result = exec_.RunWait();
+             
+            int result = exec_.InitAndRunAsync().GetAwaiter().GetResult();
             if (result != 0)
             {
                 throw new ApplicationException("Executor::RunWait failed; error code: " + result);
@@ -213,7 +204,7 @@ namespace bitprim.insight
             if (webSocketForwarderClient_ != null)
             {
                 Log.Information("Cancelling websocket forwarder...");
-                webSocketForwarderClient_.Close().Wait();
+                webSocketForwarderClient_.Close().GetAwaiter().GetResult();
                 webSocketForwarderClient_.Dispose();
                 Log.Information("Websocket forwarder shutdown ok");
             }

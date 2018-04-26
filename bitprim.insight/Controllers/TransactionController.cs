@@ -73,7 +73,7 @@ namespace bitprim.insight.Controllers
         // GET: api/txs/?block=HASH
         [ResponseCache(CacheProfileName = Constants.SHORT_CACHE_PROFILE_NAME)]
         [HttpGet("/api/txs")]
-        public async Task<ActionResult> GetTransactions(string block = null, string address = null, UInt64 pageNum = 0)
+        public async Task<ActionResult> GetTransactions(string block = null, string address = null, uint pageNum = 0)
         {
             if(block == null && address == null)
             {
@@ -190,7 +190,7 @@ namespace bitprim.insight.Controllers
             }
         }
 
-        private async Task<ActionResult> GetTransactionsByAddress(string address, UInt64 pageNum)
+        private async Task<ActionResult> GetTransactionsByAddress(string address, uint pageNum)
         {
             var txsByAddress = await GetTransactionsBySingleAddress(address, true, pageNum, true, true, true);
             
@@ -211,7 +211,7 @@ namespace bitprim.insight.Controllers
             });
         }
 
-        private async Task<Tuple<List<object>, UInt64>> GetTransactionsBySingleAddress(string paymentAddress, bool pageResults, UInt64 pageNum,bool noAsm, bool noScriptSig, bool noSpend)
+        private async Task<Tuple<List<object>, UInt64>> GetTransactionsBySingleAddress(string paymentAddress, bool pageResults, uint pageNum,bool noAsm, bool noScriptSig, bool noSpend)
         {
             Utils.CheckIfChainIsFresh(chain_, config_.AcceptStaleRequests);
 
@@ -222,11 +222,11 @@ namespace bitprim.insight.Controllers
                 
                 var history = getAddressHistoryResult.Result;
                 var txs = new List<object>();
-                var pageSize = pageResults? (UInt64) config_.TransactionsByAddressPageSize : history.Count;
+                var pageSize = pageResults? (uint) config_.TransactionsByAddressPageSize : history.Count;
                 
-                for(UInt64 i=0; i<pageSize && (pageNum * pageSize + i < history.Count); i++)
+                for(uint i=0; i<pageSize && (pageNum * pageSize + i < history.Count); i++)
                 {
-                    var compact = history[(int)(pageNum * pageSize + i)];
+                    var compact = history[(pageNum * pageSize + i)];
                     using(var getTxResult = await chain_.FetchTransactionAsync(compact.Point.Hash, true))
                     {
                         Utils.CheckBitprimApiErrorCode(getTxResult.ErrorCode, "GetTransaction(" + Binary.ByteArrayToHexString(compact.Point.Hash) + ") failed, check error log");
@@ -243,27 +243,29 @@ namespace bitprim.insight.Controllers
             using(var getBlockHeaderResult = await chain_.FetchBlockHeaderByHeightAsync(blockHeight))
             {
                 Utils.CheckBitprimApiErrorCode(getBlockHeaderResult.ErrorCode, "FetchBlockHeaderByHeightAsync(" + blockHeight + ") failed, check error log");
-                
-                var blockHeader = getBlockHeaderResult.Result.BlockData;
-                var getLastHeightResult = await chain_.FetchLastHeightAsync();
-                Utils.CheckBitprimApiErrorCode(getLastHeightResult.ErrorCode, "FetchLastHeightAsync failed, check error log");
-                
-                return new
+                Header blockHeader = getBlockHeaderResult.Result.BlockData;
+                ApiCallResult<UInt64> getLastHeightResult = await chain_.FetchLastHeightAsync();
+                Utils.CheckBitprimApiErrorCode(getLastHeightResult.ErrorCode, "GetLastHeight failed, check error log");
+                dynamic txJson = new ExpandoObject();
+                txJson.txid = Binary.ByteArrayToHexString(tx.Hash);
+                txJson.version = tx.Version;
+                txJson.locktime = tx.Locktime;
+                txJson.vin = await TxInputsToJSON(tx, noAsm, noScriptSig);
+                txJson.vout = await TxOutputsToJSON(tx, noAsm, noSpend);
+                txJson.blockhash = Binary.ByteArrayToHexString(blockHeader.Hash);
+                txJson.blockheight = blockHeight;
+                txJson.confirmations = getLastHeightResult.Result - blockHeight + 1;
+                txJson.time = blockHeader.Timestamp;
+                txJson.blocktime = blockHeader.Timestamp;
+                txJson.isCoinBase = tx.IsCoinbase;
+                txJson.valueOut = Utils.SatoshisToCoinUnits(tx.TotalOutputValue);
+                txJson.size = tx.GetSerializedSize();
+                if ( !tx.IsCoinbase && ! nodeExecutor_.UseTestnetRules )
                 {
-                    txid = Binary.ByteArrayToHexString(tx.Hash),
-                    version = tx.Version,
-                    locktime = tx.Locktime,
-                    vin = await TxInputsToJSON(tx, noAsm, noScriptSig),
-                    vout = await TxOutputsToJSON(tx, noAsm, noSpend),
-                    blockhash = Binary.ByteArrayToHexString(blockHeader.Hash),
-                    blockheight = blockHeight,
-                    confirmations = getLastHeightResult.Result - blockHeight + 1,
-                    time = blockHeader.Timestamp,
-                    blocktime = blockHeader.Timestamp,
-                    isCoinBase = tx.IsCoinbase,
-                    valueOut = Utils.SatoshisToBTC(tx.TotalOutputValue),
-                    size = tx.GetSerializedSize()
-                };
+                    //txJson.fees = Utils.SatoshisToCoinUnits(tx.Fees);
+                    txJson.fees = await ManuallyCalculateFees(tx); //TODO Solve at native layer
+                }
+                return txJson;
             }
         }
 
@@ -271,7 +273,7 @@ namespace bitprim.insight.Controllers
         {
             var inputs = tx.Inputs;
             var jsonInputs = new List<object>();
-            for(var i=0; i<inputs.Count; i++)
+            for(uint i=0; i<inputs.Count; i++)
             {
                 var input = inputs[i];
                 
@@ -306,10 +308,10 @@ namespace bitprim.insight.Controllers
             {
                 Utils.CheckBitprimApiErrorCode(getTxResult.ErrorCode, "FetchTransactionAsync(" + Binary.ByteArrayToHexString(previousOutput.Hash) + ") failed, check errog log");
                 
-                var output = getTxResult.Result.Tx.Outputs[(int)previousOutput.Index];
+                var output = getTxResult.Result.Tx.Outputs[previousOutput.Index];
                 jsonInput.addr =  output.PaymentAddress(nodeExecutor_.UseTestnetRules).Encoded;
                 jsonInput.valueSat = output.Value;
-                jsonInput.value = Utils.SatoshisToBTC(output.Value);
+                jsonInput.value = Utils.SatoshisToCoinUnits(output.Value);
                 jsonInput.doubleSpentTxID = null; //We don't handle double spent transactions
             }
         }
@@ -331,11 +333,11 @@ namespace bitprim.insight.Controllers
         {
             var outputs = tx.Outputs;
             var jsonOutputs = new List<object>();
-            for(var i=0; i<outputs.Count; i++)
+            for(uint i=0; i<outputs.Count; i++)
             {
                 var output = outputs[i];
                 dynamic jsonOutput = new ExpandoObject();
-                jsonOutput.value = Utils.SatoshisToBTC(output.Value);
+                jsonOutput.value = Utils.SatoshisToCoinUnits(output.Value);
                 jsonOutput.n = i;
                 jsonOutput.scriptPubKey = OutputScriptToJSON(output, noAsm);
                 if(!noSpend)
@@ -372,6 +374,20 @@ namespace bitprim.insight.Controllers
                 }
             }
             
+        }
+
+        private async Task<double> ManuallyCalculateFees(Transaction tx)
+        {
+            UInt64 inputs_total = 0;
+            foreach(Input txInput in tx.Inputs)
+            {
+                using(var getTxResult = await chain_.FetchTransactionAsync(txInput.PreviousOutput.Hash, true))
+                {
+                    Utils.CheckBitprimApiErrorCode(getTxResult.ErrorCode, "FetchTransactionAsync(" + Binary.ByteArrayToHexString(txInput.PreviousOutput.Hash) + "), check error log");
+                    inputs_total += getTxResult.Result.Tx.Outputs[txInput.PreviousOutput.Index].Value;
+                }
+            }
+            return Utils.SatoshisToCoinUnits(inputs_total - tx.TotalOutputValue);
         }
 
         private object OutputScriptToJSON(Output output, bool noAsm)

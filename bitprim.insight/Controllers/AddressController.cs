@@ -45,11 +45,11 @@ namespace bitprim.insight.Controllers
             dynamic historyJson = new ExpandoObject();
             historyJson.addrStr = paymentAddress;
             historyJson.balance = balance.Balance;
-            historyJson.balanceSat = Utils.SatoshisToBTC(balance.Balance);
-            historyJson.totalReceived = Utils.SatoshisToBTC(balance.Received);
+            historyJson.balanceSat = Utils.SatoshisToCoinUnits(balance.Balance);
+            historyJson.totalReceived = Utils.SatoshisToCoinUnits(balance.Received);
             historyJson.totalReceivedSat = balance.Received;
             historyJson.totalSent = balance.Sent;
-            historyJson.totalSentSat = Utils.SatoshisToBTC(balance.Sent);
+            historyJson.totalSentSat = Utils.SatoshisToCoinUnits(balance.Sent);
             historyJson.unconfirmedBalance = 0; //We don't handle unconfirmed txs
             historyJson.unconfirmedBalanceSat = 0; //We don't handle unconfirmed txs
             historyJson.unconfirmedTxApperances = 0; //We don't handle unconfirmed txs
@@ -178,8 +178,8 @@ namespace bitprim.insight.Controllers
                 address = paymentAddress,
                 txid = Binary.ByteArrayToHexString(outputPoint.Hash),
                 vout = outputPoint.Index,
-                scriptPubKey = getTxEc == ErrorCode.Success? tx.Outputs[(int)outputPoint.Index].Script.ToData(false) : null,
-                amount = Utils.SatoshisToBTC(compact.ValueOrChecksum),
+                scriptPubKey = getTxEc == ErrorCode.Success? tx.Outputs[outputPoint.Index].Script.ToData(false) : null,
+                amount = Utils.SatoshisToCoinUnits(compact.ValueOrChecksum),
                 satoshis = compact.ValueOrChecksum,
                 height = compact.Height,
                 confirmations = topHeight - compact.Height
