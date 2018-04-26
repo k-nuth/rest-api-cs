@@ -25,6 +25,7 @@ namespace bitprim.insight.Controllers
             chain_ = executor.Chain;
         }
 
+        [ResponseCache(CacheProfileName = Constants.SHORT_CACHE_PROFILE_NAME)]
         [HttpGet("/api/sync")]
         public async Task<ActionResult> GetSyncStatus()
         {
@@ -44,6 +45,7 @@ namespace bitprim.insight.Controllers
             return Json(syncStatus);   
         }
 
+        [ResponseCache(CacheProfileName = Constants.SHORT_CACHE_PROFILE_NAME)]
         [HttpGet("/api/status")]
         public async Task<ActionResult> GetStatus(string method)
         {

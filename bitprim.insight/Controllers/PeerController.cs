@@ -6,6 +6,7 @@ namespace bitprim.insight.Controllers
     [Route("api/[controller]")]
     public class PeerController : Controller
     {
+        [ResponseCache(CacheProfileName = Constants.SHORT_CACHE_PROFILE_NAME)]
         [HttpGet("/api/peer")]
         public ActionResult GetPeerStatus()
         {
@@ -17,6 +18,7 @@ namespace bitprim.insight.Controllers
             return Json(peerStatus);   
         }
 
+        [ResponseCache(CacheProfileName = Constants.SHORT_CACHE_PROFILE_NAME)]
         [HttpGet("/api/version")]
         public ActionResult GetApiVersion()
         {
