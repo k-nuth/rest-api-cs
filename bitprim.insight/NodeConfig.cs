@@ -11,7 +11,6 @@ namespace bitprim.insight
         public string DateInputFormat { get; set; }
         public string NodeConfigFile { get; set; }
         public string NodeType { get; set; }
-        public UInt64 BlockchainHeight { get; set; }
         public bool InitializeNode { get; set; }
         public string ForwardUrl { get; set; }
     }
