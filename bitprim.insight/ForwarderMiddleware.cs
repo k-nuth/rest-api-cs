@@ -24,7 +24,7 @@ namespace bitprim.insight
 
         private readonly Policy retryPolicy_ = Policy
             .Handle<Exception>()
-            .WaitAndRetryAsync(DecorrelatedJitter(MAX_RETRIES, TimeSpan.FromMilliseconds(SEED_DELAY), TimeSpan.FromSeconds(MAX_DELAY)));
+            .WaitAndRetryAsync(RetryUtils.DecorrelatedJitter(MAX_RETRIES, TimeSpan.FromMilliseconds(SEED_DELAY), TimeSpan.FromSeconds(MAX_DELAY)));
 
         public ForwarderMiddleware(RequestDelegate next, ILogger<ForwarderMiddleware> logger, IOptions<NodeConfig> config)
         {
@@ -62,22 +62,6 @@ namespace bitprim.insight
             await context.Response.WriteAsync(await ret.Content.ReadAsStringAsync());
         }
 
-
-        private static IEnumerable<TimeSpan> DecorrelatedJitter(int maxRetries, TimeSpan seedDelay, TimeSpan maxDelay)
-        {
-            Random jitterer = new Random();
-            int retries = 0;
-
-            double seed = seedDelay.TotalMilliseconds;
-            double max = maxDelay.TotalMilliseconds;
-            double current = seed;
-
-            while (++retries <= maxRetries)
-            {
-                current = Math.Min(max, Math.Max(seed, current * 3 * jitterer.NextDouble())); // adopting the 'Decorrelated Jitter' formula from https://www.awsarchitectureblog.com/2015/03/backoff.html.  Can be between seed and previous * 3.  Mustn't exceed max.
-                yield return TimeSpan.FromMilliseconds(current);
-            }
-        }
     }
 
     public static class ForwarderMiddlewareExtensions
