@@ -1,0 +1,19 @@
+﻿################################################################################
+# This .gitignore file was automatically created by Microsoft(R) Visual Studio.
+################################################################################
+/.vscode
+/bitprim.insight/obj/
+/bitprim.insight/bin/
+bitprim.insight/.vs/
+bitprim.insight/blockchain/
+bitprim.insight/bitprim-cs-log.txt
+bitprim.insight/conanbuildinfo.txt
+bitprim.insight/conanbuildinfo.cmake
+bitprim.insight/conan_imports_manifest.txt
+bitprim.insight/conaninfo.txt
+bitprim.insight/conanfile.txt
+bitprim.insight/wwwroot/node_modules/
+bitprim.insight/wwwroot/package-lock.json
+bitprim.insight/Properties/launchSettings.json
+bitprim.insight/appsettings.json
+bitprim.insight/log-*.txt

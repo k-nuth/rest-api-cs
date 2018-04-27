@@ -7,16 +7,55 @@
   <ItemGroup>
     <Folder Include="wwwroot\" />
   </ItemGroup>
+
+ <PropertyGroup>
+  <DefineConstants Condition=" '$(BTC)' == 'false' ">$(DefineConstants);BTC</DefineConstants>
+  <DefineConstants Condition=" '$(BCH)' == 'false' ">$(DefineConstants);BCH</DefineConstants>
+ </PropertyGroup>
+
+ <Choose>
+     <When Condition="'$(BTC)' == 'true' ">
+     
+          <ItemGroup>
+            <PackageReference Include="bitprim-btc" Version="0.2.2-alpha0829" />
+            <!-- <ProjectReference Include="../../bitprim-cs/bitprim/bitprim.csproj" /> -->
+          </ItemGroup>
+     
+     </When>
+
+     <When Condition="'$(BCH)' == 'true' ">
+     
+          <ItemGroup>
+            <PackageReference Include="bitprim-bch" Version="0.2.2-alpha0829" />
+            <!-- <ProjectReference Include="../../bitprim-cs/bitprim/bitprim.csproj" /> -->
+          </ItemGroup>
+     
+     </When>
+
+     <Otherwise>
+     
+          <ItemGroup>
+            <PackageReference Include="bitprim-bch" Version="0.2.2-alpha0829" />
+            <!-- <ProjectReference Include="../../bitprim-cs/bitprim/bitprim.csproj" /> -->
+          </ItemGroup>
+     
+     </Otherwise>
+
+ </Choose>
+
+
   <ItemGroup>
-    <PackageReference Include="bitprim" Version="0.2.168" />
-    <!-- <ProjectReference Include="../bitprim/bitprim.csproj" /> -->
-    <PackageReference Include="Microsoft.AspNetCore" Version="1.1.2" />
-    <PackageReference Include="Microsoft.AspNetCore.Mvc" Version="1.1.3" />
-    <PackageReference Include="Microsoft.Extensions.Configuration" Version="1.1.2" />
-    <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="1.1.2" />
-    <PackageReference Include="Microsoft.Extensions.Configuration.CommandLine" Version="1.1.2" />
-    <PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="1.1.2" />
-    <PackageReference Include="Swashbuckle.AspNetCore" Version="1.1.0" />
+    
+    <PackageReference Include="Microsoft.AspNetCore.All" Version="2.0.7" />
+    <PackageReference Include="Polly" Version="5.9.0" />
+    <PackageReference Include="Swashbuckle.AspNetCore" Version="2.4.0" />
+    <PackageReference Include="Microsoft.AspNetCore.WebSockets" Version="2.0.2" />
+    <PackageReference Include="Newtonsoft.Json" Version="11.0.2" />
+    <PackageReference Include="Nito.AsyncEx" Version="5.0.0-pre-05" />
+    <PackageReference Include="Serilog.AspNetCore" Version="2.1.1" />
+    <PackageReference Include="Serilog.Sinks.Console" Version="3.1.1" />
+    <PackageReference Include="Serilog.Sinks.File" Version="4.0.0" />
+    <PackageReference Include="Serilog.Settings.Configuration" Version="2.6.1" />
   </ItemGroup>
 
   <!-- <Target Name="CopyNativeLib" AfterTargets="Build">

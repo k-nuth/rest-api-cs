@@ -1,11 +1,13 @@
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Options;
-using Bitprim;
 using System;
 using System.Collections.Generic;
-using System.Linq;
+using bitprim.insight.DTOs;
+using Bitprim;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Options;
+using System.Dynamic;
+using System.Threading.Tasks;
 
-namespace api.Controllers
+namespace bitprim.insight.Controllers
 {
     [Route("api/[controller]")]
     public class AddressController : Controller
@@ -28,146 +30,145 @@ namespace api.Controllers
         }
 
         // GET: api/addr/{paymentAddress}
+        [ResponseCache(CacheProfileName = Constants.SHORT_CACHE_PROFILE_NAME)]
         [HttpGet("/api/addr/{paymentAddress}")]
-        public ActionResult GetAddressHistory(string paymentAddress)
+        public async Task<ActionResult> GetAddressHistory(string paymentAddress, bool noTxList = false, int from = 0, int? to = null)
         {
-            try
+            if(!Validations.IsValidPaymentAddress(paymentAddress))
             {
-                if(!Validations.IsValidBase58Address(paymentAddress))
+                return StatusCode((int)System.Net.HttpStatusCode.BadRequest, paymentAddress + " is not a valid Base58 address");
+            }
+
+            Utils.CheckIfChainIsFresh(chain_, config_.AcceptStaleRequests);
+            var balance = await GetBalance(paymentAddress);
+            
+            dynamic historyJson = new ExpandoObject();
+            historyJson.addrStr = paymentAddress;
+            historyJson.balance = balance.Balance;
+            historyJson.balanceSat = Utils.SatoshisToCoinUnits(balance.Balance);
+            historyJson.totalReceived = Utils.SatoshisToCoinUnits(balance.Received);
+            historyJson.totalReceivedSat = balance.Received;
+            historyJson.totalSent = balance.Sent;
+            historyJson.totalSentSat = Utils.SatoshisToCoinUnits(balance.Sent);
+            historyJson.unconfirmedBalance = 0; //We don't handle unconfirmed txs
+            historyJson.unconfirmedBalanceSat = 0; //We don't handle unconfirmed txs
+            historyJson.unconfirmedTxApperances = 0; //We don't handle unconfirmed txs
+            historyJson.txApperances = balance.Transactions.Count;
+            
+            if( ! noTxList )
+            {
+                if(to == null || to.Value >= balance.Transactions.Count )
                 {
-                    return StatusCode((int)System.Net.HttpStatusCode.BadRequest, paymentAddress + " is not a valid Base58 address");
+                    to = balance.Transactions.Count - 1;
                 }
-                Utils.CheckIfChainIsFresh(chain_, config_.AcceptStaleRequests);
-                AddressBalance balance = GetBalance(paymentAddress);
-                return Json
-                (
-                    new
-                    {
-                        addrStr = paymentAddress,
-                        balance = balance.Balance,
-                        balanceSat = Utils.SatoshisToBTC(balance.Balance),
-                        totalReceived = Utils.SatoshisToBTC(balance.Received),
-                        totalReceivedSat = balance.Received,
-                        totalSent = balance.Sent,
-                        totalSentSat = Utils.SatoshisToBTC(balance.Sent),
-                        unconfirmedBalance = 0, //We don't handle unconfirmed txs
-                        unconfirmedBalanceSat = 0, //We don't handle unconfirmed txs
-                        unconfirmedTxApperances = 0, //We don't handle unconfirmed txs
-                        txApperances = balance.Transactions.Count,
-                        transactions = balance.Transactions.ToArray()
-                    }
-                );
+                
+                var validationResult = ValidateParameters(from, to.Value);
+                if( ! validationResult.Item1 )
+                {
+                    return StatusCode((int)System.Net.HttpStatusCode.BadRequest, validationResult.Item2);
+                }
+
+                historyJson.transactions = balance.Transactions.GetRange(from, to.Value).ToArray();
             }
-            catch(Exception ex)
-            {
-                return StatusCode((int)System.Net.HttpStatusCode.InternalServerError, ex.Message);
-            }
+            return Json(historyJson);
         }
 
         // GET: api/addr/{paymentAddress}/balance
         [HttpGet("/api/addr/{paymentAddress}/balance")]
-        public ActionResult GetAddressBalance(string paymentAddress)
+        public async Task<ActionResult> GetAddressBalance(string paymentAddress)
         {
-            return GetBalanceProperty(paymentAddress, "Balance");
+            return await GetBalanceProperty(paymentAddress, "Balance");
         }
 
         // GET: api/addr/{paymentAddress}/totalReceived
         [HttpGet("/api/addr/{paymentAddress}/totalReceived")]
-        public ActionResult GetTotalReceived(string paymentAddress)
+        public async Task<ActionResult> GetTotalReceived(string paymentAddress)
         {
-            return GetBalanceProperty(paymentAddress, "Received");
+            return await GetBalanceProperty(paymentAddress, "Received");
         }
 
         // GET: api/addr/{paymentAddress}/totalSent
         [HttpGet("/api/addr/{paymentAddress}/totalSent")]
-        public ActionResult GetTotalSent(string paymentAddress)
+        public async Task<ActionResult> GetTotalSent(string paymentAddress)
         {
-            return GetBalanceProperty(paymentAddress, "Sent");
+            return await GetBalanceProperty(paymentAddress, "Sent");
         }
 
         // GET: api/addr/{paymentAddress}/unconfirmedBalance
         [HttpGet("/api/addr/{paymentAddress}/unconfirmedBalance")]
         public ActionResult GetUnconfirmedBalance(string paymentAddress)
         {
-            try
-            {
-                Utils.CheckIfChainIsFresh(chain_, config_.AcceptStaleRequests);
-                return Json(0); //We don't handle unconfirmed transactions
-            }
-            catch(Exception ex)
-            {
-                return StatusCode((int)System.Net.HttpStatusCode.InternalServerError, ex.Message);
-            }
+            Utils.CheckIfChainIsFresh(chain_, config_.AcceptStaleRequests);
+            return Json(0); //We don't handle unconfirmed transactions
         }
 
         // GET: api/addr/{paymentAddress}/utxo
+        [ResponseCache(CacheProfileName = Constants.SHORT_CACHE_PROFILE_NAME)]
         [HttpGet("/api/addr/{paymentAddress}/utxo")]
-        public ActionResult GetUtxoForSingleAddress(string paymentAddress)
+        public async Task<ActionResult> GetUtxoForSingleAddress(string paymentAddress)
         {
-            try
-            {
-                List<object> utxo = GetUtxo(paymentAddress);
-                return Json(utxo.ToArray());
-            }
-            catch(Exception ex)
-            {
-                return StatusCode((int)System.Net.HttpStatusCode.InternalServerError, ex.Message);
-            }
+            var utxo = await GetUtxo(paymentAddress);
+            return Json(utxo.ToArray());
         }
 
-
+        [ResponseCache(CacheProfileName = Constants.SHORT_CACHE_PROFILE_NAME)]
         [HttpGet("/api/addrs/{paymentAddresses}/utxo")]
-        public ActionResult GetUtxoForMultipleAddresses(string addresses)
+        public async Task<ActionResult> GetUtxoForMultipleAddresses(string paymentAddresses)
         {
-            try
+            var utxo = new List<object>();
+            foreach(var address in paymentAddresses.Split(","))
             {
-                var utxo = new List<object>();
-                foreach(string address in addresses.Split(","))
-                {
-                    utxo.Concat(GetUtxo(address));
-                }
-                return Json(utxo.ToArray());
+                utxo.AddRange(await GetUtxo(address));
             }
-            catch(Exception ex)
-            {
-                return StatusCode((int)System.Net.HttpStatusCode.InternalServerError, ex.Message);
-            }
+            return Json(utxo.ToArray());   
         }
 
         [HttpPost("/api/addrs/utxo")]
-        public ActionResult GetUtxoForMultipleAddressesPost([FromBody] string addrs)
+        public async Task<ActionResult> GetUtxoForMultipleAddressesPost([FromBody]GetUtxosForMultipleAddressesRequest requestParams)
         {
-            return GetUtxoForMultipleAddresses(addrs);
+            return await GetUtxoForMultipleAddresses(requestParams.addrs);
         }
 
-        private List<object> GetUtxo(string paymentAddress)
+        private async Task<List<object>> GetUtxo(string paymentAddress)
         {
             Utils.CheckIfChainIsFresh(chain_, config_.AcceptStaleRequests);
-            Tuple<ErrorCode, HistoryCompactList> getAddressHistoryResult = chain_.GetHistory(new PaymentAddress(paymentAddress), UInt64.MaxValue, 0);
-            Utils.CheckBitprimApiErrorCode(getAddressHistoryResult.Item1, "GetHistory(" + paymentAddress + ") failed, check error log.");
-            HistoryCompactList history = getAddressHistoryResult.Item2;
-            var utxo = new List<dynamic>();
-            Tuple<ErrorCode, UInt64> getLastHeightResult = chain_.GetLastHeight();
-            Utils.CheckBitprimApiErrorCode(getLastHeightResult.Item1, "GetLastHeight failed, check error log");
-            UInt64 topHeight = getLastHeightResult.Item2;
-            foreach(HistoryCompact compact in history)
+
+            using (var address = new PaymentAddress(paymentAddress))
+            using (var getAddressHistoryResult = await chain_.FetchHistoryAsync(address, UInt64.MaxValue, 0))
             {
-                if(compact.PointKind == PointKind.Output)
+                Utils.CheckBitprimApiErrorCode(getAddressHistoryResult.ErrorCode, "FetchHistoryAsync(" + paymentAddress + ") failed, check error log.");
+                
+                var history = getAddressHistoryResult.Result;
+                
+                var utxo = new List<dynamic>();
+                
+                var getLastHeightResult = await chain_.FetchLastHeightAsync();
+                Utils.CheckBitprimApiErrorCode(getLastHeightResult.ErrorCode, "FetchLastHeightAsync failed, check error log");
+                
+                var topHeight = getLastHeightResult.Result;
+
+                foreach(HistoryCompact compact in history)
                 {
-                    Tuple<ErrorCode, Point> getSpendResult = chain_.GetSpend(new OutputPoint(compact.Point.Hash, compact.Point.Index));
-                    ErrorCode errorCode = getSpendResult.Item1;
-                    Point outputPoint = getSpendResult.Item2;
-                    if(errorCode == ErrorCode.NotFound) //Unspent = it's an utxo
+                    if(compact.PointKind == PointKind.Output)
                     {
-                        //Get the tx to get the script
-                        Tuple<ErrorCode, Transaction, UInt64, UInt64> getTxResult = chain_.GetTransaction(outputPoint.Hash, true);
-                        ErrorCode getTxEc = getTxResult.Item1;
-                        Transaction tx = getTxResult.Item2;
-                        utxo.Add(UtxoToJSON(paymentAddress, outputPoint, getTxEc, tx, compact, topHeight));
+                        using (var outPoint = new OutputPoint(compact.Point.Hash, compact.Point.Index))
+                        {
+                            var getSpendResult = await chain_.FetchSpendAsync(outPoint);
+                            var outputPoint = getSpendResult.Result;
+                            
+                            if(getSpendResult.ErrorCode == ErrorCode.NotFound) //Unspent = it's an utxo
+                            {
+                                //Get the tx to get the script
+                                using(var getTxResult = await chain_.FetchTransactionAsync(outputPoint.Hash, true))
+                                {
+                                    utxo.Add(UtxoToJSON(paymentAddress, outputPoint, getTxResult.ErrorCode, getTxResult.Result.Tx, compact, topHeight));
+                                }
+                            }
+                        }                        
                     }
                 }
+                return utxo;
             }
-            return utxo;
         }
 
         private static object UtxoToJSON(string paymentAddress, Point outputPoint, ErrorCode getTxEc, Transaction tx, HistoryCompact compact, UInt64 topHeight)
@@ -177,51 +178,75 @@ namespace api.Controllers
                 address = paymentAddress,
                 txid = Binary.ByteArrayToHexString(outputPoint.Hash),
                 vout = outputPoint.Index,
-                scriptPubKey = getTxEc == ErrorCode.Success? tx.Outputs[(int)outputPoint.Index].Script.ToData(false) : null,
-                amount = Utils.SatoshisToBTC(compact.ValueOrChecksum),
+                scriptPubKey = getTxEc == ErrorCode.Success? tx.Outputs[outputPoint.Index].Script.ToData(false) : null,
+                amount = Utils.SatoshisToCoinUnits(compact.ValueOrChecksum),
                 satoshis = compact.ValueOrChecksum,
                 height = compact.Height,
                 confirmations = topHeight - compact.Height
             };
         }
 
-        private AddressBalance GetBalance(string paymentAddress)
+        private async Task<AddressBalance> GetBalance(string paymentAddress)
         {
-            Tuple<ErrorCode, HistoryCompactList> getAddressHistoryResult = chain_.GetHistory(new PaymentAddress(paymentAddress), UInt64.MaxValue, 0);
-            Utils.CheckBitprimApiErrorCode(getAddressHistoryResult.Item1, "GetHistory(" + paymentAddress + ") failed, check error log.");
-            HistoryCompactList history = getAddressHistoryResult.Item2;
-            UInt64 received = 0;
-            UInt64 addressBalance = 0;
-            var txs = new List<string>();
-            foreach(HistoryCompact compact in history)
+            using (var address = new PaymentAddress(paymentAddress))
+            using (var getAddressHistoryResult = await chain_.FetchHistoryAsync(address, UInt64.MaxValue, 0))
             {
-                if(compact.PointKind == PointKind.Output)
+                Utils.CheckBitprimApiErrorCode(getAddressHistoryResult.ErrorCode, "FetchHistoryAsync(" + paymentAddress + ") failed, check error log.");
+                
+                var history = getAddressHistoryResult.Result;
+                
+                UInt64 received = 0;
+                UInt64 addressBalance = 0;
+                var txs = new List<string>();
+
+                foreach(HistoryCompact compact in history)
                 {
-                    received += compact.ValueOrChecksum;
-                    Tuple<ErrorCode, Point> getSpendResult = chain_.GetSpend(new OutputPoint(compact.Point.Hash, compact.Point.Index));
-                    txs.Add(Binary.ByteArrayToHexString(compact.Point.Hash));
-                    if(getSpendResult.Item1 == ErrorCode.NotFound)
+                    if(compact.PointKind == PointKind.Output)
                     {
-                        addressBalance += compact.ValueOrChecksum;
+                        received += compact.ValueOrChecksum;
+
+                        using (var outPoint = new OutputPoint(compact.Point.Hash, compact.Point.Index))
+                        {
+                            var getSpendResult = await chain_.FetchSpendAsync(outPoint);
+                        
+                            txs.Add(Binary.ByteArrayToHexString(compact.Point.Hash));
+                            if(getSpendResult.ErrorCode == ErrorCode.NotFound)
+                            {
+                                addressBalance += compact.ValueOrChecksum;
+                            }
+                        }
                     }
                 }
+
+                UInt64 totalSent = received - addressBalance;
+                return new AddressBalance{ Balance = addressBalance, Received = received, Sent = totalSent, Transactions = txs };
             }
-            UInt64 totalSent = received - addressBalance;
-            return new AddressBalance{ Balance = addressBalance, Received = received, Sent = totalSent, Transactions = txs };
         }
 
-        private ActionResult GetBalanceProperty(string paymentAddress, string propertyName)
+        private async Task<ActionResult> GetBalanceProperty(string paymentAddress, string propertyName)
         {
-            try
+            Utils.CheckIfChainIsFresh(chain_, config_.AcceptStaleRequests);
+            var balance = await GetBalance(paymentAddress);
+            return Json(balance.GetType().GetProperty(propertyName).GetValue(balance, null));
+        }
+
+        private Tuple<bool, string> ValidateParameters(int from, int to)
+        {
+            if(from < 0)
             {
-                Utils.CheckIfChainIsFresh(chain_, config_.AcceptStaleRequests);
-                AddressBalance balance = GetBalance(paymentAddress);
-                return Json(balance.GetType().GetProperty(propertyName).GetValue(balance, null));
+                return new Tuple<bool, string>(false, "from(" + from + ") must be greater than or equal to zero");
             }
-            catch(Exception ex)
+
+            if(to <= 0)
             {
-                return StatusCode((int)System.Net.HttpStatusCode.InternalServerError, ex.Message);
+                return new Tuple<bool, string>(false, "to(" + to + ") must be greater than zero");
             }
+
+            if(from >= to)
+            {
+                return new Tuple<bool, string>(false, "to(" + to +  ") must be greater than from(" + from + ")");
+            }
+            return new Tuple<bool, string>(true, "");
         }
     }
 }

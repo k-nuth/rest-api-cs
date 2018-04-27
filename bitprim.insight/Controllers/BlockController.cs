@@ -1,87 +1,130 @@
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Options;
-using Bitprim;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
+using System.Threading.Tasks;
+using Bitprim;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Options;
+using Newtonsoft.Json;
 
-namespace api.Controllers
+namespace bitprim.insight.Controllers
 {
     [Route("api/[controller]")]
     public class BlockController : Controller
     {
         private Chain chain_;
+        private IMemoryCache memoryCache_;
+        private readonly WebSocketHandler webSocketHandler_;
         private readonly NodeConfig config_;
 
-        public BlockController(IOptions<NodeConfig> config, Chain chain)
+        public BlockController(IOptions<NodeConfig> config, Chain chain, WebSocketHandler webSocketHandler, IMemoryCache memoryCache)
         {
             config_ = config.Value;
             chain_ = chain;
+            webSocketHandler_ = webSocketHandler;
+            memoryCache_ = memoryCache;
         }
 
-        // GET: api/block/{hash}
-        [HttpGet("/api/block/{hash}")]
-        public ActionResult GetBlockByHash(string hash)
+      
+        // GET: api/block/simulate
+        [HttpGet("/api/block/simulate")]
+        public ActionResult Simulate()
         {
-            try
+            var newBlocksNotification = new
             {
-                if(!Validations.IsValidHash(hash))
-                {
-                    return StatusCode((int)System.Net.HttpStatusCode.BadRequest, hash + " is not a valid block hash");
-                }
-                Utils.CheckIfChainIsFresh(chain_, config_.AcceptStaleRequests);
-                byte[] binaryHash = Binary.HexStringToByteArray(hash);
-                Tuple<ErrorCode, Block, UInt64> getBlockResult = chain_.GetBlockByHash(binaryHash);
-                Utils.CheckBitprimApiErrorCode(getBlockResult.Item1, "GetBlockByHash(" + hash + ") failed, check error log");
-                Tuple<ErrorCode, UInt64> getLastHeightResult = chain_.GetLastHeight();
-                Utils.CheckBitprimApiErrorCode(getLastHeightResult.Item1, "GetLastHeight() failed, check error log");
-                UInt64 topHeight = getLastHeightResult.Item2;
-                UInt64 blockHeight = getBlockResult.Item3;
-                Tuple<ErrorCode, Block, UInt64> getNextBlockResult = chain_.GetBlockByHeight(blockHeight + 1);
-                Utils.CheckBitprimApiErrorCode(getNextBlockResult.Item1, "GetBlockByHeight(" + blockHeight + 1 + ") failed, check error log");
-                return Json(BlockToJSON(getBlockResult.Item2, blockHeight, topHeight, getNextBlockResult.Item2.Hash));
+                eventname = "block"
+            };
+
+            var task = webSocketHandler_.PublishBlock(JsonConvert.SerializeObject(newBlocksNotification));
+            task.Wait();
+
+            return Ok();
+        }
+        
+
+        // GET: api/block/{hash}
+        [ResponseCache(CacheProfileName = Constants.SHORT_CACHE_PROFILE_NAME)]
+        [HttpGet("/api/block/{hash}")]
+        public async Task<ActionResult> GetBlockByHash(string hash)
+        {
+            if(!Validations.IsValidHash(hash))
+            {
+                return StatusCode((int)System.Net.HttpStatusCode.BadRequest, hash + " is not a valid block hash");
             }
-            catch(Exception ex)
+
+            Utils.CheckIfChainIsFresh(chain_, config_.AcceptStaleRequests);
+
+            JsonResult cachedBlockJson;
+            if(memoryCache_.TryGetValue("block" + hash, out cachedBlockJson))
             {
-                return StatusCode((int)System.Net.HttpStatusCode.InternalServerError, ex.Message);
+                return cachedBlockJson;
+            };
+            
+            var binaryHash = Binary.HexStringToByteArray(hash);
+            
+            using(var getBlockResult = await chain_.FetchBlockHeaderByHashTxSizesAsync(binaryHash))
+            {
+                Utils.CheckBitprimApiErrorCode(getBlockResult.ErrorCode, "FetchBlockHeaderByHashTxSizesAsync(" + hash + ") failed, check error log");
+                
+                var getLastHeightResult = await chain_.FetchLastHeightAsync();
+                Utils.CheckBitprimApiErrorCode(getLastHeightResult.ErrorCode, "FetchLastHeightAsync() failed, check error log");
+                
+                var blockHeight = getBlockResult.Result.Block.BlockHeight;
+
+                var getNextBlockResult = await chain_.FetchBlockByHeightHashTimestampAsync(blockHeight + 1);
+                Utils.CheckBitprimApiErrorCode(getNextBlockResult.ErrorCode, "FetchBlockByHeightHashTimestampAsync(" + blockHeight + 1 + ") failed, check error log");
+                
+                double blockReward;
+                using(var coinbase = await chain_.FetchTransactionAsync(getBlockResult.Result.TransactionHashes[0], true))
+                {
+                    blockReward = Utils.SatoshisToCoinUnits(coinbase.Result.Tx.TotalOutputValue);
+                }
+                JsonResult blockJson = Json(BlockToJSON
+                (
+                    getBlockResult.Result.Block.BlockData, blockHeight, getBlockResult.Result.TransactionHashes,
+                    blockReward, getLastHeightResult.Result, getNextBlockResult.Result.BlockHash,
+                    getBlockResult.Result.SerializedBlockSize)
+                );
+                memoryCache_.Set("block" + hash, blockJson, new MemoryCacheEntryOptions{Size = 1});
+                return blockJson;
             }
         }
 
         // GET: api/block-index/{height}
+        [ResponseCache(CacheProfileName = Constants.SHORT_CACHE_PROFILE_NAME)]
         [HttpGet("/api/block-index/{height}")]
-        public ActionResult GetBlockByHeight(UInt64 height)
+        public async Task<ActionResult> GetBlockByHeight(UInt64 height)
         {
-            try
-            {
-                Utils.CheckIfChainIsFresh(chain_, config_.AcceptStaleRequests);
-                Tuple<ErrorCode, Block, UInt64> getBlockResult = chain_.GetBlockByHeight(height);
-                Utils.CheckBitprimApiErrorCode(getBlockResult.Item1, "GetBlockByHeight(" + height + ") failed, error log");
-                return Json
-                (
-                    new
-                    {
-                        blockHash = Binary.ByteArrayToHexString(getBlockResult.Item2.Hash)
-                    }
-                );
-            }
-            catch(Exception ex)
-            {
-                return StatusCode((int)System.Net.HttpStatusCode.InternalServerError, ex.Message);
-            }            
+            Utils.CheckIfChainIsFresh(chain_, config_.AcceptStaleRequests);
+            
+            var result = await chain_.FetchBlockByHeightHashTimestampAsync(height);
+            Utils.CheckBitprimApiErrorCode(result.ErrorCode, "FetchBlockByHeightHashTimestampAsync(" + height + ") failed, error log");
+            
+            return Json
+            (
+                new
+                {
+                    blockHash = Binary.ByteArrayToHexString(result.Result.BlockHash)
+                }
+            );               
         }
 
         // GET: api/rawblock/{hash}
+        [ResponseCache(CacheProfileName = Constants.LONG_CACHE_PROFILE_NAME)]
         [HttpGet("/api/rawblock/{hash}")]
-        public ActionResult GetRawBlockByHash(string hash)
+        public async Task<ActionResult> GetRawBlockByHash(string hash)
         {
-            try
+            Utils.CheckIfChainIsFresh(chain_, config_.AcceptStaleRequests);
+            var binaryHash = Binary.HexStringToByteArray(hash);
+            
+            using(var getBlockResult = await chain_.FetchBlockByHashAsync(binaryHash))
             {
-                Utils.CheckIfChainIsFresh(chain_, config_.AcceptStaleRequests);
-                byte[] binaryHash = Binary.HexStringToByteArray(hash);
-                Tuple<ErrorCode, Block, UInt64> getBlockResult = chain_.GetBlockByHash(binaryHash);
-                Utils.CheckBitprimApiErrorCode(getBlockResult.Item1, "GetBlockByHash(" + hash + ") failed, check error log");
-                Block block = getBlockResult.Item2;
+                Utils.CheckBitprimApiErrorCode(getBlockResult.ErrorCode, "FetchBlockByHashAsync(" + hash + ") failed, check error log");
+                
+                var block = getBlockResult.Result.BlockData;
+                
                 return Json
                 (
                     new
@@ -89,23 +132,21 @@ namespace api.Controllers
                         rawblock = Binary.ByteArrayToHexString(block.ToData(false).Reverse().ToArray())
                     }
                 );
-            }
-            catch(Exception ex)
-            {
-                return StatusCode((int)System.Net.HttpStatusCode.InternalServerError, ex.Message);
-            }
+            }   
         }
 
         // GET: api/rawblock-index/{height}
+        [ResponseCache(CacheProfileName = Constants.SHORT_CACHE_PROFILE_NAME)]
         [HttpGet("/api/rawblock-index/{height}")]
-        public ActionResult GetRawBlockByHeight(UInt64 height)
+        public async Task<ActionResult> GetRawBlockByHeight(UInt64 height)
         {
-            try
+            Utils.CheckIfChainIsFresh(chain_, config_.AcceptStaleRequests);
+            
+            using(var getBlockResult = await chain_.FetchBlockByHeightAsync(height))
             {
-                Utils.CheckIfChainIsFresh(chain_, config_.AcceptStaleRequests);
-                Tuple<ErrorCode, Block, UInt64> getBlockResult = chain_.GetBlockByHeight(height);
-                Utils.CheckBitprimApiErrorCode(getBlockResult.Item1, "GetBlockByHeight(" + height + ") failed, check error log");
-                Block block = getBlockResult.Item2;
+                Utils.CheckBitprimApiErrorCode(getBlockResult.ErrorCode, "FetchBlockByHeightAsync(" + height + ") failed, check error log");
+                
+                var block = getBlockResult.Result.BlockData;
                 return Json
                 (
                     new
@@ -113,86 +154,89 @@ namespace api.Controllers
                         rawblock = Binary.ByteArrayToHexString(block.ToData(false).Reverse().ToArray())
                     }
                 );
-            }
-            catch(Exception ex)
-            {
-                return StatusCode((int)System.Net.HttpStatusCode.InternalServerError, ex.Message);
             }
         }
 
         // GET: api/blocks/?limit={limit}&blockDate={blockDate}
+        [ResponseCache(CacheProfileName = Constants.SHORT_CACHE_PROFILE_NAME)]
         [HttpGet("/api/blocks/")]
-        public ActionResult GetBlocksByDate(int? limit = 200, string blockDate = "")
+        public async Task<ActionResult> GetBlocksByDate(int limit = 200, string blockDate = "")
         {
-            try
+            //Validate input
+            var validateInputResult = ValidateGetBlocksByDateInput(limit, blockDate);
+            if(!validateInputResult.Item1)
             {
-                //Validate input
-                Tuple<bool, string, DateTime?> validateInputResult = ValidateGetBlocksByDateInput(limit.Value, blockDate);
-                if(!validateInputResult.Item1)
-                {
-                    return StatusCode((int)System.Net.HttpStatusCode.BadRequest, validateInputResult.Item2);
-                }
-                DateTime blockDateToSearch = validateInputResult.Item3.Value;
-                //Find blocks starting point
-                Utils.CheckIfChainIsFresh(chain_, config_.AcceptStaleRequests);
-                Tuple<ErrorCode, UInt64> getLastHeightResult = chain_.GetLastHeight();
-                Utils.CheckBitprimApiErrorCode(getLastHeightResult.Item1, "GetLastHeight failed, check error log");
-                UInt64 topHeight = getLastHeightResult.Item2;
-                UInt64 low = FindFirstBlockFromNextDay(blockDateToSearch, topHeight);
-                if(low == 0) //No blocks
-                {
-                    return Json(BlocksByDateToJSON(new List<object>(), blockDateToSearch, false, -1));
-                }
-                //Grab the specified amount of blocks (limit)
-                UInt64 startingHeight = low - 1;
-                List<object> blocks = GetPreviousBlocks(startingHeight, (UInt64)limit, blockDateToSearch);
-                //Check if there are more blocks: grab one more earlier block
-                Tuple<bool, int> moreBlocks = CheckIfMoreBlocks(startingHeight, (UInt64)limit, blockDateToSearch);
-                return Json(BlocksByDateToJSON(blocks, blockDateToSearch, moreBlocks.Item1, moreBlocks.Item2));
+                return StatusCode((int)System.Net.HttpStatusCode.BadRequest, validateInputResult.Item2);
             }
-            catch(Exception ex)
+            
+            var blockDateToSearch = validateInputResult.Item3;
+            
+            //Find blocks starting point
+            Utils.CheckIfChainIsFresh(chain_, config_.AcceptStaleRequests);
+            
+            var getLastHeightResult = await chain_.FetchLastHeightAsync();
+            Utils.CheckBitprimApiErrorCode(getLastHeightResult.ErrorCode, "FetchLastHeightAsync failed, check error log");
+            
+            var topHeight = getLastHeightResult.Result;
+            var low = await FindFirstBlockFromNextDay(blockDateToSearch, topHeight);
+            if(low == 0) //No blocks
             {
-                return StatusCode((int)System.Net.HttpStatusCode.InternalServerError, ex.Message);
+                return Json(BlocksByDateToJSON(new List<object>(), blockDateToSearch, false, -1));
             }
+            
+            //Grab the specified amount of blocks (limit)
+            var startingHeight = low - 1;
+            
+            var blocks = await GetPreviousBlocks(startingHeight, (UInt64)limit, blockDateToSearch);
+            
+            //Check if there are more blocks: grab one more earlier block
+            var moreBlocks = await CheckIfMoreBlocks(startingHeight, (UInt64)limit, blockDateToSearch);
+            return Json(BlocksByDateToJSON(blocks, blockDateToSearch, moreBlocks.Item1, moreBlocks.Item2));   
         }
 
-        private Tuple<bool, string, DateTime?> ValidateGetBlocksByDateInput(int limit, string blockDate)
+        private Tuple<bool, string, DateTime> ValidateGetBlocksByDateInput(int limit, string blockDate)
         {
             if(limit <= 0)
             {
-                return new Tuple<bool, string, DateTime?>(false, "Invalid limit; must be greater than zero", null);
+                return new Tuple<bool, string, DateTime>(false, "Invalid limit; must be greater than zero", DateTime.MinValue);
             }
+
             if(limit > config_.MaxBlockSummarySize)
             {
-                return new Tuple<bool, string, DateTime?>(false, "Invalid limit; must be lower than " + config_.MaxBlockSummarySize, null);
+                return new Tuple<bool, string, DateTime>(false, "Invalid limit; must be lower than " + config_.MaxBlockSummarySize, DateTime.MinValue);
             }
+
             if(string.IsNullOrWhiteSpace(blockDate))
             {
-                blockDate = DateTime.Now.Date.ToString(config_.DateInputFormat);
+                blockDate = DateTime.Today.ToString(config_.DateInputFormat);
             }
-            DateTime blockDateToSearch;
-            if(!DateTime.TryParseExact(blockDate, config_.DateInputFormat, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out blockDateToSearch))
+
+            if(!DateTime.TryParseExact(blockDate, config_.DateInputFormat, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out var blockDateToSearch))
             {
-                return new Tuple<bool, string, DateTime?>(false, "Invalid date format; expected " + config_.DateInputFormat, null);
+                return new Tuple<bool, string, DateTime>(false, "Invalid date format; expected " + config_.DateInputFormat, DateTime.MinValue);
             }
-            return new Tuple<bool, string, DateTime?>(true, "", blockDateToSearch);
+
+            return new Tuple<bool, string, DateTime>(true, "", blockDateToSearch);
         }
 
-        private UInt64 FindFirstBlockFromNextDay(DateTime blockDateToSearch, UInt64 topHeight)
+        private async Task<UInt64> FindFirstBlockFromNextDay(DateTime blockDateToSearch, UInt64 topHeight)
         {
             //Adapted binary search
             UInt64 low = 0;
-            UInt64 high = topHeight;
-            UInt64 mid = 0;
+            var high = topHeight;
+            
             while(low < high)
             {
-                mid = (UInt64) ((double)low + (double) high)/2; //Adds as doubles to prevent overflow
-                Tuple<ErrorCode, Block, UInt64> getBlockResult = chain_.GetBlockByHeight(mid);
-                Utils.CheckBitprimApiErrorCode(getBlockResult.Item1, "GetBlockByHeight(" + mid + ") failed, check error log");
-                if(DateTimeOffset.FromUnixTimeSeconds(getBlockResult.Item2.Header.Timestamp).Date <= blockDateToSearch.Date)
+                var mid = (UInt64) ((double)low + (double) high)/2;
+                
+                var getBlockResult = await chain_.FetchBlockByHeightHashTimestampAsync(mid);
+                Utils.CheckBitprimApiErrorCode(getBlockResult.ErrorCode, "FetchBlockByHeightHashTimestampAsync(" + mid + ") failed, check error log");
+                
+                if(getBlockResult.Result.BlockTimestamp.Date <= blockDateToSearch.Date)
                 {
                     low = mid + 1;
-                }else
+                }
+                else
                 {
                     high = mid;
                 }
@@ -200,103 +244,109 @@ namespace api.Controllers
             return low;
         } 
 
-        private List<object> GetPreviousBlocks(UInt64 startingHeight, UInt64 blockCount, DateTime blockDateToSearch)
+        private async Task<List<object>> GetPreviousBlocks(UInt64 startingHeight, UInt64 blockCount, DateTime blockDateToSearch)
         {
             var blocks = new List<object>();
-            bool blockWithinDate = true;
-            for(UInt64 i=0; i<blockCount && startingHeight-i>=0 && blockWithinDate; i++)
+            var blockWithinDate = true;
+            
+            for(UInt64 i=0; i<blockCount && startingHeight>=i && blockWithinDate; i++)
             {
-                Tuple<ErrorCode, Block, UInt64> getBlockResult = chain_.GetBlockByHeight(startingHeight - i);
-                Utils.CheckBitprimApiErrorCode(getBlockResult.Item1, "GetBlockByHeight(" + (startingHeight - i) + ") failed, check error log");
-                Block block = getBlockResult.Item2;
-                blockWithinDate = DateTimeOffset.FromUnixTimeSeconds(getBlockResult.Item2.Header.Timestamp).Date == blockDateToSearch.Date;
-                if(blockWithinDate)
+                using(var getBlockResult = await chain_.FetchBlockByHeightAsync(startingHeight - i))
                 {
-                    blocks.Add(new
+                    Utils.CheckBitprimApiErrorCode(getBlockResult.ErrorCode, "FetchBlockByHeightAsync(" + (startingHeight - i) + ") failed, check error log");
+                    
+                    var block = getBlockResult.Result.BlockData;
+                    blockWithinDate = DateTimeOffset.FromUnixTimeSeconds(block.Header.Timestamp).Date == blockDateToSearch.Date;
+                    if(blockWithinDate)
                     {
-                        height = getBlockResult.Item3,
-                        size = block.GetSerializedSize(block.Header.Version),
-                        hash = Binary.ByteArrayToHexString(block.Hash),
-                        time = block.Header.Timestamp,
-                        txlength = block.TransactionCount
-                        //TODO Add pool info
-                    });
+                        blocks.Add(new
+                        {
+                            height = getBlockResult.Result.BlockHeight,
+                            size = block.GetSerializedSize(block.Header.Version),
+                            hash = Binary.ByteArrayToHexString(block.Hash),
+                            time = block.Header.Timestamp,
+                            txlength = block.TransactionCount
+                            //TODO Add pool info
+                        });
+                    }
                 }
             }
             return blocks;
         }
 
-        private Tuple<bool, int> CheckIfMoreBlocks(UInt64 startingHeight, UInt64 limit, DateTime blockDateToSearch)
+        private async Task<Tuple<bool, int>> CheckIfMoreBlocks(UInt64 startingHeight, UInt64 limit, DateTime blockDateToSearch)
         {
-            bool moreBlocks = false;
+            bool moreBlocks;
             int moreBlocksTs = -1;
-            if(startingHeight - limit <= 0)
+            if(startingHeight <= limit)
             {
                 moreBlocks = false;
             }
             else
             {
-                Tuple<ErrorCode, Block, UInt64> getBlockResult = chain_.GetBlockByHeight(startingHeight - limit);
-                Utils.CheckBitprimApiErrorCode(getBlockResult.Item1, "GetBlockByHeight(" + (startingHeight - limit) + ") failed, check error log");
-                Block block = getBlockResult.Item2;
-                moreBlocks = DateTimeOffset.FromUnixTimeSeconds(block.Header.Timestamp).Date == blockDateToSearch.Date;
-                moreBlocksTs = moreBlocks? (int) block.Header.Timestamp : -1;
+                var getBlockResult = await chain_.FetchBlockByHeightHashTimestampAsync(startingHeight - limit);
+                Utils.CheckBitprimApiErrorCode(getBlockResult.ErrorCode, "FetchBlockByHeightHashTimestampAsync(" + (startingHeight - limit) + ") failed, check error log");
+                
+                var blockDate = getBlockResult.Result.BlockTimestamp;
+                moreBlocks = blockDate.Date == blockDateToSearch.Date;
+                moreBlocksTs = moreBlocks? (int) ((DateTimeOffset)blockDate).ToUnixTimeSeconds() : -1;
             }
             return new Tuple<bool, int>(moreBlocks, moreBlocksTs);
         }
 
         private static object BlocksByDateToJSON(List<dynamic> blocks, DateTime blockDate, bool moreBlocks, int moreBlocksTs)
         {
-            const string dateFormat = "yyyy-MM-dd";
+            const string DATE_FORMAT = "yyyy-MM-dd";
             return new
             {
                 blocks = blocks.ToArray(),
                 length = blocks.Count,
                 pagination = new
                 {
-                    next = blockDate.Date.AddDays(+1).ToString(dateFormat),
-                    prev = blockDate.Date.AddDays(-1).ToString(dateFormat),
+                    next = blockDate.Date.AddDays(+1).ToString(DATE_FORMAT),
+                    prev = blockDate.Date.AddDays(-1).ToString(DATE_FORMAT),
                     currentTs = blocks.Count > 0? blocks[0].time : new DateTimeOffset(blockDate).ToUnixTimeSeconds(),
-                    current = blockDate.Date.ToString(dateFormat),
-                    isToday = (blockDate.Date == DateTime.Now.Date),
+                    current = blockDate.Date.ToString(DATE_FORMAT),
+                    isToday = blockDate.Date == DateTime.Today,
                     more = moreBlocks,
                     moreTs = moreBlocks? (object) moreBlocksTs : null
                 }
             };
         }
 
-        private static object BlockToJSON(Block block, UInt64 blockHeight, UInt64 topHeight, byte[] nextBlockHash)
+        private static object BlockToJSON(Header blockHeader, UInt64 blockHeight, HashList txHashes,
+                                          double blockReward, UInt64 currentHeight, byte[] nextBlockHash,
+                                          UInt64 serializedBlockSize)
         {
-            Header blockHeader = block.Header;
-            BigInteger proof;
-            BigInteger.TryParse(block.Proof, out proof);
+            BigInteger.TryParse(blockHeader.ProofString, out var proof);
             return new
             {
-                hash = Binary.ByteArrayToHexString(block.Hash),
-                size = block.GetSerializedSize(blockHeader.Version),
+                hash = Binary.ByteArrayToHexString(blockHeader.Hash),
+                size = serializedBlockSize,
                 height = blockHeight,
                 version = blockHeader.Version,
-                merkleroot = Binary.ByteArrayToHexString(block.MerkleRoot),
-                tx = BlockTxsToJSON(block),
+                merkleroot = Binary.ByteArrayToHexString(blockHeader.Merkle),
+                tx = BlockTxsToJSON(txHashes),
                 time = blockHeader.Timestamp,
                 nonce = blockHeader.Nonce,
                 bits = Utils.EncodeInBase16(blockHeader.Bits),
                 difficulty = Utils.BitsToDifficulty(blockHeader.Bits), //TODO Use bitprim API when implemented
                 chainwork = (proof * 2).ToString("X64"), //TODO Does not match Blockdozer value; check how bitpay calculates it
+                confirmations = currentHeight - blockHeight,
                 previousblockhash = Binary.ByteArrayToHexString(blockHeader.PreviousBlockHash),
                 nextblockhash = Binary.ByteArrayToHexString(nextBlockHash),
-                reward = block.GetBlockReward(blockHeight) / 100000000,
+                reward = blockReward,
                 isMainChain = true, //TODO Check value
                 poolInfo = new{} //TODO Check value
             };
         }
 
-        private static object[] BlockTxsToJSON(Block block)
+        private static object[] BlockTxsToJSON(HashList txHashes)
         {
             var txs = new List<object>();
-            for(uint i = 0; i<block.TransactionCount; i++)
+            for(uint i = 0; i<txHashes.Count; i++)
             {
-                txs.Add(Binary.ByteArrayToHexString(block.GetNthTransaction(i).Hash));
+                txs.Add(Binary.ByteArrayToHexString(txHashes[i]));
             }
             return txs.ToArray();
         }
