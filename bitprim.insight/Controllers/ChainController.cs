@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Options;
 using Newtonsoft.Json;
+using Polly;
 using System.Linq;
 
 namespace bitprim.insight.Controllers
@@ -31,6 +32,9 @@ namespace bitprim.insight.Controllers
         private const string SOCHAIN_TBTC_URL = "https://chain.so/api/v2/get_info/BTCTEST";
         private const string SOCHAIN_TLTC_URL = "https://chain.so/api/v2/get_info/LTCTEST";
         private IMemoryCache memoryCache_;
+        private readonly Policy breakerPolicy_ = Policy.Handle<Exception>().CircuitBreakerAsync(2, TimeSpan.FromMinutes(1));
+        private readonly Policy retryPolicy_ = Policy.Handle<Exception>().RetryForeverAsync();
+        private readonly Policy execPolicy_;
 
         public ChainController(IOptions<NodeConfig> config, Executor executor, IMemoryCache memoryCache)
         {
@@ -38,6 +42,7 @@ namespace bitprim.insight.Controllers
             nodeExecutor_ = executor;
             chain_ = executor.Chain;
             memoryCache_ = memoryCache;
+            execPolicy_ = Policy.WrapAsync(retryPolicy_,breakerPolicy_);
         }
 
         [HttpGet("/api/sync")]
@@ -192,13 +197,13 @@ namespace bitprim.insight.Controllers
             switch(NodeSettings.CurrencyType)
             {
                 case CurrencyType.BitcoinCash:
-                    blockChainHeight = await GetBCCBlockchainHeight();
+                    blockChainHeight = await execPolicy_.ExecuteAsync<UInt64>( () => GetBCCBlockchainHeight() );
                     break;
                 case CurrencyType.Bitcoin:
-                    blockChainHeight = await GetBTCBlockchainHeight();
+                    blockChainHeight = await execPolicy_.ExecuteAsync<UInt64>( () => GetBTCBlockchainHeight() );
                     break;
                 case CurrencyType.Litecoin:
-                    blockChainHeight = await GetLTCBlockchainHeight();
+                    blockChainHeight = await execPolicy_.ExecuteAsync<UInt64>( () => GetLTCBlockchainHeight() );
                     break;
                 default:
                     throw new InvalidOperationException("Only BCH, BTC and LTC support this operation");
