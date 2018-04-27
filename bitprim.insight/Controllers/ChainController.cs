@@ -17,7 +17,7 @@ namespace bitprim.insight.Controllers
         private Chain chain_;
         private DateTime lastTimeHeightExternallyFetched;
         private Executor nodeExecutor_;
-        private HttpClient httpClient_;
+        private static readonly HttpClient httpClient_ = new HttpClient();
         private readonly NodeConfig config_;
         private const int MAX_BLOCKCHAIN_HEIGHT_AGE_IN_SECONDS = 60;
         private const string BLOCKCHAIR_BCC_URL = "https://api.blockchair.com/bitcoin-cash";
@@ -36,7 +36,6 @@ namespace bitprim.insight.Controllers
             config_ = config.Value;
             nodeExecutor_ = executor;
             chain_ = executor.Chain;
-            httpClient_ = new HttpClient();
             lastTimeHeightExternallyFetched = DateTime.MinValue;
             blockChainHeight_ = 0;
         }
