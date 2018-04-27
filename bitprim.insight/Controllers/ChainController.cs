@@ -5,6 +5,7 @@ using System.Net.Http;
 using System.Threading.Tasks;
 using Bitprim;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Options;
 using Newtonsoft.Json;
 using System.Linq;
@@ -15,11 +16,11 @@ namespace bitprim.insight.Controllers
     public class ChainController : Controller
     {
         private Chain chain_;
-        private DateTime lastTimeHeightExternallyFetched;
         private Executor nodeExecutor_;
         private static readonly HttpClient httpClient_ = new HttpClient();
         private readonly NodeConfig config_;
         private const int MAX_BLOCKCHAIN_HEIGHT_AGE_IN_SECONDS = 60;
+        private const string BLOCKCHAIN_HEIGHT_CACHE_KEY = "blockchain_height";
         private const string BLOCKCHAIR_BCC_URL = "https://api.blockchair.com/bitcoin-cash";
         private const string BLOCKCHAIR_BTC_URL = "https://api.blockchair.com/bitcoin";
         private const string BLOCKTRAIL_TBCC_URL = "https://www.blocktrail.com/tBCC/json/blockchain/homeStats";
@@ -29,15 +30,14 @@ namespace bitprim.insight.Controllers
         private const string SOCHAIN_LTC_URL = "https://chain.so/api/v2/get_info/LTC";
         private const string SOCHAIN_TBTC_URL = "https://chain.so/api/v2/get_info/BTCTEST";
         private const string SOCHAIN_TLTC_URL = "https://chain.so/api/v2/get_info/LTCTEST";
-        private UInt64 blockChainHeight_;
+        private IMemoryCache memoryCache_;
 
-        public ChainController(IOptions<NodeConfig> config, Executor executor)
+        public ChainController(IOptions<NodeConfig> config, Executor executor, IMemoryCache memoryCache)
         {
             config_ = config.Value;
             nodeExecutor_ = executor;
             chain_ = executor.Chain;
-            lastTimeHeightExternallyFetched = DateTime.MinValue;
-            blockChainHeight_ = 0;
+            memoryCache_ = memoryCache;
         }
 
         [HttpGet("/api/sync")]
@@ -184,26 +184,27 @@ namespace bitprim.insight.Controllers
         //TODO Avoid consulting external sources; get this information from bitprim network
         private async Task<UInt64> GetCurrentBlockChainHeight()
         {
-            if((DateTime.Now - lastTimeHeightExternallyFetched).TotalSeconds <= MAX_BLOCKCHAIN_HEIGHT_AGE_IN_SECONDS)
+            UInt64 blockChainHeight = 0;
+            if(memoryCache_.TryGetValue(BLOCKCHAIN_HEIGHT_CACHE_KEY, out blockChainHeight))
             {
-                return blockChainHeight_;
-            }
+                return blockChainHeight;
+            };
             switch(NodeSettings.CurrencyType)
             {
                 case CurrencyType.BitcoinCash:
-                    blockChainHeight_ = await GetBCCBlockchainHeight();
+                    blockChainHeight = await GetBCCBlockchainHeight();
                     break;
                 case CurrencyType.Bitcoin:
-                    blockChainHeight_ = await GetBTCBlockchainHeight();
+                    blockChainHeight = await GetBTCBlockchainHeight();
                     break;
                 case CurrencyType.Litecoin:
-                    blockChainHeight_ = await GetLTCBlockchainHeight();
+                    blockChainHeight = await GetLTCBlockchainHeight();
                     break;
                 default:
                     throw new InvalidOperationException("Only BCH, BTC and LTC support this operation");
             }
-            lastTimeHeightExternallyFetched = DateTime.Now;
-            return blockChainHeight_;
+            memoryCache_.Set(BLOCKCHAIN_HEIGHT_CACHE_KEY, blockChainHeight, TimeSpan.FromSeconds(MAX_BLOCKCHAIN_HEIGHT_AGE_IN_SECONDS));
+            return blockChainHeight;
         }
 
         private async Task<UInt64> GetBCCBlockchainHeight()
