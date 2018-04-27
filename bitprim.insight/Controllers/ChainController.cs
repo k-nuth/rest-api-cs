@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Bitprim;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Newtonsoft.Json;
 using Polly;
@@ -21,6 +22,9 @@ namespace bitprim.insight.Controllers
         private static readonly HttpClient httpClient_ = new HttpClient();
         private readonly NodeConfig config_;
         private const int MAX_BLOCKCHAIN_HEIGHT_AGE_IN_SECONDS = 60;
+        private const int MAX_DELAY = 2;
+        private const int MAX_RETRIES = 3;
+        private const int SEED_DELAY = 100;
         private const string BLOCKCHAIN_HEIGHT_CACHE_KEY = "blockchain_height";
         private const string BLOCKCHAIR_BCC_URL = "https://api.blockchair.com/bitcoin-cash";
         private const string BLOCKCHAIR_BTC_URL = "https://api.blockchair.com/bitcoin";
@@ -31,18 +35,21 @@ namespace bitprim.insight.Controllers
         private const string SOCHAIN_LTC_URL = "https://chain.so/api/v2/get_info/LTC";
         private const string SOCHAIN_TBTC_URL = "https://chain.so/api/v2/get_info/BTCTEST";
         private const string SOCHAIN_TLTC_URL = "https://chain.so/api/v2/get_info/LTCTEST";
+        private ILogger<ChainController> logger_;
         private IMemoryCache memoryCache_;
         private readonly Policy breakerPolicy_ = Policy.Handle<Exception>().CircuitBreakerAsync(2, TimeSpan.FromMinutes(1));
-        private readonly Policy retryPolicy_ = Policy.Handle<Exception>().RetryForeverAsync();
+        private readonly Policy retryPolicy_ = Policy.Handle<Exception>()
+            .WaitAndRetryAsync(RetryUtils.DecorrelatedJitter(MAX_RETRIES, TimeSpan.FromMilliseconds(SEED_DELAY), TimeSpan.FromSeconds(MAX_DELAY)));
         private readonly Policy execPolicy_;
 
-        public ChainController(IOptions<NodeConfig> config, Executor executor, IMemoryCache memoryCache)
+        public ChainController(IOptions<NodeConfig> config, Executor executor, ILogger<ChainController> logger, IMemoryCache memoryCache)
         {
             config_ = config.Value;
             nodeExecutor_ = executor;
             chain_ = executor.Chain;
             memoryCache_ = memoryCache;
-            execPolicy_ = Policy.WrapAsync(retryPolicy_,breakerPolicy_);
+            execPolicy_ = Policy.WrapAsync(retryPolicy_, breakerPolicy_);
+            logger_ = logger;
         }
 
         [HttpGet("/api/sync")]
@@ -52,15 +59,24 @@ namespace bitprim.insight.Controllers
             Utils.CheckBitprimApiErrorCode(getLastHeightResult.ErrorCode, "GetLastHeight() failed");
             
             var currentHeight = getLastHeightResult.Result;
-            var blockChainHeight = await GetCurrentBlockChainHeight();
-            var synced = currentHeight >= blockChainHeight;
-            
+            UInt64? blockChainHeight = await GetCurrentBlockChainHeight();
             dynamic syncStatus = new ExpandoObject();
-            syncStatus.status = synced? "finished" : "synchronizing";
-            syncStatus.blockChainHeight = blockChainHeight;
-            syncStatus.syncPercentage = Math.Min((double)currentHeight / (double)blockChainHeight * 100.0, 100).ToString("N2");
+            if(blockChainHeight.HasValue)
+            {
+                var synced = currentHeight >= blockChainHeight;
+                syncStatus.status = synced? "finished" : "synchronizing";
+                syncStatus.blockChainHeight = blockChainHeight;
+                syncStatus.syncPercentage = Math.Min((double)currentHeight / (double)blockChainHeight * 100.0, 100).ToString("N2");
+                syncStatus.error = null;
+            }
+            else
+            {
+                syncStatus.status = "unknown";
+                syncStatus.blockChainHeight = "unknown";
+                syncStatus.syncPercentage = "unknown";
+                syncStatus.error = "Could not determine max blockchain height; check log";
+            }
             syncStatus.height = currentHeight;
-            syncStatus.error = null;
             syncStatus.type = config_.NodeType;
             return Json(syncStatus);   
         }
@@ -187,29 +203,37 @@ namespace bitprim.insight.Controllers
         }
 
         //TODO Avoid consulting external sources; get this information from bitprim network
-        private async Task<UInt64> GetCurrentBlockChainHeight()
+        private async Task<UInt64?> GetCurrentBlockChainHeight()
         {
-            UInt64 blockChainHeight = 0;
-            if(memoryCache_.TryGetValue(BLOCKCHAIN_HEIGHT_CACHE_KEY, out blockChainHeight))
+            try
             {
+                UInt64 blockChainHeight = 0;
+                if(memoryCache_.TryGetValue(BLOCKCHAIN_HEIGHT_CACHE_KEY, out blockChainHeight))
+                {
+                    return blockChainHeight;
+                };
+                switch(NodeSettings.CurrencyType)
+                {
+                    case CurrencyType.BitcoinCash:
+                        blockChainHeight = await execPolicy_.ExecuteAsync<UInt64>( () => GetBCCBlockchainHeight() );
+                        break;
+                    case CurrencyType.Bitcoin:
+                        blockChainHeight = await execPolicy_.ExecuteAsync<UInt64>( () => GetBTCBlockchainHeight() );
+                        break;
+                    case CurrencyType.Litecoin:
+                        blockChainHeight = await execPolicy_.ExecuteAsync<UInt64>( () => GetLTCBlockchainHeight() );
+                        break;
+                    default:
+                        throw new InvalidOperationException("Only BCH, BTC and LTC support this operation");
+                }
+                memoryCache_.Set(BLOCKCHAIN_HEIGHT_CACHE_KEY, blockChainHeight, TimeSpan.FromSeconds(MAX_BLOCKCHAIN_HEIGHT_AGE_IN_SECONDS));
                 return blockChainHeight;
-            };
-            switch(NodeSettings.CurrencyType)
-            {
-                case CurrencyType.BitcoinCash:
-                    blockChainHeight = await execPolicy_.ExecuteAsync<UInt64>( () => GetBCCBlockchainHeight() );
-                    break;
-                case CurrencyType.Bitcoin:
-                    blockChainHeight = await execPolicy_.ExecuteAsync<UInt64>( () => GetBTCBlockchainHeight() );
-                    break;
-                case CurrencyType.Litecoin:
-                    blockChainHeight = await execPolicy_.ExecuteAsync<UInt64>( () => GetLTCBlockchainHeight() );
-                    break;
-                default:
-                    throw new InvalidOperationException("Only BCH, BTC and LTC support this operation");
             }
-            memoryCache_.Set(BLOCKCHAIN_HEIGHT_CACHE_KEY, blockChainHeight, TimeSpan.FromSeconds(MAX_BLOCKCHAIN_HEIGHT_AGE_IN_SECONDS));
-            return blockChainHeight;
+            catch(Exception ex)
+            {
+                logger_.LogWarning(ex, "Failed to retrieve blockchain height from external service");
+                return null;
+            }
         }
 
         private async Task<UInt64> GetBCCBlockchainHeight()
