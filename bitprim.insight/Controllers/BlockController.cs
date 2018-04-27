@@ -5,6 +5,7 @@ using System.Numerics;
 using System.Threading.Tasks;
 using Bitprim;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Options;
 using Newtonsoft.Json;
 
@@ -14,14 +15,16 @@ namespace bitprim.insight.Controllers
     public class BlockController : Controller
     {
         private Chain chain_;
+        private IMemoryCache memoryCache_;
         private readonly WebSocketHandler webSocketHandler_;
         private readonly NodeConfig config_;
 
-        public BlockController(IOptions<NodeConfig> config, Chain chain, WebSocketHandler webSocketHandler)
+        public BlockController(IOptions<NodeConfig> config, Chain chain, WebSocketHandler webSocketHandler, IMemoryCache memoryCache)
         {
             config_ = config.Value;
             chain_ = chain;
             webSocketHandler_ = webSocketHandler;
+            memoryCache_ = memoryCache;
         }
 
       
@@ -42,6 +45,7 @@ namespace bitprim.insight.Controllers
         
 
         // GET: api/block/{hash}
+        [ResponseCache(CacheProfileName = Constants.SHORT_CACHE_PROFILE_NAME)]
         [HttpGet("/api/block/{hash}")]
         public async Task<ActionResult> GetBlockByHash(string hash)
         {
@@ -51,6 +55,12 @@ namespace bitprim.insight.Controllers
             }
 
             Utils.CheckIfChainIsFresh(chain_, config_.AcceptStaleRequests);
+
+            JsonResult cachedBlockJson;
+            if(memoryCache_.TryGetValue("block" + hash, out cachedBlockJson))
+            {
+                return cachedBlockJson;
+            };
             
             var binaryHash = Binary.HexStringToByteArray(hash);
             
@@ -71,17 +81,19 @@ namespace bitprim.insight.Controllers
                 {
                     blockReward = Utils.SatoshisToCoinUnits(coinbase.Result.Tx.TotalOutputValue);
                 }
-                
-                return Json(BlockToJSON
+                JsonResult blockJson = Json(BlockToJSON
                 (
                     getBlockResult.Result.Block.BlockData, blockHeight, getBlockResult.Result.TransactionHashes,
                     blockReward, getLastHeightResult.Result, getNextBlockResult.Result.BlockHash,
                     getBlockResult.Result.SerializedBlockSize)
                 );
+                memoryCache_.Set("block" + hash, blockJson, new MemoryCacheEntryOptions{Size = 1});
+                return blockJson;
             }
         }
 
         // GET: api/block-index/{height}
+        [ResponseCache(CacheProfileName = Constants.SHORT_CACHE_PROFILE_NAME)]
         [HttpGet("/api/block-index/{height}")]
         public async Task<ActionResult> GetBlockByHeight(UInt64 height)
         {
@@ -100,6 +112,7 @@ namespace bitprim.insight.Controllers
         }
 
         // GET: api/rawblock/{hash}
+        [ResponseCache(CacheProfileName = Constants.LONG_CACHE_PROFILE_NAME)]
         [HttpGet("/api/rawblock/{hash}")]
         public async Task<ActionResult> GetRawBlockByHash(string hash)
         {
@@ -123,6 +136,7 @@ namespace bitprim.insight.Controllers
         }
 
         // GET: api/rawblock-index/{height}
+        [ResponseCache(CacheProfileName = Constants.SHORT_CACHE_PROFILE_NAME)]
         [HttpGet("/api/rawblock-index/{height}")]
         public async Task<ActionResult> GetRawBlockByHeight(UInt64 height)
         {
@@ -144,6 +158,7 @@ namespace bitprim.insight.Controllers
         }
 
         // GET: api/blocks/?limit={limit}&blockDate={blockDate}
+        [ResponseCache(CacheProfileName = Constants.SHORT_CACHE_PROFILE_NAME)]
         [HttpGet("/api/blocks/")]
         public async Task<ActionResult> GetBlocksByDate(int limit = 200, string blockDate = "")
         {

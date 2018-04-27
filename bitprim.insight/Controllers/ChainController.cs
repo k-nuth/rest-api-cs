@@ -52,6 +52,7 @@ namespace bitprim.insight.Controllers
             logger_ = logger;
         }
 
+        [ResponseCache(CacheProfileName = Constants.SHORT_CACHE_PROFILE_NAME)]
         [HttpGet("/api/sync")]
         public async Task<ActionResult> GetSyncStatus()
         {
@@ -81,6 +82,7 @@ namespace bitprim.insight.Controllers
             return Json(syncStatus);   
         }
 
+        [ResponseCache(CacheProfileName = Constants.SHORT_CACHE_PROFILE_NAME)]
         [HttpGet("/api/status")]
         public async Task<ActionResult> GetStatus(string method)
         {
@@ -173,16 +175,17 @@ namespace bitprim.insight.Controllers
                     {
                         info = new 
                         {
-                            //version = 120100, //TODO
-                            //protocolversion = 70012, //TODO
+                            //TODO Some of these values should be retrieved from node-cint
+                            version = config_.Version,
+                            protocolversion = config_.ProtocolVersion,
                             blocks = getLastBlockResult.Result.BlockHeight,
-                            //timeoffset = 0, //TODO
-                            //connections = 8, //TODO
-                            //proxy = "", //TODO
+                            timeoffset = config_.TimeOffset,
+                            connections = config_.Connections,
+                            proxy = config_.Proxy,
                             difficulty = Utils.BitsToDifficulty(getLastBlockResult.Result.BlockData.Header.Bits),
                             testnet = nodeExecutor_.UseTestnetRules,
-                            //relayfee = 0.00001, //TODO
-                            //errors = "Warning: unknown new rules activated (versionbit 28)", //TODO
+                            relayfee = config_.RelayFee,
+                            errors = "",
                             network = nodeExecutor_.NetworkType.ToString()
                         }
                     }
