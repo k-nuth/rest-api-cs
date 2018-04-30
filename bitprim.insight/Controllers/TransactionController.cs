@@ -312,7 +312,7 @@ namespace bitprim.insight.Controllers
                 var outputAddress = output.PaymentAddress(nodeExecutor_.UseTestnetRules);
                 if(outputAddress.IsValid)
                 {
-                    jsonInput.addr =  output.PaymentAddress(nodeExecutor_.UseTestnetRules).Encoded;
+                    jsonInput.addr =  outputAddress.Encoded;
                 }
                 jsonInput.valueSat = output.Value;
                 jsonInput.value = Utils.SatoshisToCoinUnits(output.Value);
@@ -405,15 +405,13 @@ namespace bitprim.insight.Controllers
                 result.asm = script.ToString(0);
             }
             result.hex = Binary.ByteArrayToHexString(scriptData);
-            result.addresses = ScriptAddressesToJSON(output);
+            var outputAddress = output.PaymentAddress(nodeExecutor_.UseTestnetRules);
+            if(outputAddress.IsValid)
+            {
+                result.addresses = new List<object> {outputAddress.Encoded}.ToArray();
+            }
             result.type = script.Type;
             return result;
-        }
-
-        private object ScriptAddressesToJSON(Output output)
-        {
-            var jsonAddresses = new List<object> {output.PaymentAddress(nodeExecutor_.UseTestnetRules).Encoded};
-            return jsonAddresses.ToArray();
         }
 
     }
