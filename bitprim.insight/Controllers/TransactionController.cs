@@ -309,7 +309,11 @@ namespace bitprim.insight.Controllers
                 Utils.CheckBitprimApiErrorCode(getTxResult.ErrorCode, "FetchTransactionAsync(" + Binary.ByteArrayToHexString(previousOutput.Hash) + ") failed, check errog log");
                 
                 var output = getTxResult.Result.Tx.Outputs[previousOutput.Index];
-                jsonInput.addr =  output.PaymentAddress(nodeExecutor_.UseTestnetRules).Encoded;
+                var outputAddress = output.PaymentAddress(nodeExecutor_.UseTestnetRules);
+                if(outputAddress.IsValid)
+                {
+                    jsonInput.addr =  output.PaymentAddress(nodeExecutor_.UseTestnetRules).Encoded;
+                }
                 jsonInput.valueSat = output.Value;
                 jsonInput.value = Utils.SatoshisToCoinUnits(output.Value);
                 jsonInput.doubleSpentTxID = null; //We don't handle double spent transactions
