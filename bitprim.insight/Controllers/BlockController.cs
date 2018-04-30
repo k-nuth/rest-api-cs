@@ -241,6 +241,17 @@ namespace bitprim.insight.Controllers
                     high = mid;
                 }
             }
+            //If the last block belongs to the sought date, the first block from the next day is "1 block off the chain"
+            //We do this to avoid missing the latest block
+            if(low == topHeight)
+            {
+                var getBlockResult = await chain_.FetchBlockByHeightHashTimestampAsync(topHeight);
+                Utils.CheckBitprimApiErrorCode(getBlockResult.ErrorCode, "FetchBlockByHeightHashTimestampAsync(" + topHeight + ") failed, check error log");
+                if(getBlockResult.Result.BlockTimestamp.Date == blockDateToSearch.Date)
+                {
+                    low = topHeight + 1;
+                }
+            }
             return low;
         } 
 
