@@ -348,11 +348,11 @@ namespace bitprim.insight.Controllers
             blockJson.difficulty = Utils.BitsToDifficulty(blockHeader.Bits); //TODO Use bitprim API when implemented
             blockJson.chainwork = (proof * 2).ToString("X64"); //TODO Does not match Blockdozer value; check how bitpay calculates it
             blockJson.confirmations = currentHeight - blockHeight;
+            blockJson.previousblockhash = Binary.ByteArrayToHexString(blockHeader.PreviousBlockHash);
             if(nextBlockHash != null)
             {
-                blockJson.previousblockhash = Binary.ByteArrayToHexString(blockHeader.PreviousBlockHash);
+                blockJson.nextblockhash = Binary.ByteArrayToHexString(nextBlockHash);
             }
-            blockJson.nextblockhash = Binary.ByteArrayToHexString(nextBlockHash);
             blockJson.reward = blockReward;
             blockJson.isMainChain = true; //TODO Check value
             blockJson.poolInfo = new{}; //TODO Check value
