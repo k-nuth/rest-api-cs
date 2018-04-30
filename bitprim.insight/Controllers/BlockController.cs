@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Dynamic;
 using System.Linq;
 using System.Numerics;
 using System.Threading.Tasks;
@@ -73,8 +74,12 @@ namespace bitprim.insight.Controllers
                 
                 var blockHeight = getBlockResult.Result.Block.BlockHeight;
 
-                var getNextBlockResult = await chain_.FetchBlockByHeightHashTimestampAsync(blockHeight + 1);
-                Utils.CheckBitprimApiErrorCode(getNextBlockResult.ErrorCode, "FetchBlockByHeightHashTimestampAsync(" + blockHeight + 1 + ") failed, check error log");
+                ApiCallResult<GetBlockHashTimestampResult> getNextBlockResult = null;
+                if(blockHeight != getLastHeightResult.Result)
+                {
+                    getNextBlockResult = await chain_.FetchBlockByHeightHashTimestampAsync(blockHeight + 1);
+                    Utils.CheckBitprimApiErrorCode(getNextBlockResult.ErrorCode, "FetchBlockByHeightHashTimestampAsync(" + blockHeight + 1 + ") failed, check error log");
+                }
                 
                 double blockReward;
                 using(var coinbase = await chain_.FetchTransactionAsync(getBlockResult.Result.TransactionHashes[0], true))
@@ -84,7 +89,7 @@ namespace bitprim.insight.Controllers
                 JsonResult blockJson = Json(BlockToJSON
                 (
                     getBlockResult.Result.Block.BlockData, blockHeight, getBlockResult.Result.TransactionHashes,
-                    blockReward, getLastHeightResult.Result, getNextBlockResult.Result.BlockHash,
+                    blockReward, getLastHeightResult.Result, getNextBlockResult != null? getNextBlockResult.Result.BlockHash : null,
                     getBlockResult.Result.SerializedBlockSize)
                 );
                 memoryCache_.Set("block" + hash, blockJson, new MemoryCacheEntryOptions{Size = Constants.BLOCK_CACHE_ENTRY_SIZE});
@@ -330,26 +335,28 @@ namespace bitprim.insight.Controllers
                                           UInt64 serializedBlockSize)
         {
             BigInteger.TryParse(blockHeader.ProofString, out var proof);
-            return new
+            dynamic blockJson = new ExpandoObject();
+            blockJson.hash = Binary.ByteArrayToHexString(blockHeader.Hash);
+            blockJson.size = serializedBlockSize;
+            blockJson.height = blockHeight;
+            blockJson.version = blockHeader.Version;
+            blockJson.merkleroot = Binary.ByteArrayToHexString(blockHeader.Merkle);
+            blockJson.tx = BlockTxsToJSON(txHashes);
+            blockJson.time = blockHeader.Timestamp;
+            blockJson.nonce = blockHeader.Nonce;
+            blockJson.bits = Utils.EncodeInBase16(blockHeader.Bits);
+            blockJson.difficulty = Utils.BitsToDifficulty(blockHeader.Bits); //TODO Use bitprim API when implemented
+            blockJson.chainwork = (proof * 2).ToString("X64"); //TODO Does not match Blockdozer value; check how bitpay calculates it
+            blockJson.confirmations = currentHeight - blockHeight;
+            if(nextBlockHash != null)
             {
-                hash = Binary.ByteArrayToHexString(blockHeader.Hash),
-                size = serializedBlockSize,
-                height = blockHeight,
-                version = blockHeader.Version,
-                merkleroot = Binary.ByteArrayToHexString(blockHeader.Merkle),
-                tx = BlockTxsToJSON(txHashes),
-                time = blockHeader.Timestamp,
-                nonce = blockHeader.Nonce,
-                bits = Utils.EncodeInBase16(blockHeader.Bits),
-                difficulty = Utils.BitsToDifficulty(blockHeader.Bits), //TODO Use bitprim API when implemented
-                chainwork = (proof * 2).ToString("X64"), //TODO Does not match Blockdozer value; check how bitpay calculates it
-                confirmations = currentHeight - blockHeight,
-                previousblockhash = Binary.ByteArrayToHexString(blockHeader.PreviousBlockHash),
-                nextblockhash = Binary.ByteArrayToHexString(nextBlockHash),
-                reward = blockReward,
-                isMainChain = true, //TODO Check value
-                poolInfo = new{} //TODO Check value
-            };
+                blockJson.previousblockhash = Binary.ByteArrayToHexString(blockHeader.PreviousBlockHash);
+            }
+            blockJson.nextblockhash = Binary.ByteArrayToHexString(nextBlockHash);
+            blockJson.reward = blockReward;
+            blockJson.isMainChain = true; //TODO Check value
+            blockJson.poolInfo = new{}; //TODO Check value
+            return blockJson;
         }
 
         private static object[] BlockTxsToJSON(HashList txHashes)
