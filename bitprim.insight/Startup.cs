@@ -113,7 +113,7 @@ namespace bitprim.insight
             .AddCors();
             services.AddMemoryCache( opt =>
                 {
-                    opt.SizeLimit = nodeConfig_.MaxCachedBlocks;
+                    opt.SizeLimit = nodeConfig_.MaxCacheSize;
                 }
             );
         }

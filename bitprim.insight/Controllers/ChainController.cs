@@ -229,7 +229,14 @@ namespace bitprim.insight.Controllers
                     default:
                         throw new InvalidOperationException("Only BCH, BTC and LTC support this operation");
                 }
-                memoryCache_.Set(BLOCKCHAIN_HEIGHT_CACHE_KEY, blockChainHeight, TimeSpan.FromSeconds(MAX_BLOCKCHAIN_HEIGHT_AGE_IN_SECONDS));
+                memoryCache_.Set
+                (
+                    BLOCKCHAIN_HEIGHT_CACHE_KEY, blockChainHeight, new MemoryCacheEntryOptions
+                    {
+                        AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(MAX_BLOCKCHAIN_HEIGHT_AGE_IN_SECONDS),
+                        Size = Constants.BLOCKCHAIN_HEIGHT_CACHE_ENTRY_SIZE
+                    }
+                );
                 return blockChainHeight;
             }
             catch(Exception ex)
