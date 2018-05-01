@@ -68,7 +68,7 @@ namespace bitprim.insight.Controllers
                     return StatusCode((int)System.Net.HttpStatusCode.BadRequest, validationResult.Item2);
                 }
 
-                historyJson.transactions = balance.Transactions.GetRange(from, to.Value).ToArray();
+                historyJson.transactions = balance.Transactions.GetRange(from, to.Value - from + 1).ToArray();
             }
             return Json(historyJson);
         }
@@ -237,12 +237,12 @@ namespace bitprim.insight.Controllers
                 return new Tuple<bool, string>(false, "from(" + from + ") must be greater than or equal to zero");
             }
 
-            if(to <= 0)
+            if(to < 0)
             {
-                return new Tuple<bool, string>(false, "to(" + to + ") must be greater than zero");
+                return new Tuple<bool, string>(false, "to(" + to + ") must not be negative");
             }
 
-            if(from >= to)
+            if(from > to)
             {
                 return new Tuple<bool, string>(false, "to(" + to +  ") must be greater than from(" + from + ")");
             }
