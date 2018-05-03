@@ -6,6 +6,7 @@ namespace bitprim.insight
         public const int BLOCK_CACHE_ENTRY_SIZE = 10;
         public const string LONG_CACHE_PROFILE_NAME = "Long";
         public const string SHORT_CACHE_PROFILE_NAME = "Short";
+        public const int TRANSACTION_VERSION_PROTOCOL = 1;
     }
 
 }
