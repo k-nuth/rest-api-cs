@@ -84,7 +84,7 @@ namespace bitprim.insight.Controllers
 
         [ResponseCache(CacheProfileName = Constants.SHORT_CACHE_PROFILE_NAME)]
         [HttpGet("status")]
-        public async Task<ActionResult> GetStatus(string method)
+        public async Task<ActionResult> GetStatus([Bind(Prefix="q")] string method)
         {
             switch (method)
             {
