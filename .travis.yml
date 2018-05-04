@@ -35,10 +35,7 @@ osx: &osx
 matrix:
    include:
       - <<: *linux
-        compiler: gcc 
-
-      - <<: *linux
-        compiler: gcc 
+        compiler: gcc  
 
       - <<: *osx
         osx_image: xcode8.3

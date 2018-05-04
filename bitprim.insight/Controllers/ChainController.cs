@@ -14,7 +14,7 @@ using System.Linq;
 
 namespace bitprim.insight.Controllers
 {
-    [Route("api/[controller]")]
+    [Route("[controller]")]
     public class ChainController : Controller
     {
         private Chain chain_;
@@ -53,7 +53,7 @@ namespace bitprim.insight.Controllers
         }
 
         [ResponseCache(CacheProfileName = Constants.SHORT_CACHE_PROFILE_NAME)]
-        [HttpGet("/api/sync")]
+        [HttpGet("sync")]
         public async Task<ActionResult> GetSyncStatus()
         {
             var getLastHeightResult = await chain_.FetchLastHeightAsync();
@@ -83,7 +83,7 @@ namespace bitprim.insight.Controllers
         }
 
         [ResponseCache(CacheProfileName = Constants.SHORT_CACHE_PROFILE_NAME)]
-        [HttpGet("/api/status")]
+        [HttpGet("status")]
         public async Task<ActionResult> GetStatus([Bind(Prefix="q")] string method)
         {
             switch (method)
@@ -99,7 +99,7 @@ namespace bitprim.insight.Controllers
             return await GetInfo();
         }
 
-        [HttpGet("/api/utils/estimatefee")]
+        [HttpGet("utils/estimatefee")]
         public ActionResult GetEstimateFee([FromQuery] int nbBlocks = 2)
         {
             var estimateFee = new ExpandoObject() as IDictionary<string, Object>;
@@ -108,7 +108,7 @@ namespace bitprim.insight.Controllers
             return Json(estimateFee);   
         }
 
-        [HttpGet("/api/currency")]
+        [HttpGet("currency")]
         public ActionResult GetCurrency()
         {
             //TODO Implement in node-cint? Or here? Ask
