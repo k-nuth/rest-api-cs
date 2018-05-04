@@ -335,7 +335,7 @@ namespace bitprim.insight.Controllers
             };
         }
 
-        private  object BlockToJSON(Header blockHeader, UInt64 blockHeight, HashList txHashes,
+        private static object BlockToJSON(Header blockHeader, UInt64 blockHeight, HashList txHashes,
                                           double blockReward, UInt64 currentHeight, byte[] nextBlockHash,
                                           UInt64 serializedBlockSize, PoolsInfo.PoolInfo poolInfo)
         {

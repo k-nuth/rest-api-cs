@@ -28,19 +28,16 @@ namespace bitprim.insight
 
         private readonly string poolsFile_;
 
-        private readonly Lazy<Dictionary<Regex, PoolInfo>> data_;
+        private readonly Dictionary<Regex, PoolInfo> data_ = new Dictionary<Regex, PoolInfo>();
         
        
         public PoolsInfo(string poolsFile)
         {
             poolsFile_ = poolsFile;
-            data_= new Lazy<Dictionary<Regex, PoolInfo>>(Load, LazyThreadSafetyMode.ExecutionAndPublication);
         }
 
-        private Dictionary<Regex,PoolInfo> Load()
+        public void Load()
         {
-            var ret = new Dictionary<Regex, PoolInfo>();
-
             var serializer = new JsonSerializer();
             using (StreamReader file = File.OpenText(poolsFile_))
             {
@@ -50,7 +47,7 @@ namespace bitprim.insight
                 {
                     foreach (string searchString in rootObject.searchStrings)
                     {
-                        ret.Add(new Regex(searchString, RegexOptions.Compiled), new PoolInfo
+                        data_.Add(new Regex(searchString, RegexOptions.Compiled), new PoolInfo
                         {
                             Name = rootObject.poolName,
                             Url = rootObject.url
@@ -59,8 +56,6 @@ namespace bitprim.insight
                 }
                     
             }
-
-            return ret;
         }
 
         public PoolInfo GetPoolInfo(Transaction tx)
@@ -77,7 +72,7 @@ namespace bitprim.insight
                 return PoolInfo.Empty;
             }
 
-            foreach (KeyValuePair<Regex, PoolInfo> pair in data_.Value)
+            foreach (KeyValuePair<Regex, PoolInfo> pair in data_)
             {
                 if (pair.Key.IsMatch(script))
                 {

@@ -61,7 +61,9 @@ namespace bitprim.insight
 
             services.AddSingleton<WebSocketHandler>(webSocketHandler_);
 
-            services.AddSingleton<PoolsInfo>(new PoolsInfo(nodeConfig_.PoolsFile));
+            var poolInfo = new PoolsInfo(nodeConfig_.PoolsFile);
+            poolInfo.Load();
+            services.AddSingleton<PoolsInfo>(poolInfo);
 
             StartNode(services, serviceProvider);
         }
