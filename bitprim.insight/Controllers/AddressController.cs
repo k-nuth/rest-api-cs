@@ -9,7 +9,7 @@ using System.Threading.Tasks;
 
 namespace bitprim.insight.Controllers
 {
-    [Route("api/[controller]")]
+    [Route("[controller]")]
     public class AddressController : Controller
     {
         private Chain chain_;
@@ -29,9 +29,9 @@ namespace bitprim.insight.Controllers
             config_ = config.Value;
         }
 
-        // GET: api/addr/{paymentAddress}
+        // GET: addr/{paymentAddress}
         [ResponseCache(CacheProfileName = Constants.SHORT_CACHE_PROFILE_NAME)]
-        [HttpGet("/api/addr/{paymentAddress}")]
+        [HttpGet("addr/{paymentAddress}")]
         public async Task<ActionResult> GetAddressHistory(string paymentAddress, bool noTxList = false, int from = 0, int? to = null)
         {
             if(!Validations.IsValidPaymentAddress(paymentAddress))
@@ -73,38 +73,38 @@ namespace bitprim.insight.Controllers
             return Json(historyJson);
         }
 
-        // GET: api/addr/{paymentAddress}/balance
-        [HttpGet("/api/addr/{paymentAddress}/balance")]
+        // GET: addr/{paymentAddress}/balance
+        [HttpGet("addr/{paymentAddress}/balance")]
         public async Task<ActionResult> GetAddressBalance(string paymentAddress)
         {
             return await GetBalanceProperty(paymentAddress, "Balance");
         }
 
-        // GET: api/addr/{paymentAddress}/totalReceived
-        [HttpGet("/api/addr/{paymentAddress}/totalReceived")]
+        // GET: addr/{paymentAddress}/totalReceived
+        [HttpGet("addr/{paymentAddress}/totalReceived")]
         public async Task<ActionResult> GetTotalReceived(string paymentAddress)
         {
             return await GetBalanceProperty(paymentAddress, "Received");
         }
 
-        // GET: api/addr/{paymentAddress}/totalSent
-        [HttpGet("/api/addr/{paymentAddress}/totalSent")]
+        // GET: addr/{paymentAddress}/totalSent
+        [HttpGet("addr/{paymentAddress}/totalSent")]
         public async Task<ActionResult> GetTotalSent(string paymentAddress)
         {
             return await GetBalanceProperty(paymentAddress, "Sent");
         }
 
-        // GET: api/addr/{paymentAddress}/unconfirmedBalance
-        [HttpGet("/api/addr/{paymentAddress}/unconfirmedBalance")]
+        // GET: addr/{paymentAddress}/unconfirmedBalance
+        [HttpGet("addr/{paymentAddress}/unconfirmedBalance")]
         public ActionResult GetUnconfirmedBalance(string paymentAddress)
         {
             Utils.CheckIfChainIsFresh(chain_, config_.AcceptStaleRequests);
             return Json(0); //We don't handle unconfirmed transactions
         }
 
-        // GET: api/addr/{paymentAddress}/utxo
+        // GET: addr/{paymentAddress}/utxo
         [ResponseCache(CacheProfileName = Constants.SHORT_CACHE_PROFILE_NAME)]
-        [HttpGet("/api/addr/{paymentAddress}/utxo")]
+        [HttpGet("addr/{paymentAddress}/utxo")]
         public async Task<ActionResult> GetUtxoForSingleAddress(string paymentAddress)
         {
             var utxo = await GetUtxo(paymentAddress);
@@ -112,7 +112,7 @@ namespace bitprim.insight.Controllers
         }
 
         [ResponseCache(CacheProfileName = Constants.SHORT_CACHE_PROFILE_NAME)]
-        [HttpGet("/api/addrs/{paymentAddresses}/utxo")]
+        [HttpGet("addrs/{paymentAddresses}/utxo")]
         public async Task<ActionResult> GetUtxoForMultipleAddresses(string paymentAddresses)
         {
             var utxo = new List<object>();
@@ -123,7 +123,7 @@ namespace bitprim.insight.Controllers
             return Json(utxo.ToArray());   
         }
 
-        [HttpPost("/api/addrs/utxo")]
+        [HttpPost("addrs/utxo")]
         public async Task<ActionResult> GetUtxoForMultipleAddressesPost([FromBody]GetUtxosForMultipleAddressesRequest requestParams)
         {
             return await GetUtxoForMultipleAddresses(requestParams.addrs);

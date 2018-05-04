@@ -11,7 +11,6 @@ using Swashbuckle.AspNetCore.Swagger;
 using System.Globalization;
 using System.IO;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Caching.Memory;
 
 namespace bitprim.insight
 {
@@ -107,6 +106,7 @@ namespace bitprim.insight
                             Duration = nodeConfig_.LongResponseCacheDurationInSeconds
                         });
                     opt.RespectBrowserAcceptHeader = true;
+                    opt.Conventions.Insert(0, new RouteConvention(new  RouteAttribute(nodeConfig_.ApiPrefix) ));
                 })
             .AddApiExplorer()
             .AddFormatterMappings()

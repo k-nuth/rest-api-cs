@@ -3,11 +3,11 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace bitprim.insight.Controllers
 {
-    [Route("api/[controller]")]
+    [Route("[controller]")]
     public class PeerController : Controller
     {
         [ResponseCache(CacheProfileName = Constants.SHORT_CACHE_PROFILE_NAME)]
-        [HttpGet("/api/peer")]
+        [HttpGet("peer")]
         public ActionResult GetPeerStatus()
         {
             //TODO Get this information from node-cint
@@ -19,7 +19,7 @@ namespace bitprim.insight.Controllers
         }
 
         [ResponseCache(CacheProfileName = Constants.SHORT_CACHE_PROFILE_NAME)]
-        [HttpGet("/api/version")]
+        [HttpGet("version")]
         public ActionResult GetApiVersion()
         {
             //TODO Implement versioning (RA-6)

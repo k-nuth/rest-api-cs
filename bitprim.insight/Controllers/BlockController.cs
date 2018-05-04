@@ -12,7 +12,7 @@ using Newtonsoft.Json;
 
 namespace bitprim.insight.Controllers
 {
-    [Route("api/[controller]")]
+    [Route("[controller]")]
     public class BlockController : Controller
     {
         private Chain chain_;
@@ -29,8 +29,8 @@ namespace bitprim.insight.Controllers
         }
 
       
-        // GET: api/block/simulate
-        [HttpGet("/api/block/simulate")]
+        // GET: block/simulate
+        [HttpGet("block/simulate")]
         public ActionResult Simulate()
         {
             var newBlocksNotification = new
@@ -45,9 +45,9 @@ namespace bitprim.insight.Controllers
         }
         
 
-        // GET: api/block/{hash}
+        // GET: block/{hash}
         [ResponseCache(CacheProfileName = Constants.SHORT_CACHE_PROFILE_NAME)]
-        [HttpGet("/api/block/{hash}")]
+        [HttpGet("block/{hash}")]
         public async Task<ActionResult> GetBlockByHash(string hash)
         {
             if(!Validations.IsValidHash(hash))
@@ -97,9 +97,9 @@ namespace bitprim.insight.Controllers
             }
         }
 
-        // GET: api/block-index/{height}
+        // GET: block-index/{height}
         [ResponseCache(CacheProfileName = Constants.SHORT_CACHE_PROFILE_NAME)]
-        [HttpGet("/api/block-index/{height}")]
+        [HttpGet("block-index/{height}")]
         public async Task<ActionResult> GetBlockByHeight(UInt64 height)
         {
             Utils.CheckIfChainIsFresh(chain_, config_.AcceptStaleRequests);
@@ -116,9 +116,9 @@ namespace bitprim.insight.Controllers
             );               
         }
 
-        // GET: api/rawblock/{hash}
+        // GET: rawblock/{hash}
         [ResponseCache(CacheProfileName = Constants.LONG_CACHE_PROFILE_NAME)]
-        [HttpGet("/api/rawblock/{hash}")]
+        [HttpGet("rawblock/{hash}")]
         public async Task<ActionResult> GetRawBlockByHash(string hash)
         {
             Utils.CheckIfChainIsFresh(chain_, config_.AcceptStaleRequests);
@@ -140,9 +140,9 @@ namespace bitprim.insight.Controllers
             }   
         }
 
-        // GET: api/rawblock-index/{height}
+        // GET: rawblock-index/{height}
         [ResponseCache(CacheProfileName = Constants.SHORT_CACHE_PROFILE_NAME)]
-        [HttpGet("/api/rawblock-index/{height}")]
+        [HttpGet("rawblock-index/{height}")]
         public async Task<ActionResult> GetRawBlockByHeight(UInt64 height)
         {
             Utils.CheckIfChainIsFresh(chain_, config_.AcceptStaleRequests);
@@ -162,9 +162,9 @@ namespace bitprim.insight.Controllers
             }
         }
 
-        // GET: api/blocks/?limit={limit}&blockDate={blockDate}
+        // GET: blocks/?limit={limit}&blockDate={blockDate}
         [ResponseCache(CacheProfileName = Constants.SHORT_CACHE_PROFILE_NAME)]
-        [HttpGet("/api/blocks/")]
+        [HttpGet("blocks/")]
         public async Task<ActionResult> GetBlocksByDate(int limit = 200, string blockDate = "")
         {
             //Validate input

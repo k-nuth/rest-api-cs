@@ -10,7 +10,7 @@ using Microsoft.Extensions.Options;
 
 namespace bitprim.insight.Controllers
 {
-    [Route("api/[controller]")]
+    [Route("[controller]")]
     public class TransactionController : Controller
     {
         private Chain chain_;
@@ -24,9 +24,9 @@ namespace bitprim.insight.Controllers
             chain_ = executor.Chain;
         }
 
-        // GET: api/tx/{hash}
+        // GET: tx/{hash}
         [ResponseCache(CacheProfileName = Constants.LONG_CACHE_PROFILE_NAME)]
-        [HttpGet("/api/tx/{hash}")]
+        [HttpGet("tx/{hash}")]
         public async Task<ActionResult> GetTransactionByHash(string hash, bool requireConfirmed)
         {
             if(!Validations.IsValidHash(hash))
@@ -47,9 +47,9 @@ namespace bitprim.insight.Controllers
             }
         }
 
-        // GET: api/rawtx/{hash}
+        // GET: rawtx/{hash}
         [ResponseCache(CacheProfileName = Constants.LONG_CACHE_PROFILE_NAME)]
-        [HttpGet("/api/rawtx/{hash}")]
+        [HttpGet("rawtx/{hash}")]
         public async Task<ActionResult> GetRawTransactionByHash(string hash)
         {
             Utils.CheckIfChainIsFresh(chain_, config_.AcceptStaleRequests);
@@ -70,9 +70,9 @@ namespace bitprim.insight.Controllers
             }
         }
 
-        // GET: api/txs/?block=HASH
+        // GET: txs/?block=HASH
         [ResponseCache(CacheProfileName = Constants.SHORT_CACHE_PROFILE_NAME)]
-        [HttpGet("/api/txs")]
+        [HttpGet("txs")]
         public async Task<ActionResult> GetTransactions(string block = null, string address = null, uint pageNum = 0)
         {
             if(block == null && address == null)
@@ -93,19 +93,19 @@ namespace bitprim.insight.Controllers
             return await GetTransactionsByAddress(address, pageNum);
         }
 
-        [HttpGet("/api/addrs/{paymentAddresses}/txs")]
+        [HttpGet("addrs/{paymentAddresses}/txs")]
         public async Task<ActionResult> GetTransactionsForMultipleAddresses([FromRoute] string paymentAddresses, [FromQuery] int from = 0, [FromQuery] int to = 20)
         {
             return await DoGetTransactionsForMultipleAddresses(paymentAddresses, from, to, false, false, false);
         }
 
-        [HttpPost("/api/addrs/txs")]
+        [HttpPost("addrs/txs")]
         public async Task<ActionResult> GetTransactionsForMultipleAddresses([FromBody] GetTxsForMultipleAddressesRequest request)
         {
             return await DoGetTransactionsForMultipleAddresses(request.addrs, request.from, request.to, request.noAsm, request.noScriptSig, request.noSpend);
         }
 
-        [HttpPost("/api/tx/send")]
+        [HttpPost("tx/send")]
         public async Task<ActionResult> BroadcastTransaction([FromBody] RawTxRequest request)
         {
             Utils.CheckIfChainIsFresh(chain_, config_.AcceptStaleRequests);
