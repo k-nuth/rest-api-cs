@@ -9,6 +9,7 @@ using Microsoft.Extensions.Options;
 using Serilog;
 using Swashbuckle.AspNetCore.Swagger;
 using System.Globalization;
+using System.IO;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Caching.Memory;
 
@@ -181,7 +182,12 @@ namespace bitprim.insight
         private void StartFullNode(IServiceCollection services)
         {
             // Initialize and register chain service
-         
+
+            Log.Information("Current Dir:" + Environment.CurrentDirectory);             
+            Log.Information("Node Config File:" + nodeConfig_.NodeConfigFile);
+            Log.Information("FullPath Node Config File:" + Path.GetFullPath(nodeConfig_.NodeConfigFile) );
+
+
             exec_ = new Executor(nodeConfig_.NodeConfigFile);
              
             int result = exec_.InitAndRunAsync().GetAwaiter().GetResult();
