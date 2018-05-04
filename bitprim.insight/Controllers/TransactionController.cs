@@ -106,14 +106,14 @@ namespace bitprim.insight.Controllers
         }
 
         [HttpPost("/api/tx/send")]
-        public async Task<ActionResult> BroadcastTransaction([FromBody] string rawtx)
+        public async Task<ActionResult> BroadcastTransaction([FromBody] RawTxRequest request)
         {
             Utils.CheckIfChainIsFresh(chain_, config_.AcceptStaleRequests);
 
-            using (var tx = new Transaction(rawtx))
+            using (var tx = new Transaction(Constants.TRANSACTION_VERSION_PROTOCOL,request.rawtx))
             {
                 var ec = await chain_.OrganizeTransactionAsync(tx);
-                Utils.CheckBitprimApiErrorCode(ec, "OrganizeTransactionAsync(" + rawtx + ") failed");
+                Utils.CheckBitprimApiErrorCode(ec, "OrganizeTransactionAsync(" + request.rawtx + ") failed");
                 
                 return Json
                 (
