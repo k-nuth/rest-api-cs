@@ -9,9 +9,4 @@ namespace bitprim.insight.DTOs
         public bool noScriptSig { get; set; } = true;
         public bool noSpend { get; set; } = true;
     }
-
-    public class RawTxRequest
-    {
-        public string rawtx { get; set; }
-    }
 }
