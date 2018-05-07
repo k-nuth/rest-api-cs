@@ -39,7 +39,7 @@ namespace bitprim.insight.Controllers
             logger_ = logger;
         }
 
-        [ResponseCache(CacheProfileName = Constants.SHORT_CACHE_PROFILE_NAME)]
+        [ResponseCache(CacheProfileName = Constants.Cache.SHORT_CACHE_PROFILE_NAME)]
         [HttpGet("sync")]
         public async Task<ActionResult> GetSyncStatus()
         {
@@ -69,7 +69,7 @@ namespace bitprim.insight.Controllers
             return Json(syncStatus);   
         }
 
-        [ResponseCache(CacheProfileName = Constants.SHORT_CACHE_PROFILE_NAME)]
+        [ResponseCache(CacheProfileName = Constants.Cache.SHORT_CACHE_PROFILE_NAME)]
         [HttpGet("status")]
         public async Task<ActionResult> GetStatus([Bind(Prefix="q")] string method)
         {
@@ -98,7 +98,24 @@ namespace bitprim.insight.Controllers
         [HttpGet("currency")]
         public async Task<ActionResult> GetCurrency()
         {
-            var usdPrice = await execPolicy_.ExecuteAsync<float>( ()=> GetCurrentCoinPriceInUsd() );
+            var usdPrice = 1.0f;
+            try
+            {
+                usdPrice = await execPolicy_.ExecuteAsync<float>( ()=> GetCurrentCoinPriceInUsd() );
+                memoryCache_.Set
+                (
+                    Constants.Cache.CURRENT_PRICE_CACHE_KEY, usdPrice,
+                    new MemoryCacheEntryOptions{ Size = Constants.Cache.CURRENT_PRICE_CACHE_ENTRY_SIZE }
+                );
+            }
+            catch(Exception ex)
+            {
+                logger_.LogWarning(ex, "Failed to get latest currency price from external service; returning last read value");
+                if(!memoryCache_.TryGetValue(Constants.Cache.CURRENT_PRICE_CACHE_KEY, out usdPrice))
+                {
+                    logger_.LogWarning("No cached value available, returning default (1.0)");
+                }
+            }
             return Json(new{
                 status = 200,
                 data = new
@@ -215,7 +232,7 @@ namespace bitprim.insight.Controllers
             try
             {
                 UInt64 blockChainHeight = 0;
-                if(memoryCache_.TryGetValue(Constants.BLOCKCHAIN_HEIGHT_CACHE_KEY, out blockChainHeight))
+                if(memoryCache_.TryGetValue(Constants.Cache.BLOCKCHAIN_HEIGHT_CACHE_KEY, out blockChainHeight))
                 {
                     return blockChainHeight;
                 };
@@ -235,10 +252,10 @@ namespace bitprim.insight.Controllers
                 }
                 memoryCache_.Set
                 (
-                    Constants.BLOCKCHAIN_HEIGHT_CACHE_KEY, blockChainHeight, new MemoryCacheEntryOptions
+                    Constants.Cache.BLOCKCHAIN_HEIGHT_CACHE_KEY, blockChainHeight, new MemoryCacheEntryOptions
                     {
-                        AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(Constants.MAX_BLOCKCHAIN_HEIGHT_AGE_IN_SECONDS),
-                        Size = Constants.BLOCKCHAIN_HEIGHT_CACHE_ENTRY_SIZE
+                        AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(Constants.Cache.MAX_BLOCKCHAIN_HEIGHT_AGE_IN_SECONDS),
+                        Size = Constants.Cache.BLOCKCHAIN_HEIGHT_CACHE_ENTRY_SIZE
                     }
                 );
                 return blockChainHeight;

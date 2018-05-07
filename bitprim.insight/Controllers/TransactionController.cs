@@ -25,7 +25,7 @@ namespace bitprim.insight.Controllers
         }
 
         // GET: tx/{hash}
-        [ResponseCache(CacheProfileName = Constants.LONG_CACHE_PROFILE_NAME)]
+        [ResponseCache(CacheProfileName = Constants.Cache.LONG_CACHE_PROFILE_NAME)]
         [HttpGet("tx/{hash}")]
         public async Task<ActionResult> GetTransactionByHash(string hash, bool requireConfirmed)
         {
@@ -48,7 +48,7 @@ namespace bitprim.insight.Controllers
         }
 
         // GET: rawtx/{hash}
-        [ResponseCache(CacheProfileName = Constants.LONG_CACHE_PROFILE_NAME)]
+        [ResponseCache(CacheProfileName = Constants.Cache.LONG_CACHE_PROFILE_NAME)]
         [HttpGet("rawtx/{hash}")]
         public async Task<ActionResult> GetRawTransactionByHash(string hash)
         {
@@ -71,7 +71,7 @@ namespace bitprim.insight.Controllers
         }
 
         // GET: txs/?block=HASH
-        [ResponseCache(CacheProfileName = Constants.SHORT_CACHE_PROFILE_NAME)]
+        [ResponseCache(CacheProfileName = Constants.Cache.SHORT_CACHE_PROFILE_NAME)]
         [HttpGet("txs")]
         public async Task<ActionResult> GetTransactions(string block = null, string address = null, uint pageNum = 0)
         {
