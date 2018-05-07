@@ -44,8 +44,8 @@ namespace bitprim.insight.Controllers
             
             dynamic historyJson = new ExpandoObject();
             historyJson.addrStr = paymentAddress;
-            historyJson.balance = balance.Balance;
-            historyJson.balanceSat = Utils.SatoshisToCoinUnits(balance.Balance);
+            historyJson.balance = Utils.SatoshisToCoinUnits(balance.Balance);
+            historyJson.balanceSat = balance.Balance;
             historyJson.totalReceived = Utils.SatoshisToCoinUnits(balance.Received);
             historyJson.totalReceivedSat = balance.Received;
             historyJson.totalSent = balance.Sent;
