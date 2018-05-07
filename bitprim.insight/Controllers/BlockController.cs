@@ -181,6 +181,7 @@ namespace bitprim.insight.Controllers
             }
             
             var blockDateToSearch = validateInputResult.Item3;
+            //These define the search interval (lte, gte)
             var gte = new DateTimeOffset(blockDateToSearch).ToUnixTimeSeconds();
             var lte =  gte + 86400;
 
