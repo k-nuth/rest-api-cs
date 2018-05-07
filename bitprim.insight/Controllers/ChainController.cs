@@ -116,7 +116,7 @@ namespace bitprim.insight.Controllers
                 status = 200,
                 data = new
                 {
-                    bistamp = 8025.3f
+                    bitstamp = 1612.3f
                 }
             });
         }
