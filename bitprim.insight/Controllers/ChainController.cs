@@ -224,9 +224,12 @@ namespace bitprim.insight.Controllers
             string bitstampUrl = Constants.BITSTAMP_URL.Replace(Constants.BITSTAMP_CURRENCY_PAIR_PLACEHOLDER, currencyPair); 
             var priceDataString = await httpClient_.GetStringAsync(bitstampUrl);
             dynamic priceData = JsonConvert.DeserializeObject<dynamic>(priceDataString);
-            NumberFormatInfo nfi = new NumberFormatInfo();
-            nfi.NumberDecimalSeparator = ".";
-            return float.Parse(float.Parse(priceData.last.Value).ToString(nfi));
+            float price = 1.0f;
+            if(!float.TryParse(priceData.last.Value, NumberStyles.Float, CultureInfo.InvariantCulture, out price))
+            {
+                throw new FormatException("Invalid price value: " + priceData.last.Value);
+            }
+            return price;
         }
 
         //TODO Avoid consulting external sources; get this information from bitprim network
