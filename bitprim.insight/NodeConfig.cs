@@ -23,6 +23,7 @@ namespace bitprim.insight
         public string ForwardUrl { get; set; }
         public string NodeConfigFile { get; set; }
         public string NodeType { get; set; }
+        public string PoolsFile { get; set; }
         public string ProtocolVersion { get; set; }
         public string Proxy { get; set; }
         public string RelayFee { get; set; }

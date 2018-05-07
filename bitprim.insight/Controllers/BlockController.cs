@@ -15,17 +15,19 @@ namespace bitprim.insight.Controllers
     [Route("[controller]")]
     public class BlockController : Controller
     {
-        private Chain chain_;
-        private IMemoryCache memoryCache_;
+        private readonly Chain chain_;
+        private readonly IMemoryCache memoryCache_;
+        private readonly PoolsInfo poolsInfo_;
         private readonly WebSocketHandler webSocketHandler_;
         private readonly NodeConfig config_;
 
-        public BlockController(IOptions<NodeConfig> config, Chain chain, WebSocketHandler webSocketHandler, IMemoryCache memoryCache)
+        public BlockController(IOptions<NodeConfig> config, Chain chain, WebSocketHandler webSocketHandler, IMemoryCache memoryCache, PoolsInfo poolsInfo)
         {
             config_ = config.Value;
             chain_ = chain;
             webSocketHandler_ = webSocketHandler;
             memoryCache_ = memoryCache;
+            poolsInfo_ = poolsInfo;
         }
 
       
@@ -57,8 +59,7 @@ namespace bitprim.insight.Controllers
 
             Utils.CheckIfChainIsFresh(chain_, config_.AcceptStaleRequests);
 
-            JsonResult cachedBlockJson;
-            if(memoryCache_.TryGetValue("block" + hash, out cachedBlockJson))
+            if(memoryCache_.TryGetValue("block" + hash, out JsonResult cachedBlockJson))
             {
                 return cachedBlockJson;
             };
@@ -82,16 +83,20 @@ namespace bitprim.insight.Controllers
                 }
                 
                 double blockReward;
-                using(var coinbase = await chain_.FetchTransactionAsync(getBlockResult.Result.TransactionHashes[0], true))
+                PoolsInfo.PoolInfo poolInfo;
+                using(DisposableApiCallResult<GetTxDataResult> coinbase = await chain_.FetchTransactionAsync(getBlockResult.Result.TransactionHashes[0], true))
                 {
-                    blockReward = Utils.SatoshisToCoinUnits(coinbase.Result.Tx.TotalOutputValue);
+                    blockReward = Math.Round(Utils.SatoshisToCoinUnits(coinbase.Result.Tx.TotalOutputValue),2);
+                    poolInfo = poolsInfo_.GetPoolInfo(coinbase.Result.Tx);
                 }
+
                 JsonResult blockJson = Json(BlockToJSON
                 (
                     getBlockResult.Result.Block.BlockData, blockHeight, getBlockResult.Result.TransactionHashes,
-                    blockReward, getLastHeightResult.Result, getNextBlockResult != null? getNextBlockResult.Result.BlockHash : null,
-                    getBlockResult.Result.SerializedBlockSize)
+                    blockReward, getLastHeightResult.Result, getNextBlockResult?.Result.BlockHash,
+                    getBlockResult.Result.SerializedBlockSize,poolInfo)
                 );
+
                 memoryCache_.Set("block" + hash, blockJson, new MemoryCacheEntryOptions{Size = Constants.BLOCK_CACHE_ENTRY_SIZE});
                 return blockJson;
             }
@@ -332,7 +337,7 @@ namespace bitprim.insight.Controllers
 
         private static object BlockToJSON(Header blockHeader, UInt64 blockHeight, HashList txHashes,
                                           double blockReward, UInt64 currentHeight, byte[] nextBlockHash,
-                                          UInt64 serializedBlockSize)
+                                          UInt64 serializedBlockSize, PoolsInfo.PoolInfo poolInfo)
         {
             BigInteger.TryParse(blockHeader.ProofString, out var proof);
             dynamic blockJson = new ExpandoObject();
@@ -347,7 +352,7 @@ namespace bitprim.insight.Controllers
             blockJson.bits = Utils.EncodeInBase16(blockHeader.Bits);
             blockJson.difficulty = Utils.BitsToDifficulty(blockHeader.Bits); //TODO Use bitprim API when implemented
             blockJson.chainwork = (proof * 2).ToString("X64"); //TODO Does not match Blockdozer value; check how bitpay calculates it
-            blockJson.confirmations = currentHeight - blockHeight;
+            blockJson.confirmations = currentHeight - blockHeight + 1;
             blockJson.previousblockhash = Binary.ByteArrayToHexString(blockHeader.PreviousBlockHash);
             if(nextBlockHash != null)
             {
@@ -355,7 +360,7 @@ namespace bitprim.insight.Controllers
             }
             blockJson.reward = blockReward;
             blockJson.isMainChain = true; //TODO Check value
-            blockJson.poolInfo = new{}; //TODO Check value
+            blockJson.poolInfo = new{ poolName = poolInfo.Name, url = poolInfo.Url};
             return blockJson;
         }
 
