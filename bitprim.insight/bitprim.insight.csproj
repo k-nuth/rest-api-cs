@@ -58,6 +58,13 @@
     <PackageReference Include="Serilog.Settings.Configuration" Version="2.6.1" />
   </ItemGroup>
 
+
+  <ItemGroup>
+    <Content Update="pools.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
   <!-- <Target Name="CopyNativeLib" AfterTargets="Build">
     <Copy SourceFiles="libbitprim-node-cint.so" DestinationFiles="$(OutDir)libbitprim-node-cint.so" Condition="Exists('libbitprim-node-cint.so')"/>
   </Target> -->
