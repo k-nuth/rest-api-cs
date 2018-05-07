@@ -3,7 +3,9 @@ namespace bitprim.insight
     public class Constants
     {
         public const int BLOCKCHAIN_HEIGHT_CACHE_ENTRY_SIZE = 1;
+        public const int BLOCK_CACHE_CONFIRMATIONS = 6;
         public const int BLOCK_CACHE_ENTRY_SIZE = 10;
+        public const int BLOCK_CACHE_SUMMARY_SIZE = 5;
         public const int MAX_BLOCKCHAIN_HEIGHT_AGE_IN_SECONDS = 60;
         public const int MAX_DELAY = 2;
         public const int MAX_RETRIES = 3;
