@@ -96,9 +96,9 @@ namespace bitprim.insight.Controllers
         }
 
         [HttpGet("currency")]
-        public ActionResult GetCurrency()
+        public async Task<ActionResult> GetCurrency()
         {
-            var usdPrice = execPolicy_.ExecuteAsync<float>( ()=> GetCurrentCoinPriceInUsd() );
+            var usdPrice = await execPolicy_.ExecuteAsync<float>( ()=> GetCurrentCoinPriceInUsd() );
             return Json(new{
                 status = 200,
                 data = new
@@ -206,7 +206,7 @@ namespace bitprim.insight.Controllers
             string bitstampUrl = Constants.BITSTAMP_URL.Replace(Constants.BITSTAMP_CURRENCY_PAIR_PLACEHOLDER, currencyPair); 
             var priceDataString = await httpClient_.GetStringAsync(bitstampUrl);
             dynamic priceData = JsonConvert.DeserializeObject<dynamic>(priceDataString);
-            return Math.Round(float.Parse(priceData.last), 1);
+            return float.Parse(priceData.last.Value);
         }
 
         //TODO Avoid consulting external sources; get this information from bitprim network
