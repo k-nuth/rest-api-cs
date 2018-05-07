@@ -13,8 +13,8 @@ namespace bitprim.insight.Controllers
     [Route("[controller]")]
     public class TransactionController : Controller
     {
-        private Chain chain_;
-        private Executor nodeExecutor_;
+        private readonly Chain chain_;
+        private readonly Executor nodeExecutor_;
         private readonly NodeConfig config_;
 
         public TransactionController(IOptions<NodeConfig> config, Executor executor)

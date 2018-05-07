@@ -12,7 +12,7 @@ namespace bitprim.insight.Controllers
     [Route("[controller]")]
     public class AddressController : Controller
     {
-        private Chain chain_;
+        private readonly Chain chain_;
         private readonly NodeConfig config_;
 
         private struct AddressBalance
@@ -154,14 +154,14 @@ namespace bitprim.insight.Controllers
                         using (var outPoint = new OutputPoint(compact.Point.Hash, compact.Point.Index))
                         {
                             var getSpendResult = await chain_.FetchSpendAsync(outPoint);
-                            var outputPoint = getSpendResult.Result;
                             
                             if(getSpendResult.ErrorCode == ErrorCode.NotFound) //Unspent = it's an utxo
                             {
                                 //Get the tx to get the script
-                                using(var getTxResult = await chain_.FetchTransactionAsync(outputPoint.Hash, true))
+                                using(var getTxResult = await chain_.FetchTransactionAsync(compact.Point.Hash, true))
                                 {
-                                    utxo.Add(UtxoToJSON(paymentAddress, outputPoint, getTxResult.ErrorCode, getTxResult.Result.Tx, compact, topHeight));
+                                    Utils.CheckBitprimApiErrorCode(getTxResult.ErrorCode, "FetchTransactionAsync (" + Binary.ByteArrayToHexString(outPoint.Hash)  + ") failed, check error log");
+                                    utxo.Add(UtxoToJSON(address, compact.Point, getTxResult.ErrorCode, getTxResult.Result.Tx, compact, topHeight));
                                 }
                             }
                         }                        
@@ -171,20 +171,29 @@ namespace bitprim.insight.Controllers
             }
         }
 
-        private static object UtxoToJSON(string paymentAddress, Point outputPoint, ErrorCode getTxEc, Transaction tx, HistoryCompact compact, UInt64 topHeight)
+        private static object UtxoToJSON(PaymentAddress paymentAddress, Point outputPoint, ErrorCode getTxEc, Transaction tx, HistoryCompact compact, UInt64 topHeight)
         {
             return new
             {
-                address = paymentAddress,
+                address = paymentAddress.Encoded,
                 txid = Binary.ByteArrayToHexString(outputPoint.Hash),
                 vout = outputPoint.Index,
-                scriptPubKey = getTxEc == ErrorCode.Success? tx.Outputs[outputPoint.Index].Script.ToData(false) : null,
+                scriptPubKey = getTxEc == ErrorCode.Success ? GetOutputScript(tx.Outputs[outputPoint.Index]) : null,
                 amount = Utils.SatoshisToCoinUnits(compact.ValueOrChecksum),
                 satoshis = compact.ValueOrChecksum,
                 height = compact.Height,
-                confirmations = topHeight - compact.Height
+                confirmations = topHeight - compact.Height + 1
             };
         }
+
+        private static string GetOutputScript(Output output)
+        {
+            var script = output.Script;
+            var scriptData = script.ToData(false);
+            Array.Reverse(scriptData, 0, scriptData.Length);
+            return Binary.ByteArrayToHexString(scriptData);
+        }
+
 
         private async Task<AddressBalance> GetBalance(string paymentAddress)
         {
