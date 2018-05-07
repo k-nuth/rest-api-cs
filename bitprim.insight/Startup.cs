@@ -40,6 +40,9 @@ namespace bitprim.insight
         // This method gets called by the runtime. Use this method to add services to the container.
         public void ConfigureServices(IServiceCollection services)
         {
+            
+            Log.Information("Current Dir:" + Environment.CurrentDirectory); 
+
             // Add functionality to inject IOptions<T>
             services.AddOptions();
             // Add our Config object so it can be injected
@@ -187,7 +190,7 @@ namespace bitprim.insight
         {
             // Initialize and register chain service
 
-            Log.Information("Current Dir:" + Environment.CurrentDirectory);             
+                       
             Log.Information("Node Config File:" + nodeConfig_.NodeConfigFile);
             Log.Information("FullPath Node Config File:" + Path.GetFullPath(nodeConfig_.NodeConfigFile) );
 
