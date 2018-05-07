@@ -192,6 +192,7 @@ namespace bitprim.insight.Controllers
             return getBlockResult;
         }
 
+        //TODO Consider moving this down to node-cint for other APIs to reuse
         private async Task<float> GetCurrentCoinPriceInUsd()
         {
             string currencyPair = "";
