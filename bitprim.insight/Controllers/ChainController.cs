@@ -11,6 +11,7 @@ using Microsoft.Extensions.Options;
 using Newtonsoft.Json;
 using Polly;
 using System.Linq;
+using System.Globalization;
 
 namespace bitprim.insight.Controllers
 {
@@ -223,7 +224,9 @@ namespace bitprim.insight.Controllers
             string bitstampUrl = Constants.BITSTAMP_URL.Replace(Constants.BITSTAMP_CURRENCY_PAIR_PLACEHOLDER, currencyPair); 
             var priceDataString = await httpClient_.GetStringAsync(bitstampUrl);
             dynamic priceData = JsonConvert.DeserializeObject<dynamic>(priceDataString);
-            return float.Parse(priceData.last.Value);
+            NumberFormatInfo nfi = new NumberFormatInfo();
+            nfi.NumberDecimalSeparator = ".";
+            return float.Parse(float.Parse(priceData.last.Value).ToString(nfi));
         }
 
         //TODO Avoid consulting external sources; get this information from bitprim network
