@@ -405,8 +405,19 @@ namespace bitprim.insight.Controllers
             {
                 result.addresses = new List<object> {outputAddress.Encoded}.ToArray();
             }
-            result.type = script.Type;
+            result.type = GetScriptType(script.Type);
             return result;
+        }
+
+        private string GetScriptType(string type)
+        {
+            if (type == "pay_key_hash")
+                return "pubkeyhash";
+
+            if (type == "pay_script_hash")
+                return "scripthash";
+
+            return type;
         }
 
     }
