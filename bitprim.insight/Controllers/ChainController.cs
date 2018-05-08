@@ -285,7 +285,7 @@ namespace bitprim.insight.Controllers
             {
                 var syncDataString = await httpClient_.GetStringAsync(Constants.BLOCKCHAIR_BCC_URL);
                 dynamic syncData = JsonConvert.DeserializeObject<dynamic>(syncDataString);
-                return ((IEnumerable<dynamic>)syncData.data).Where( r => r.e == "blocks" ).First().c;
+                return ((IEnumerable<dynamic>)syncData.data).Where( r => r.e == "blocks" ).First().c - 1;
             }
         }
 
