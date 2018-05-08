@@ -252,13 +252,12 @@ namespace bitprim.insight.Controllers
                 txJson.isCoinBase = tx.IsCoinbase;
                 txJson.valueOut = Utils.SatoshisToCoinUnits(tx.TotalOutputValue);
                 txJson.size = tx.GetSerializedSize();
-
-                txJson.valueIn = Utils.SatoshisToCoinUnits(tx.TotalInputValue);
+                UInt64 inputsTotal = await ManuallyCalculateInputsTotal(tx); //TODO Solve at native layer
+                txJson.valueIn = Utils.SatoshisToCoinUnits(inputsTotal);
                 
                 if ( !tx.IsCoinbase && ! nodeExecutor_.UseTestnetRules )
                 {
-                    //txJson.fees = Utils.SatoshisToCoinUnits(tx.Fees);
-                    txJson.fees = await ManuallyCalculateFees(tx); //TODO Solve at native layer
+                    txJson.fees = Utils.SatoshisToCoinUnits(inputsTotal - tx.TotalOutputValue); //TODO Solve at native layer
                 }
                 return txJson;
             }
@@ -375,7 +374,7 @@ namespace bitprim.insight.Controllers
             
         }
 
-        private async Task<double> ManuallyCalculateFees(Transaction tx)
+        private async Task<UInt64> ManuallyCalculateInputsTotal(Transaction tx)
         {
             UInt64 inputs_total = 0;
             foreach(Input txInput in tx.Inputs)
@@ -386,7 +385,7 @@ namespace bitprim.insight.Controllers
                     inputs_total += getTxResult.Result.Tx.Outputs[txInput.PreviousOutput.Index].Value;
                 }
             }
-            return Utils.SatoshisToCoinUnits(inputs_total - tx.TotalOutputValue);
+            return inputs_total;
         }
 
         private object OutputScriptToJSON(Output output, bool noAsm)
