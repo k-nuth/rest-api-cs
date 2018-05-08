@@ -49,6 +49,5 @@ namespace bitprim.insight
                 Log.CloseAndFlush();
             }
         }
-
     }
 }
