@@ -178,7 +178,7 @@ namespace bitprim.insight.Controllers
                 case NetworkType.Mainnet:
                     return "livenet";
                 default:
-                    return networkType.ToString();
+                    return networkType.ToString().ToLower();
 
             }
         }
