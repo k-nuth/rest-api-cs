@@ -11,6 +11,7 @@ using Microsoft.Extensions.Options;
 using Newtonsoft.Json;
 using Polly;
 using System.Linq;
+using System.Globalization;
 
 namespace bitprim.insight.Controllers
 {
@@ -21,25 +22,12 @@ namespace bitprim.insight.Controllers
         private Executor nodeExecutor_;
         private static readonly HttpClient httpClient_ = new HttpClient();
         private readonly NodeConfig config_;
-        private const int MAX_BLOCKCHAIN_HEIGHT_AGE_IN_SECONDS = 60;
-        private const int MAX_DELAY = 2;
-        private const int MAX_RETRIES = 3;
-        private const int SEED_DELAY = 100;
-        private const string BLOCKCHAIN_HEIGHT_CACHE_KEY = "blockchain_height";
-        private const string BLOCKCHAIR_BCC_URL = "https://api.blockchair.com/bitcoin-cash";
-        private const string BLOCKCHAIR_BTC_URL = "https://api.blockchair.com/bitcoin";
-        private const string BLOCKTRAIL_TBCC_URL = "https://www.blocktrail.com/tBCC/json/blockchain/homeStats";
-        private const string GET_BEST_BLOCK_HASH = "getBestBlockHash";
-        private const string GET_LAST_BLOCK_HASH = "getLastBlockHash";
-        private const string GET_DIFFICULTY = "getDifficulty";
-        private const string SOCHAIN_LTC_URL = "https://chain.so/api/v2/get_info/LTC";
-        private const string SOCHAIN_TBTC_URL = "https://chain.so/api/v2/get_info/BTCTEST";
-        private const string SOCHAIN_TLTC_URL = "https://chain.so/api/v2/get_info/LTCTEST";
         private ILogger<ChainController> logger_;
         private IMemoryCache memoryCache_;
         private readonly Policy breakerPolicy_ = Policy.Handle<Exception>().CircuitBreakerAsync(2, TimeSpan.FromMinutes(1));
         private readonly Policy retryPolicy_ = Policy.Handle<Exception>()
-            .WaitAndRetryAsync(RetryUtils.DecorrelatedJitter(MAX_RETRIES, TimeSpan.FromMilliseconds(SEED_DELAY), TimeSpan.FromSeconds(MAX_DELAY)));
+            .WaitAndRetryAsync(RetryUtils.DecorrelatedJitter
+                (Constants.MAX_RETRIES, TimeSpan.FromMilliseconds(Constants.SEED_DELAY), TimeSpan.FromSeconds(Constants.MAX_DELAY)));
         private readonly Policy execPolicy_;
 
         public ChainController(IOptions<NodeConfig> config, Executor executor, ILogger<ChainController> logger, IMemoryCache memoryCache)
@@ -52,7 +40,7 @@ namespace bitprim.insight.Controllers
             logger_ = logger;
         }
 
-        [ResponseCache(CacheProfileName = Constants.SHORT_CACHE_PROFILE_NAME)]
+        [ResponseCache(CacheProfileName = Constants.Cache.SHORT_CACHE_PROFILE_NAME)]
         [HttpGet("sync")]
         public async Task<ActionResult> GetSyncStatus()
         {
@@ -82,17 +70,17 @@ namespace bitprim.insight.Controllers
             return Json(syncStatus);   
         }
 
-        [ResponseCache(CacheProfileName = Constants.SHORT_CACHE_PROFILE_NAME)]
+        [ResponseCache(CacheProfileName = Constants.Cache.SHORT_CACHE_PROFILE_NAME)]
         [HttpGet("status")]
         public async Task<ActionResult> GetStatus([Bind(Prefix="q")] string method)
         {
             switch (method)
             {
-                case GET_DIFFICULTY:
+                case Constants.GET_DIFFICULTY:
                     return await GetDifficulty();
-                case GET_BEST_BLOCK_HASH:
+                case Constants.GET_BEST_BLOCK_HASH:
                     return await GetBestBlockHash();
-                case GET_LAST_BLOCK_HASH:
+                case Constants.GET_LAST_BLOCK_HASH:
                     return await GetLastBlockHash();
             }
 
@@ -109,14 +97,31 @@ namespace bitprim.insight.Controllers
         }
 
         [HttpGet("currency")]
-        public ActionResult GetCurrency()
+        public async Task<ActionResult> GetCurrency()
         {
-            //TODO Implement in node-cint? Or here? Ask
+            var usdPrice = 1.0f;
+            try
+            {
+                usdPrice = await execPolicy_.ExecuteAsync<float>( ()=> GetCurrentCoinPriceInUsd() );
+                memoryCache_.Set
+                (
+                    Constants.Cache.CURRENT_PRICE_CACHE_KEY, usdPrice,
+                    new MemoryCacheEntryOptions{ Size = Constants.Cache.CURRENT_PRICE_CACHE_ENTRY_SIZE }
+                );
+            }
+            catch(Exception ex)
+            {
+                logger_.LogWarning(ex, "Failed to get latest currency price from external service; returning last read value");
+                if(!memoryCache_.TryGetValue(Constants.Cache.CURRENT_PRICE_CACHE_KEY, out usdPrice))
+                {
+                    logger_.LogWarning("No cached value available, returning default (1.0)");
+                }
+            }
             return Json(new{
                 status = 200,
                 data = new
                 {
-                    bistamp = 8025.3f
+                    bitstamp = usdPrice
                 }
             });
         }
@@ -205,13 +210,35 @@ namespace bitprim.insight.Controllers
             return getBlockResult;
         }
 
+        //TODO Consider moving this down to node-cint for other APIs to reuse
+        private async Task<float> GetCurrentCoinPriceInUsd()
+        {
+            string currencyPair = "";
+            switch(NodeSettings.CurrencyType)
+            {
+                case CurrencyType.Bitcoin: currencyPair = Constants.BITSTAMP_BTCUSD; break;
+                case CurrencyType.BitcoinCash: currencyPair = Constants.BITSTAMP_BCCUSD; break;
+                case CurrencyType.Litecoin: currencyPair = Constants.BITSTAMP_LTCUSD; break;
+                default: throw new InvalidOperationException("Unsupported currency: " + NodeSettings.CurrencyType);
+            }
+            string bitstampUrl = Constants.BITSTAMP_URL.Replace(Constants.BITSTAMP_CURRENCY_PAIR_PLACEHOLDER, currencyPair); 
+            var priceDataString = await httpClient_.GetStringAsync(bitstampUrl);
+            dynamic priceData = JsonConvert.DeserializeObject<dynamic>(priceDataString);
+            float price = 1.0f;
+            if(!float.TryParse(priceData.last.Value, NumberStyles.Float, CultureInfo.InvariantCulture, out price))
+            {
+                throw new FormatException("Invalid price value: " + priceData.last.Value);
+            }
+            return price;
+        }
+
         //TODO Avoid consulting external sources; get this information from bitprim network
         private async Task<UInt64?> GetCurrentBlockChainHeight()
         {
             try
             {
                 UInt64 blockChainHeight = 0;
-                if(memoryCache_.TryGetValue(BLOCKCHAIN_HEIGHT_CACHE_KEY, out blockChainHeight))
+                if(memoryCache_.TryGetValue(Constants.Cache.BLOCKCHAIN_HEIGHT_CACHE_KEY, out blockChainHeight))
                 {
                     return blockChainHeight;
                 };
@@ -231,10 +258,10 @@ namespace bitprim.insight.Controllers
                 }
                 memoryCache_.Set
                 (
-                    BLOCKCHAIN_HEIGHT_CACHE_KEY, blockChainHeight, new MemoryCacheEntryOptions
+                    Constants.Cache.BLOCKCHAIN_HEIGHT_CACHE_KEY, blockChainHeight, new MemoryCacheEntryOptions
                     {
-                        AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(MAX_BLOCKCHAIN_HEIGHT_AGE_IN_SECONDS),
-                        Size = Constants.BLOCKCHAIN_HEIGHT_CACHE_ENTRY_SIZE
+                        AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(Constants.Cache.MAX_BLOCKCHAIN_HEIGHT_AGE_IN_SECONDS),
+                        Size = Constants.Cache.BLOCKCHAIN_HEIGHT_CACHE_ENTRY_SIZE
                     }
                 );
                 return blockChainHeight;
@@ -250,13 +277,13 @@ namespace bitprim.insight.Controllers
         {
             if(nodeExecutor_.UseTestnetRules)
             {
-                var syncDataString = await httpClient_.GetStringAsync(BLOCKTRAIL_TBCC_URL);
+                var syncDataString = await httpClient_.GetStringAsync(Constants.BLOCKTRAIL_TBCC_URL);
                 dynamic syncData = JsonConvert.DeserializeObject<dynamic>(syncDataString);
                 return syncData.last_blocks[0].height;
             }
             else
             {
-                var syncDataString = await httpClient_.GetStringAsync(BLOCKCHAIR_BCC_URL);
+                var syncDataString = await httpClient_.GetStringAsync(Constants.BLOCKCHAIR_BCC_URL);
                 dynamic syncData = JsonConvert.DeserializeObject<dynamic>(syncDataString);
                 return ((IEnumerable<dynamic>)syncData.data).Where( r => r.e == "blocks" ).First().c;
             }
@@ -266,13 +293,13 @@ namespace bitprim.insight.Controllers
         {
             if(nodeExecutor_.UseTestnetRules)
             {
-                var syncDataString = await httpClient_.GetStringAsync(SOCHAIN_TBTC_URL);
+                var syncDataString = await httpClient_.GetStringAsync(Constants.SOCHAIN_TBTC_URL);
                 dynamic syncData = JsonConvert.DeserializeObject<dynamic>(syncDataString);
                 return syncData.data.blocks;
             }
             else
             {
-                var syncDataString = await httpClient_.GetStringAsync(BLOCKCHAIR_BTC_URL);
+                var syncDataString = await httpClient_.GetStringAsync(Constants.BLOCKCHAIR_BTC_URL);
                 dynamic syncData = JsonConvert.DeserializeObject<dynamic>(syncDataString);
                 return ((IEnumerable<dynamic>)syncData.data).Where( r => r.e == "blocks" ).First().c;
             }
@@ -282,13 +309,13 @@ namespace bitprim.insight.Controllers
         {
             if(nodeExecutor_.UseTestnetRules)
             {
-                var syncDataString = await httpClient_.GetStringAsync(SOCHAIN_TLTC_URL);
+                var syncDataString = await httpClient_.GetStringAsync(Constants.SOCHAIN_TLTC_URL);
                 dynamic syncData = JsonConvert.DeserializeObject<dynamic>(syncDataString);
                 return syncData.data.blocks;
             }
             else
             {
-                var syncDataString = await httpClient_.GetStringAsync(SOCHAIN_LTC_URL);
+                var syncDataString = await httpClient_.GetStringAsync(Constants.SOCHAIN_LTC_URL);
                 dynamic syncData = JsonConvert.DeserializeObject<dynamic>(syncDataString);
                 return syncData.data.blocks;
             }

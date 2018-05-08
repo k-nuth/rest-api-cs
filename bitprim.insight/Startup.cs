@@ -102,12 +102,12 @@ namespace bitprim.insight
         {
             services.AddMvcCore(opt =>
                 {
-                    opt.CacheProfiles.Add(Constants.SHORT_CACHE_PROFILE_NAME,
+                    opt.CacheProfiles.Add(Constants.Cache.SHORT_CACHE_PROFILE_NAME,
                         new CacheProfile()
                         {
                             Duration = nodeConfig_.ShortResponseCacheDurationInSeconds
                         });
-                    opt.CacheProfiles.Add(Constants.LONG_CACHE_PROFILE_NAME,
+                    opt.CacheProfiles.Add(Constants.Cache.LONG_CACHE_PROFILE_NAME,
                         new CacheProfile()
                         {
                             Duration = nodeConfig_.LongResponseCacheDurationInSeconds

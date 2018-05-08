@@ -48,7 +48,7 @@ namespace bitprim.insight.Controllers
         
 
         // GET: block/{hash}
-        [ResponseCache(CacheProfileName = Constants.SHORT_CACHE_PROFILE_NAME)]
+        [ResponseCache(CacheProfileName = Constants.Cache.SHORT_CACHE_PROFILE_NAME)]
         [HttpGet("block/{hash}")]
         public async Task<ActionResult> GetBlockByHash(string hash)
         {
@@ -98,13 +98,13 @@ namespace bitprim.insight.Controllers
                     getBlockResult.Result.SerializedBlockSize,poolInfo)
                 );
 
-                memoryCache_.Set("block" + hash, blockJson, new MemoryCacheEntryOptions{Size = Constants.BLOCK_CACHE_ENTRY_SIZE});
+                memoryCache_.Set("block" + hash, blockJson, new MemoryCacheEntryOptions{Size = Constants.Cache.BLOCK_CACHE_ENTRY_SIZE});
                 return blockJson;
             }
         }
 
         // GET: block-index/{height}
-        [ResponseCache(CacheProfileName = Constants.SHORT_CACHE_PROFILE_NAME)]
+        [ResponseCache(CacheProfileName = Constants.Cache.SHORT_CACHE_PROFILE_NAME)]
         [HttpGet("block-index/{height}")]
         public async Task<ActionResult> GetBlockByHeight(UInt64 height)
         {
@@ -123,7 +123,7 @@ namespace bitprim.insight.Controllers
         }
 
         // GET: rawblock/{hash}
-        [ResponseCache(CacheProfileName = Constants.LONG_CACHE_PROFILE_NAME)]
+        [ResponseCache(CacheProfileName = Constants.Cache.LONG_CACHE_PROFILE_NAME)]
         [HttpGet("rawblock/{hash}")]
         public async Task<ActionResult> GetRawBlockByHash(string hash)
         {
@@ -147,7 +147,7 @@ namespace bitprim.insight.Controllers
         }
 
         // GET: rawblock-index/{height}
-        [ResponseCache(CacheProfileName = Constants.SHORT_CACHE_PROFILE_NAME)]
+        [ResponseCache(CacheProfileName = Constants.Cache.SHORT_CACHE_PROFILE_NAME)]
         [HttpGet("rawblock-index/{height}")]
         public async Task<ActionResult> GetRawBlockByHeight(UInt64 height)
         {
@@ -169,7 +169,7 @@ namespace bitprim.insight.Controllers
         }
 
         // GET: blocks/?limit={limit}&blockDate={blockDate}
-        [ResponseCache(CacheProfileName = Constants.SHORT_CACHE_PROFILE_NAME)]
+        [ResponseCache(CacheProfileName = Constants.Cache.SHORT_CACHE_PROFILE_NAME)]
         [HttpGet("blocks/")]
         public async Task<ActionResult> GetBlocksByDate(int limit = 200, string blockDate = "")
         {
@@ -302,9 +302,9 @@ namespace bitprim.insight.Controllers
                 };
 
                 var confirmations = topHeight - height + 1;
-                if (confirmations >= Constants.BLOCK_CACHE_CONFIRMATIONS)
+                if (confirmations >= Constants.Cache.BLOCK_CACHE_CONFIRMATIONS)
                 {
-                    memoryCache_.Set(key, obj, new MemoryCacheEntryOptions{Size = Constants.BLOCK_CACHE_SUMMARY_SIZE});
+                    memoryCache_.Set(key, obj, new MemoryCacheEntryOptions{Size = Constants.Cache.BLOCK_CACHE_SUMMARY_SIZE});
                 }
 
                 return obj;
