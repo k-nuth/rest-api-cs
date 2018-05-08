@@ -133,9 +133,9 @@ namespace bitprim.insight.Controllers
                 from = 0;
             }
 
-            if(from > to)
+            if(from >= to)
             {
-                return StatusCode((int)System.Net.HttpStatusCode.BadRequest, "'from' must be lower or equal than 'to'");
+                return StatusCode((int)System.Net.HttpStatusCode.BadRequest, "'from' must be lower than 'to'");
             }
             
             var txs = new List<dynamic>();
@@ -153,7 +153,7 @@ namespace bitprim.insight.Controllers
                 totalItems = txs.Count,
                 from = from,
                 to = to,
-                items = txs.GetRange(from, to).ToArray()
+                items = txs.GetRange(from, to-from).ToArray()
             });   
         }
 
