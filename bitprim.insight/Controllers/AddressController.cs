@@ -217,14 +217,13 @@ namespace bitprim.insight.Controllers
                         using (var outPoint = new OutputPoint(compact.Point.Hash, compact.Point.Index))
                         {
                             var getSpendResult = await chain_.FetchSpendAsync(outPoint);
-                        
-                            txs.Add(Binary.ByteArrayToHexString(compact.Point.Hash));
                             if(getSpendResult.ErrorCode == ErrorCode.NotFound)
                             {
                                 addressBalance += compact.ValueOrChecksum;
                             }
                         }
                     }
+                    txs.Add(Binary.ByteArrayToHexString(compact.Point.Hash));
                 }
 
                 UInt64 totalSent = received - addressBalance;
