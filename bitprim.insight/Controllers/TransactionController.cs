@@ -192,21 +192,10 @@ namespace bitprim.insight.Controllers
 
         private async Task<ActionResult> GetTransactionsByAddress(string address, uint pageNum)
         {
-            var txsByAddress = await GetTransactionsBySingleAddress(address, true, pageNum, true, true, true);
-            
-            UInt64 pageCount = txsByAddress.Item2;
-            
-            if(pageNum >= pageCount)
-            {
-                return StatusCode
-                (
-                    (int)System.Net.HttpStatusCode.BadRequest,
-                    "pageNum cannot exceed " + (pageCount - 1) + " (zero-indexed)"
-                );
-            }
+            var txsByAddress = await GetTransactionsBySingleAddress(address, true, pageNum, false, false, false);
             
             return Json(new{
-                pagesTotal = pageCount,
+                pagesTotal = txsByAddress.Item2,
                 txs = txsByAddress.Item1.ToArray()
             });
         }
@@ -222,14 +211,14 @@ namespace bitprim.insight.Controllers
                 
                 var history = getAddressHistoryResult.Result;
                 var txs = new List<object>();
-                var pageSize = pageResults? (uint) config_.TransactionsByAddressPageSize : history.Count;
+                var pageSize = pageResults ? (uint) config_.TransactionsByAddressPageSize : history.Count;
                 
                 for(uint i=0; i<pageSize && (pageNum * pageSize + i < history.Count); i++)
                 {
                     var compact = history[(pageNum * pageSize + i)];
                     using(var getTxResult = await chain_.FetchTransactionAsync(compact.Point.Hash, true))
                     {
-                        Utils.CheckBitprimApiErrorCode(getTxResult.ErrorCode, "GetTransaction(" + Binary.ByteArrayToHexString(compact.Point.Hash) + ") failed, check error log");
+                        Utils.CheckBitprimApiErrorCode(getTxResult.ErrorCode, "FetchTransactionAsync(" + Binary.ByteArrayToHexString(compact.Point.Hash) + ") failed, check error log");
                         txs.Add(await TxToJSON(getTxResult.Result.Tx, getTxResult.Result.TxPosition.BlockHeight, noAsm, noScriptSig, noSpend));
                     }
                 }
@@ -243,9 +232,12 @@ namespace bitprim.insight.Controllers
             using(var getBlockHeaderResult = await chain_.FetchBlockHeaderByHeightAsync(blockHeight))
             {
                 Utils.CheckBitprimApiErrorCode(getBlockHeaderResult.ErrorCode, "FetchBlockHeaderByHeightAsync(" + blockHeight + ") failed, check error log");
+                
                 Header blockHeader = getBlockHeaderResult.Result.BlockData;
+                
                 ApiCallResult<UInt64> getLastHeightResult = await chain_.FetchLastHeightAsync();
-                Utils.CheckBitprimApiErrorCode(getLastHeightResult.ErrorCode, "GetLastHeight failed, check error log");
+                Utils.CheckBitprimApiErrorCode(getLastHeightResult.ErrorCode, "FetchLastHeightAsync failed, check error log");
+                
                 dynamic txJson = new ExpandoObject();
                 txJson.txid = Binary.ByteArrayToHexString(tx.Hash);
                 txJson.version = tx.Version;
@@ -260,6 +252,9 @@ namespace bitprim.insight.Controllers
                 txJson.isCoinBase = tx.IsCoinbase;
                 txJson.valueOut = Utils.SatoshisToCoinUnits(tx.TotalOutputValue);
                 txJson.size = tx.GetSerializedSize();
+
+                txJson.valueIn = Utils.SatoshisToCoinUnits(tx.TotalInputValue);
+                
                 if ( !tx.IsCoinbase && ! nodeExecutor_.UseTestnetRules )
                 {
                     //txJson.fees = Utils.SatoshisToCoinUnits(tx.Fees);
