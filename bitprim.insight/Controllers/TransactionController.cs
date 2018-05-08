@@ -94,7 +94,7 @@ namespace bitprim.insight.Controllers
         }
 
         [HttpGet("addrs/{paymentAddresses}/txs")]
-        public async Task<ActionResult> GetTransactionsForMultipleAddresses([FromRoute] string paymentAddresses, [FromQuery] int from = 0, [FromQuery] int to = 20)
+        public async Task<ActionResult> GetTransactionsForMultipleAddresses([FromRoute] string paymentAddresses, [FromQuery] int from = 0, [FromQuery] int to = 10)
         {
             return await DoGetTransactionsForMultipleAddresses(paymentAddresses, from, to, false, false, false);
         }
@@ -127,15 +127,15 @@ namespace bitprim.insight.Controllers
 
         private async Task<ActionResult> DoGetTransactionsForMultipleAddresses(string addrs, int from, int to,
                                                                    bool noAsm = true, bool noScriptSig = true, bool noSpend = true)
-        {
+        { 
             if(from < 0)
             {
-                return StatusCode((int)System.Net.HttpStatusCode.BadRequest, "'from' must be non negative");
+                from = 0;
             }
-            
-            if(from > to)
+
+            if(from >= to)
             {
-                return StatusCode((int)System.Net.HttpStatusCode.BadRequest, "'from' must be lower or equal than 'to'");
+                return StatusCode((int)System.Net.HttpStatusCode.BadRequest, "'from' must be lower than 'to'");
             }
             
             var txs = new List<dynamic>();
@@ -146,12 +146,14 @@ namespace bitprim.insight.Controllers
             }
             //Sort by descending blocktime
             txs.Sort((tx1, tx2) => tx2.blocktime.CompareTo(tx1.blocktime) );
-            to = Math.Min(to, txs.Count - 1);
+            
+            to = Math.Min(to, txs.Count);
+
             return Json(new{
                 totalItems = txs.Count,
                 from = from,
                 to = to,
-                items = txs.GetRange(from, to - from + 1).ToArray()
+                items = txs.GetRange(from, to-from).ToArray()
             });   
         }
 
