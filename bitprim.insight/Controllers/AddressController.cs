@@ -48,8 +48,8 @@ namespace bitprim.insight.Controllers
             historyJson.balanceSat = balance.Balance;
             historyJson.totalReceived = Utils.SatoshisToCoinUnits(balance.Received);
             historyJson.totalReceivedSat = balance.Received;
-            historyJson.totalSent = balance.Sent;
-            historyJson.totalSentSat = Utils.SatoshisToCoinUnits(balance.Sent);
+            historyJson.totalSent = Utils.SatoshisToCoinUnits(balance.Sent);
+            historyJson.totalSentSat = balance.Sent;
             historyJson.unconfirmedBalance = 0; //We don't handle unconfirmed txs
             historyJson.unconfirmedBalanceSat = 0; //We don't handle unconfirmed txs
             historyJson.unconfirmedTxApperances = 0; //We don't handle unconfirmed txs
