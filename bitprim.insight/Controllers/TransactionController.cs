@@ -113,13 +113,19 @@ namespace bitprim.insight.Controllers
             using (var tx = new Transaction(Constants.TRANSACTION_VERSION_PROTOCOL,request.rawtx))
             {
                 var ec = await chain_.OrganizeTransactionAsync(tx);
-                Utils.CheckBitprimApiErrorCode(ec, "OrganizeTransactionAsync(" + request.rawtx + ") failed");
-                
+
+                if (ec != ErrorCode.Success)
+                {
+                    return StatusCode((int) System.Net.HttpStatusCode.BadRequest, ec.ToString());
+                }
+                    
                 return Json
                 (
                     new
                     {
-                        txid = Binary.ByteArrayToHexString(tx.Hash) //TODO Check if this should be returned by organize call
+                        txid =
+                            Binary.ByteArrayToHexString(tx
+                                .Hash) //TODO Check if this should be returned by organize call
                     }
                 );
             }
