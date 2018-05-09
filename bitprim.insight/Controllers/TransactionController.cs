@@ -389,8 +389,11 @@ namespace bitprim.insight.Controllers
             {
                 using(var getTxResult = await chain_.FetchTransactionAsync(txInput.PreviousOutput.Hash, true))
                 {
-                    Utils.CheckBitprimApiErrorCode(getTxResult.ErrorCode, "FetchTransactionAsync(" + Binary.ByteArrayToHexString(txInput.PreviousOutput.Hash) + "), check error log");
-                    inputs_total += getTxResult.Result.Tx.Outputs[txInput.PreviousOutput.Index].Value;
+                    if(getTxResult.ErrorCode != ErrorCode.NotFound)
+                    {
+                        Utils.CheckBitprimApiErrorCode(getTxResult.ErrorCode, "FetchTransactionAsync(" + Binary.ByteArrayToHexString(txInput.PreviousOutput.Hash) + "), check error log");
+                        inputs_total += getTxResult.Result.Tx.Outputs[txInput.PreviousOutput.Index].Value;
+                    }
                 }
             }
             return inputs_total;
