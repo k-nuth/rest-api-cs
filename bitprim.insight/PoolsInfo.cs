@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
 using Bitprim;
@@ -65,8 +66,9 @@ namespace bitprim.insight
                 return PoolInfo.Empty;
             }
 
-            string script = tx.Inputs[0].Script.ToString(0);
-
+            var scriptData = tx.Inputs[0].Script.ToData(false);         
+            var script = Encoding.UTF8.GetString(scriptData);
+            
             if (IsNullOrWhiteSpace(script))
             {
                 return PoolInfo.Empty;
