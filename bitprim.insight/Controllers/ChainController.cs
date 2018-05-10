@@ -92,7 +92,7 @@ namespace bitprim.insight.Controllers
         {
             var estimateFee = new ExpandoObject() as IDictionary<string, Object>;
             //TODO Check which algorithm to use (see bitcoin-abc's median, at src/policy/fees.cpp for an example)
-            estimateFee.Add(nbBlocks.ToString(), 1.0);
+            estimateFee.Add(nbBlocks.ToString(), config_.EstimateFeeDefault.ToString("N8"));
             return Json(estimateFee);
         }
 
