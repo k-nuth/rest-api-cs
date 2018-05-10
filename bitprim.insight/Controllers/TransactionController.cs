@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using bitprim.insight.DTOs;
 using Bitprim;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 namespace bitprim.insight.Controllers
@@ -15,13 +16,15 @@ namespace bitprim.insight.Controllers
     {
         private readonly Chain chain_;
         private readonly Executor nodeExecutor_;
+        private readonly ILogger<TransactionController> logger_;
         private readonly NodeConfig config_;
 
-        public TransactionController(IOptions<NodeConfig> config, Executor executor)
+        public TransactionController(IOptions<NodeConfig> config, Executor executor, ILogger<TransactionController> logger)
         {
             config_ = config.Value;
             nodeExecutor_ = executor;
             chain_ = executor.Chain;
+            logger_ = logger;
         }
 
         // GET: tx/{hash}
@@ -221,8 +224,10 @@ namespace bitprim.insight.Controllers
                 var txs = new List<object>();
                 var pageSize = pageResults ? (uint) config_.TransactionsByAddressPageSize : history.Count;
                 
+                logger_.LogDebug("Address history size (txs): " + history.Count); //TODO
                 for(uint i=0; i<pageSize && (pageNum * pageSize + i < history.Count); i++)
                 {
+                    logger_.LogDebug("Fetching history[: " + (pageNum * pageSize + i) + "]"); //TODO
                     var compact = history[(pageNum * pageSize + i)];
                     using(var getTxResult = await chain_.FetchTransactionAsync(compact.Point.Hash, true))
                     {
