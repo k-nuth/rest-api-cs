@@ -32,7 +32,7 @@ namespace bitprim.insight.Controllers
         // GET: addr/{paymentAddress}
         [ResponseCache(CacheProfileName = Constants.Cache.SHORT_CACHE_PROFILE_NAME)]
         [HttpGet("addr/{paymentAddress}")]
-        public async Task<ActionResult> GetAddressHistory(string paymentAddress, bool noTxList = false, int from = 0, int? to = null)
+        public async Task<ActionResult> GetAddressHistory(string paymentAddress, int noTxList = 0, int from = 0, int? to = null)
         {
             if(!Validations.IsValidPaymentAddress(paymentAddress))
             {
@@ -55,12 +55,9 @@ namespace bitprim.insight.Controllers
             historyJson.unconfirmedTxApperances = 0; //We don't handle unconfirmed txs
             historyJson.txApperances = balance.Transactions.Count;
             
-            if( ! noTxList )
+            if( noTxList == 0 )
             {
-                if(to == null || to.Value >= balance.Transactions.Count )
-                {
-                    to = balance.Transactions.Count - 1;
-                }
+                to = Math.Min(to ?? balance.Transactions.Count, balance.Transactions.Count);
                 
                 var validationResult = ValidateParameters(from, to.Value);
                 if( ! validationResult.Item1 )
@@ -68,8 +65,9 @@ namespace bitprim.insight.Controllers
                     return StatusCode((int)System.Net.HttpStatusCode.BadRequest, validationResult.Item2);
                 }
 
-                historyJson.transactions = balance.Transactions.GetRange(from, to.Value - from + 1).ToArray();
+                historyJson.transactions = balance.Transactions.GetRange(from, to.Value - from).ToArray();
             }
+
             return Json(historyJson);
         }
 
@@ -247,18 +245,14 @@ namespace bitprim.insight.Controllers
         {
             if(from < 0)
             {
-                return new Tuple<bool, string>(false, "from(" + from + ") must be greater than or equal to zero");
+                from = 0;
             }
 
-            if(to < 0)
+            if(from >= to)
             {
-                return new Tuple<bool, string>(false, "to(" + to + ") must not be negative");
+                return new Tuple<bool, string>(false, "'from' must be lower than 'to'");
             }
 
-            if(from > to)
-            {
-                return new Tuple<bool, string>(false, "to(" + to +  ") must be greater than from(" + from + ")");
-            }
             return new Tuple<bool, string>(true, "");
         }
     }
