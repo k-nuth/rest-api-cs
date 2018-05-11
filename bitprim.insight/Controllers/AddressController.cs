@@ -32,7 +32,7 @@ namespace bitprim.insight.Controllers
         // GET: addr/{paymentAddress}
         [ResponseCache(CacheProfileName = Constants.Cache.SHORT_CACHE_PROFILE_NAME)]
         [HttpGet("addr/{paymentAddress}")]
-        public async Task<ActionResult> GetAddressHistory(string paymentAddress, int noTxList = 0, int from = 0, int? to = null)
+        public async Task<ActionResult> GetAddressHistory(string paymentAddress, int noTxList = 0, int? from = null, int? to = null)
         {
             if(!Validations.IsValidPaymentAddress(paymentAddress))
             {
@@ -57,15 +57,24 @@ namespace bitprim.insight.Controllers
             
             if( noTxList == 0 )
             {
-                to = Math.Min(to ?? balance.Transactions.Count, balance.Transactions.Count);
-                
-                var validationResult = ValidateParameters(from, to.Value);
-                if( ! validationResult.Item1 )
+                if (from == null && to == null)
                 {
-                    return StatusCode((int)System.Net.HttpStatusCode.BadRequest, validationResult.Item2);
+                    from = 0;
+                    to = balance.Transactions.Count;
                 }
-
-                historyJson.transactions = balance.Transactions.GetRange(from, to.Value - from).ToArray();
+                else
+                {
+                    from = Math.Max(from ?? 0, 0); 
+                    to = Math.Min(to ?? balance.Transactions.Count, balance.Transactions.Count);
+                
+                    var validationResult = ValidateParameters(from.Value, to.Value);
+                    if( ! validationResult.Item1 )
+                    {
+                        return StatusCode((int)System.Net.HttpStatusCode.BadRequest, validationResult.Item2);
+                    }
+                }
+                
+                historyJson.transactions = balance.Transactions.GetRange(from.Value, to.Value - from.Value).ToArray();
             }
 
             return Json(historyJson);
@@ -243,11 +252,6 @@ namespace bitprim.insight.Controllers
 
         private Tuple<bool, string> ValidateParameters(int from, int to)
         {
-            if(from < 0)
-            {
-                from = 0;
-            }
-
             if(from >= to)
             {
                 return new Tuple<bool, string>(false, "'from' must be lower than 'to'");
