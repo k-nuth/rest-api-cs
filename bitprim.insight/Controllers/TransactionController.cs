@@ -25,7 +25,7 @@ namespace bitprim.insight.Controllers
         }
 
         // GET: tx/{hash}
-        [ResponseCache(CacheProfileName = Constants.Cache.LONG_CACHE_PROFILE_NAME)]
+        [ResponseCache(CacheProfileName = Constants.Cache.SHORT_CACHE_PROFILE_NAME)]
         [HttpGet("tx/{hash}")]
         public async Task<ActionResult> GetTransactionByHash(string hash, bool requireConfirmed)
         {
@@ -93,12 +93,14 @@ namespace bitprim.insight.Controllers
             return await GetTransactionsByAddress(address, pageNum);
         }
 
+        [ResponseCache(CacheProfileName = Constants.Cache.SHORT_CACHE_PROFILE_NAME)]
         [HttpGet("addrs/{paymentAddresses}/txs")]
         public async Task<ActionResult> GetTransactionsForMultipleAddresses([FromRoute] string paymentAddresses, [FromQuery] int from = 0, [FromQuery] int to = 10)
         {
             return await DoGetTransactionsForMultipleAddresses(paymentAddresses, from, to, false, false, false);
         }
 
+        [ResponseCache(CacheProfileName = Constants.Cache.SHORT_CACHE_PROFILE_NAME)]
         [HttpPost("addrs/txs")]
         public async Task<ActionResult> GetTransactionsForMultipleAddresses([FromBody] GetTxsForMultipleAddressesRequest request)
         {

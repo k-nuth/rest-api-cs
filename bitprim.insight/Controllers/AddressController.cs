@@ -74,6 +74,7 @@ namespace bitprim.insight.Controllers
         }
 
         // GET: addr/{paymentAddress}/balance
+        [ResponseCache(CacheProfileName = Constants.Cache.SHORT_CACHE_PROFILE_NAME)]
         [HttpGet("addr/{paymentAddress}/balance")]
         public async Task<ActionResult> GetAddressBalance(string paymentAddress)
         {
@@ -81,6 +82,7 @@ namespace bitprim.insight.Controllers
         }
 
         // GET: addr/{paymentAddress}/totalReceived
+        [ResponseCache(CacheProfileName = Constants.Cache.SHORT_CACHE_PROFILE_NAME)]
         [HttpGet("addr/{paymentAddress}/totalReceived")]
         public async Task<ActionResult> GetTotalReceived(string paymentAddress)
         {
@@ -88,6 +90,7 @@ namespace bitprim.insight.Controllers
         }
 
         // GET: addr/{paymentAddress}/totalSent
+        [ResponseCache(CacheProfileName = Constants.Cache.SHORT_CACHE_PROFILE_NAME)]
         [HttpGet("addr/{paymentAddress}/totalSent")]
         public async Task<ActionResult> GetTotalSent(string paymentAddress)
         {
@@ -95,6 +98,7 @@ namespace bitprim.insight.Controllers
         }
 
         // GET: addr/{paymentAddress}/unconfirmedBalance
+        [ResponseCache(CacheProfileName = Constants.Cache.SHORT_CACHE_PROFILE_NAME)]
         [HttpGet("addr/{paymentAddress}/unconfirmedBalance")]
         public ActionResult GetUnconfirmedBalance(string paymentAddress)
         {
@@ -123,6 +127,7 @@ namespace bitprim.insight.Controllers
             return Json(utxo.ToArray());   
         }
 
+        [ResponseCache(CacheProfileName = Constants.Cache.SHORT_CACHE_PROFILE_NAME)]
         [HttpPost("addrs/utxo")]
         public async Task<ActionResult> GetUtxoForMultipleAddressesPost([FromBody]GetUtxosForMultipleAddressesRequest requestParams)
         {

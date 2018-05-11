@@ -18,12 +18,12 @@ namespace bitprim.insight.Controllers
     [Route("[controller]")]
     public class ChainController : Controller
     {
-        private Chain chain_;
-        private Executor nodeExecutor_;
+        private readonly Chain chain_;
+        private readonly Executor nodeExecutor_;
         private static readonly HttpClient httpClient_ = new HttpClient();
         private readonly NodeConfig config_;
-        private ILogger<ChainController> logger_;
-        private IMemoryCache memoryCache_;
+        private readonly ILogger<ChainController> logger_;
+        private readonly IMemoryCache memoryCache_;
         private readonly Policy breakerPolicy_ = Policy.Handle<Exception>().CircuitBreakerAsync(2, TimeSpan.FromMinutes(1));
         private readonly Policy retryPolicy_ = Policy.Handle<Exception>()
             .WaitAndRetryAsync(RetryUtils.DecorrelatedJitter
@@ -314,7 +314,7 @@ namespace bitprim.insight.Controllers
             {
                 var syncDataString = await httpClient_.GetStringAsync(Constants.BLOCKCHAIR_BTC_URL);
                 dynamic syncData = JsonConvert.DeserializeObject<dynamic>(syncDataString);
-                return ((IEnumerable<dynamic>)syncData.data).Where(r => r.e == "blocks").First().c;
+                return ((IEnumerable<dynamic>)syncData.data).First(r => r.e == "blocks").c;
             }
         }
 

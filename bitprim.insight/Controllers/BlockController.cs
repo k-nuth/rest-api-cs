@@ -8,7 +8,6 @@ using Bitprim;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Options;
-using Newtonsoft.Json;
 
 namespace bitprim.insight.Controllers
 {
@@ -18,34 +17,15 @@ namespace bitprim.insight.Controllers
         private readonly Chain chain_;
         private readonly IMemoryCache memoryCache_;
         private readonly PoolsInfo poolsInfo_;
-        private readonly WebSocketHandler webSocketHandler_;
         private readonly NodeConfig config_;
 
-        public BlockController(IOptions<NodeConfig> config, Chain chain, WebSocketHandler webSocketHandler, IMemoryCache memoryCache, PoolsInfo poolsInfo)
+        public BlockController(IOptions<NodeConfig> config, Chain chain, IMemoryCache memoryCache, PoolsInfo poolsInfo)
         {
             config_ = config.Value;
             chain_ = chain;
-            webSocketHandler_ = webSocketHandler;
             memoryCache_ = memoryCache;
             poolsInfo_ = poolsInfo;
         }
-
-      
-        // GET: block/simulate
-        [HttpGet("block/simulate")]
-        public ActionResult Simulate()
-        {
-            var newBlocksNotification = new
-            {
-                eventname = "block"
-            };
-
-            var task = webSocketHandler_.PublishBlock(JsonConvert.SerializeObject(newBlocksNotification));
-            task.Wait();
-
-            return Ok();
-        }
-        
 
         // GET: block/{hash}
         [ResponseCache(CacheProfileName = Constants.Cache.SHORT_CACHE_PROFILE_NAME)]
