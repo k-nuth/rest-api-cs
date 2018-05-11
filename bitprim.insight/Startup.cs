@@ -188,19 +188,17 @@ namespace bitprim.insight
 
         private void StartFullNode(IServiceCollection services)
         {
-            // Initialize and register chain service
-
-                       
             Log.Information("Node Config File: " + nodeConfig_.NodeConfigFile);
             if (!string.IsNullOrWhiteSpace(nodeConfig_.NodeConfigFile))
                 Log.Information("FullPath Node Config File: " + Path.GetFullPath(nodeConfig_.NodeConfigFile) );
 
+            // Initialize and register chain service
             exec_ = new Executor(nodeConfig_.NodeConfigFile);
              
             int result = exec_.InitAndRunAsync().GetAwaiter().GetResult();
             if (result != 0)
             {
-                throw new ApplicationException("Executor::RunWait failed; error code: " + result);
+                throw new ApplicationException("Executor::InitAndRunAsync failed; error code: " + result);
             }
                 
             blockChainObserver_ = new BlockChainObserver(exec_, webSocketHandler_);
