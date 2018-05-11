@@ -27,7 +27,7 @@ namespace bitprim.insight.Controllers
         // GET: tx/{hash}
         [ResponseCache(CacheProfileName = Constants.Cache.SHORT_CACHE_PROFILE_NAME)]
         [HttpGet("tx/{hash}")]
-        public async Task<ActionResult> GetTransactionByHash(string hash, bool requireConfirmed)
+        public async Task<ActionResult> GetTransactionByHash(string hash, int requireConfirmed)
         {
             if(!Validations.IsValidHash(hash))
             {
@@ -37,7 +37,7 @@ namespace bitprim.insight.Controllers
             Utils.CheckIfChainIsFresh(chain_, config_.AcceptStaleRequests);
             var binaryHash = Binary.HexStringToByteArray(hash);
 
-            using(var getTxResult = await chain_.FetchTransactionAsync(binaryHash, requireConfirmed))
+            using(var getTxResult = await chain_.FetchTransactionAsync(binaryHash, requireConfirmed == 1))
             {
                 Utils.CheckBitprimApiErrorCode(getTxResult.ErrorCode, "FetchTransactionAsync(" + hash + ") failed, check error log");
                 return Json(await TxToJSON
@@ -104,7 +104,7 @@ namespace bitprim.insight.Controllers
         [HttpPost("addrs/txs")]
         public async Task<ActionResult> GetTransactionsForMultipleAddresses([FromBody] GetTxsForMultipleAddressesRequest request)
         {
-            return await DoGetTransactionsForMultipleAddresses(request.addrs, request.from, request.to, request.noAsm, request.noScriptSig, request.noSpend);
+            return await DoGetTransactionsForMultipleAddresses(request.addrs, request.from, request.to, request.noAsm == 1, request.noScriptSig == 1, request.noSpend == 1);
         }
 
         [HttpPost("tx/send")]
