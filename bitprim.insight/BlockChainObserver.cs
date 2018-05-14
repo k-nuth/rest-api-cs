@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Bitprim;
 using Newtonsoft.Json;
 
@@ -8,10 +9,12 @@ namespace bitprim.insight
     {
         private readonly Executor.BlockHandler blockHandler_;
         private readonly Executor.TransactionHandler txHandler_;
+        private readonly Executor executor_;
         private readonly WebSocketHandler webSocketHandler_;
 
         public BlockChainObserver(Executor executor, WebSocketHandler webSocketHandler)
         {
+            executor_ = executor;
             webSocketHandler_ = webSocketHandler;
             blockHandler_ = new Executor.BlockHandler(OnBlockReceived);
             txHandler_ = new Executor.TransactionHandler(OnTransactionReceived);
@@ -37,13 +40,22 @@ namespace bitprim.insight
         {
             if(error == ErrorCode.Success && newTransaction != null)
             {
+                var txid = Binary.ByteArrayToHexString(newTransaction.Hash);
+
+                List<string> addresses = Utils.GetTransactionAddresses(executor_,newTransaction).GetAwaiter().GetResult();
+
                 var tx = new
                 {
                     eventname = "tx",
-                    txid = Binary.ByteArrayToHexString(newTransaction.Hash),
-                    valueOut = Utils.SatoshisToCoinUnits(newTransaction.TotalOutputValue)
+                    txid = txid,
+                    valueOut = Utils.SatoshisToCoinUnits(newTransaction.TotalOutputValue),
+                    addresses = addresses.ToArray()
                 };
+
                 var task = webSocketHandler_.PublishTransaction(JsonConvert.SerializeObject(tx));
+                task.Wait();
+
+                task = webSocketHandler_.PublishTransactionAddress(txid,addresses);
                 task.Wait();
             }
             return true;

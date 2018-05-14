@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Net.WebSockets;
 using System.Text;
 using System.Threading;
@@ -67,6 +68,11 @@ namespace bitprim.insight
                                 break;
                             case "tx":
                                 await webSocketHandler_.PublishTransaction(content);
+
+                                var txid = obj["txid"].ToString();
+                                var addreses = ((JArray)obj["addresses"]).ToObject<List<string>>();
+                                await webSocketHandler_.PublishTransactionAddress(txid,addreses);
+                               
                                 break;
 
                         }
