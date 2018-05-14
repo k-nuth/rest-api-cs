@@ -84,16 +84,7 @@ namespace bitprim.insight
         {
             var ret = new List<string>();
             foreach (Output output in tx.Outputs)
-            {
-                if (output.Script.Type == "pay_key_hash")
-                {
-
-                }
-                else if (output.Script.Type == "pay_script_hash")
-                {
-
-                }
-                
+            { 
                 PaymentAddress outputAddress = output.PaymentAddress(executor.UseTestnetRules);
                 if(outputAddress.IsValid)
                 {
