@@ -13,9 +13,9 @@ namespace bitprim.insight.Controllers
             //Dummy return
             return StatusCode((int)System.Net.HttpStatusCode.BadRequest, "Unexpected error:");
             
-            //TODO fully implementation
-            dynamic result = new ExpandoObject();
-            return Json(result);  
+            //TODO full implementation
+            //dynamic result = new ExpandoObject();
+            //return Json(result);  
         }
     }
 }

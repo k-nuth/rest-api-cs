@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using bitprim.insight.DTOs;
 using Bitprim;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 namespace bitprim.insight.Controllers
@@ -15,13 +16,15 @@ namespace bitprim.insight.Controllers
     {
         private readonly Chain chain_;
         private readonly Executor nodeExecutor_;
+        private readonly ILogger<TransactionController> logger_;
         private readonly NodeConfig config_;
 
-        public TransactionController(IOptions<NodeConfig> config, Executor executor)
+        public TransactionController(IOptions<NodeConfig> config, Executor executor, ILogger<TransactionController> logger)
         {
             config_ = config.Value;
             nodeExecutor_ = executor;
             chain_ = executor.Chain;
+            logger_ = logger;
         }
 
         // GET: tx/{hash}
@@ -215,24 +218,24 @@ namespace bitprim.insight.Controllers
             Utils.CheckIfChainIsFresh(chain_, config_.AcceptStaleRequests);
 
             using (var address = new PaymentAddress(paymentAddress))
-            using (var getAddressHistoryResult = await chain_.FetchHistoryAsync(address, UInt64.MaxValue, 0))
+            using (var getTransactionResult = await chain_.FetchTransactionsAsync(address, UInt64.MaxValue, 0))
             {
-                Utils.CheckBitprimApiErrorCode(getAddressHistoryResult.ErrorCode, "FetchHistoryAsync(" + paymentAddress + ") failed, check error log.");
+                Utils.CheckBitprimApiErrorCode(getTransactionResult.ErrorCode, "FetchTransactionAsync(" + paymentAddress + ") failed, check error log.");
                 
-                var history = getAddressHistoryResult.Result;
+                var txIds = getTransactionResult.Result;
                 var txs = new List<object>();
-                var pageSize = pageResults ? (uint) config_.TransactionsByAddressPageSize : history.Count;
+                var pageSize = pageResults ? (uint) config_.TransactionsByAddressPageSize : txIds.Count;
                 
-                for(uint i=0; i<pageSize && (pageNum * pageSize + i < history.Count); i++)
+                for(uint i=0; i<pageSize && (pageNum * pageSize + i < txIds.Count); i++)
                 {
-                    var compact = history[(pageNum * pageSize + i)];
-                    using(var getTxResult = await chain_.FetchTransactionAsync(compact.Point.Hash, true))
+                    var txHash = txIds[(pageNum * pageSize + i)];
+                    using(var getTxResult = await chain_.FetchTransactionAsync(txHash, true))
                     {
-                        Utils.CheckBitprimApiErrorCode(getTxResult.ErrorCode, "FetchTransactionAsync(" + Binary.ByteArrayToHexString(compact.Point.Hash) + ") failed, check error log");
+                        Utils.CheckBitprimApiErrorCode(getTxResult.ErrorCode, "FetchTransactionAsync(" + Binary.ByteArrayToHexString(txHash) + ") failed, check error log");
                         txs.Add(await TxToJSON(getTxResult.Result.Tx, getTxResult.Result.TxPosition.BlockHeight, noAsm, noScriptSig, noSpend));
                     }
                 }
-                UInt64 pageCount = (UInt64) Math.Ceiling((double)history.Count/(double)pageSize);
+                UInt64 pageCount = (UInt64) Math.Ceiling((double)txIds.Count/(double)pageSize);
                 return new Tuple<List<object>, UInt64>(txs, pageCount);
             }
         }
