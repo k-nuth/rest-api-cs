@@ -17,3 +17,11 @@ bitprim.insight/wwwroot/package-lock.json
 bitprim.insight/Properties/launchSettings.json
 bitprim.insight/appsettings.json
 bitprim.insight/log-*.txt
+.vscode/
+archive/
+bcc-mainnet.cfg
+bcc-testnet.cfg
+curl_format.txt
+hosts.cache
+libbitprim-node-cint.so
+/database/
