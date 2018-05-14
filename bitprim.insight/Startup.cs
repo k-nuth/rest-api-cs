@@ -194,7 +194,12 @@ namespace bitprim.insight
 
             // Initialize and register chain service
             exec_ = new Executor(nodeConfig_.NodeConfigFile);
-             
+
+            if (!exec_.IsLoadConfigValid)
+            {
+                throw new ApplicationException("Error loading config file");
+            }
+
             int result = exec_.InitAndRunAsync().GetAwaiter().GetResult();
             if (result != 0)
             {
