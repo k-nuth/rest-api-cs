@@ -1,4 +1,5 @@
 using System;
+using Microsoft.Azure.KeyVault.Models;
 using Newtonsoft.Json.Linq;
 
 namespace bitprim.insight

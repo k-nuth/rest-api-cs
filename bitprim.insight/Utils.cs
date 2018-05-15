@@ -40,7 +40,7 @@ namespace bitprim.insight
         {
             if(errorCode != ErrorCode.Success)
             {
-                throw new ApplicationException(errorMsg + ". ErrorCode: " + errorCode.ToString());
+                throw new BitprimException(errorCode,errorMsg);
             }
         }
 
@@ -48,7 +48,7 @@ namespace bitprim.insight
         {
             if(!acceptStaleRequests && chain.IsStale)
             {
-                throw new ApplicationException("Node is still synchronizing; API cannot be used yet");
+                throw new HttpStatusCodeException(500,"Node is still synchronizing; API cannot be used yet");
             }
         }
 

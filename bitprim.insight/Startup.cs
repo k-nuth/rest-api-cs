@@ -8,7 +8,6 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Serilog;
 using Swashbuckle.AspNetCore.Swagger;
-using System.Globalization;
 using System.IO;
 using Microsoft.AspNetCore.Mvc;
 
@@ -75,6 +74,10 @@ namespace bitprim.insight
         public void Configure(IApplicationBuilder app, IHostingEnvironment env, IServiceProvider serviceProvider,
                               IApplicationLifetime applicationLifetime)
         {
+            app.UseRequestLoggerMiddleware();
+            app.UseHttpStatusCodeExceptionMiddleware();
+            app.UseExceptionHandler();
+            
             //Enable web sockets for sending block and tx notifications
             ConfigureWebSockets(app);
             // Enable middleware to serve generated Swagger as a JSON endpoint.
@@ -88,8 +91,7 @@ namespace bitprim.insight
             applicationLifetime.ApplicationStopping.Register(OnShutdown);
             app.UseCors(CORS_POLICY_NAME);
             app.UseStaticFiles(); //TODO For testing web sockets
-            app.UseHttpStatusCodeExceptionMiddleware();
-
+            
             if (!nodeConfig_.InitializeNode)
             {
                 app.UseForwarderMiddleware();
@@ -128,10 +130,8 @@ namespace bitprim.insight
 
         private void ConfigureLogging()
         {
-            var timeZone = DateTimeOffset.Now.ToString("%K").Replace(CultureInfo.CurrentCulture.DateTimeFormat.TimeSeparator, "");
             Log.Logger = new LoggerConfiguration()
                 .ReadFrom.Configuration(Configuration)
-                .Enrich.WithProperty(LogPropertyNames.TIME_ZONE, timeZone)
                 .CreateLogger();
         }
 
