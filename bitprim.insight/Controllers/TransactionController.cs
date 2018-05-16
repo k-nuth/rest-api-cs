@@ -43,9 +43,10 @@ namespace bitprim.insight.Controllers
             using(var getTxResult = await chain_.FetchTransactionAsync(binaryHash, requireConfirmed == 1))
             {
                 Utils.CheckBitprimApiErrorCode(getTxResult.ErrorCode, "FetchTransactionAsync(" + hash + ") failed, check error log");
+                bool confirmed = CheckIfTransactionIsConfirmed(getTxResult.Result);
                 return Json(await TxToJSON
                 (
-                    getTxResult.Result.Tx, getTxResult.Result.TxPosition.BlockHeight, noAsm: false, noScriptSig: false, noSpend: false)
+                    getTxResult.Result.Tx, getTxResult.Result.TxPosition.BlockHeight, confirmed, noAsm: false, noScriptSig: false, noSpend: false)
                 );
             }
         }
@@ -192,7 +193,7 @@ namespace bitprim.insight.Controllers
                 for(UInt64 i=0; i<pageSize && pageNum * pageSize + i < fullBlock.TransactionCount; i++)
                 {
                     var tx = fullBlock.GetNthTransaction(pageNum * pageSize + i);
-                    txs.Add(await TxToJSON(tx, blockHeight, noAsm: false, noScriptSig: false, noSpend: false));
+                    txs.Add(await TxToJSON(tx, blockHeight, confirmed: true, noAsm: false, noScriptSig: false, noSpend: false));
                 }
                 
                 return Json(new
@@ -232,7 +233,8 @@ namespace bitprim.insight.Controllers
                     using(var getTxResult = await chain_.FetchTransactionAsync(txHash, true))
                     {
                         Utils.CheckBitprimApiErrorCode(getTxResult.ErrorCode, "FetchTransactionAsync(" + Binary.ByteArrayToHexString(txHash) + ") failed, check error log");
-                        txs.Add(await TxToJSON(getTxResult.Result.Tx, getTxResult.Result.TxPosition.BlockHeight, noAsm, noScriptSig, noSpend));
+                        bool confirmed = CheckIfTransactionIsConfirmed(getTxResult.Result);
+                        txs.Add(await TxToJSON(getTxResult.Result.Tx, getTxResult.Result.TxPosition.BlockHeight, confirmed, noAsm, noScriptSig, noSpend));
                     }
                 }
                 UInt64 pageCount = (UInt64) Math.Ceiling((double)txIds.Count/(double)pageSize);
@@ -240,40 +242,51 @@ namespace bitprim.insight.Controllers
             }
         }
 
-        private async Task<object> TxToJSON(Transaction tx, UInt64 blockHeight, bool noAsm, bool noScriptSig, bool noSpend)
+        private async Task<object> TxToJSON(Transaction tx, UInt64 blockHeight, bool confirmed, bool noAsm, bool noScriptSig, bool noSpend)
         {
-            using(var getBlockHeaderResult = await chain_.FetchBlockHeaderByHeightAsync(blockHeight))
+            UInt32 blockTimestamp = 0;
+            string blockHash = "";
+            if(confirmed)
             {
-                Utils.CheckBitprimApiErrorCode(getBlockHeaderResult.ErrorCode, "FetchBlockHeaderByHeightAsync(" + blockHeight + ") failed, check error log");
-                
-                Header blockHeader = getBlockHeaderResult.Result.BlockData;
-                
-                ApiCallResult<UInt64> getLastHeightResult = await chain_.FetchLastHeightAsync();
-                Utils.CheckBitprimApiErrorCode(getLastHeightResult.ErrorCode, "FetchLastHeightAsync failed, check error log");
-                
-                dynamic txJson = new ExpandoObject();
-                txJson.txid = Binary.ByteArrayToHexString(tx.Hash);
-                txJson.version = tx.Version;
-                txJson.locktime = tx.Locktime;
-                txJson.vin = await TxInputsToJSON(tx, noAsm, noScriptSig);
-                txJson.vout = await TxOutputsToJSON(tx, noAsm, noSpend);
-                txJson.blockhash = Binary.ByteArrayToHexString(blockHeader.Hash);
-                txJson.blockheight = blockHeight;
-                txJson.confirmations = getLastHeightResult.Result - blockHeight + 1;
-                txJson.time = blockHeader.Timestamp;
-                txJson.blocktime = blockHeader.Timestamp;
-                txJson.isCoinBase = tx.IsCoinbase;
-                txJson.valueOut = Utils.SatoshisToCoinUnits(tx.TotalOutputValue);
-                txJson.size = tx.GetSerializedSize();
-                UInt64 inputsTotal = await ManuallyCalculateInputsTotal(tx); //TODO Solve at native layer
-                txJson.valueIn = Utils.SatoshisToCoinUnits(inputsTotal);
-                
-                if ( !tx.IsCoinbase && ! nodeExecutor_.UseTestnetRules )
+                using(var getBlockHeaderResult = await chain_.FetchBlockHeaderByHeightAsync(blockHeight))
                 {
-                    txJson.fees = Utils.SatoshisToCoinUnits(inputsTotal - tx.TotalOutputValue); //TODO Solve at native layer
-                }
-                return txJson;
+                    Utils.CheckBitprimApiErrorCode(getBlockHeaderResult.ErrorCode, "FetchBlockHeaderByHeightAsync(" + blockHeight + ") failed, check error log");
+                    Header blockHeader = getBlockHeaderResult.Result.BlockData;
+                    blockTimestamp = blockHeader.Timestamp;
+                    blockHash = Binary.ByteArrayToHexString(blockHeader.Hash);
+                }    
             }
+            ApiCallResult<UInt64> getLastHeightResult = await chain_.FetchLastHeightAsync();
+            Utils.CheckBitprimApiErrorCode(getLastHeightResult.ErrorCode, "FetchLastHeightAsync failed, check error log");
+            
+            dynamic txJson = new ExpandoObject();
+            txJson.txid = Binary.ByteArrayToHexString(tx.Hash);
+            txJson.version = tx.Version;
+            txJson.locktime = tx.Locktime;
+            txJson.vin = await TxInputsToJSON(tx, noAsm, noScriptSig);
+            txJson.vout = await TxOutputsToJSON(tx, noAsm, noSpend);
+            txJson.confirmations = confirmed? getLastHeightResult.Result - blockHeight + 1 : 0;
+            txJson.isCoinBase = tx.IsCoinbase;
+            txJson.valueOut = Utils.SatoshisToCoinUnits(tx.TotalOutputValue);
+            txJson.size = tx.GetSerializedSize();
+            UInt64 inputsTotal = await ManuallyCalculateInputsTotal(tx); //TODO Solve at native layer
+            txJson.valueIn = Utils.SatoshisToCoinUnits(inputsTotal);
+            if(confirmed)
+            {
+                txJson.blockhash = blockHash;
+                txJson.time = blockTimestamp;
+                txJson.blocktime = blockTimestamp;
+                txJson.blockheight = blockHeight;
+            }
+            else
+            {
+                txJson.blockheight = -1;
+            }
+            if ( !tx.IsCoinbase && ! nodeExecutor_.UseTestnetRules )
+            {
+                txJson.fees = Utils.SatoshisToCoinUnits(inputsTotal - tx.TotalOutputValue); //TODO Solve at native layer
+            }
+            return txJson;
         }
 
         private async Task<object> TxInputsToJSON(Transaction tx, bool noAsm, bool noScriptSig)
@@ -325,19 +338,6 @@ namespace bitprim.insight.Controllers
                 jsonInput.value = Utils.SatoshisToCoinUnits(output.Value);
                 jsonInput.doubleSpentTxID = null; //We don't handle double spent transactions
             }
-        }
-
-        private object InputScriptToJSON(Script inputScript, bool noAsm)
-        {
-            byte[] scriptData = inputScript.ToData(false);
-            Array.Reverse(scriptData, 0, scriptData.Length);
-            dynamic result = new ExpandoObject();
-            if(!noAsm)
-            {
-                result.asm = inputScript.ToString(0);
-            }
-            result.hex = Binary.ByteArrayToHexString(scriptData);
-            return result;
         }
 
         private async Task<object> TxOutputsToJSON(Transaction tx, bool noAsm, bool noSpend)
@@ -402,6 +402,29 @@ namespace bitprim.insight.Controllers
                 }
             }
             return inputs_total;
+        }
+
+        //TODO Move this logic to node-cint and expose via a property (Transaction.Confirmed)
+        private bool CheckIfTransactionIsConfirmed(GetTxDataResult txResult)
+        {
+            switch( NodeSettings.CurrencyType )
+            {
+                case CurrencyType.BitcoinCash: return txResult.TxPosition.Index != UInt32.MaxValue;
+                default: return txResult.TxPosition.Index != UInt16.MaxValue;
+            }
+        }
+
+        private object InputScriptToJSON(Script inputScript, bool noAsm)
+        {
+            byte[] scriptData = inputScript.ToData(false);
+            Array.Reverse(scriptData, 0, scriptData.Length);
+            dynamic result = new ExpandoObject();
+            if(!noAsm)
+            {
+                result.asm = inputScript.ToString(0);
+            }
+            result.hex = Binary.ByteArrayToHexString(scriptData);
+            return result;
         }
 
         private object OutputScriptToJSON(Output output, bool noAsm)
