@@ -2,7 +2,7 @@ using System;
 using Bitprim;
 using Newtonsoft.Json.Linq;
 
-namespace bitprim.insight
+namespace bitprim.insight.Exceptions
 {
     public class BitprimException : Exception
     {

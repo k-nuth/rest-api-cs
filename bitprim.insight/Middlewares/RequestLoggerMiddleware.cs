@@ -8,7 +8,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using Serilog.Context;
 
-namespace bitprim.insight
+namespace bitprim.insight.Middlewares
 {
     public class RequestLoggerMiddleware
     {

@@ -10,7 +10,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using Nito.AsyncEx;
 
-namespace bitprim.insight
+namespace bitprim.insight.Websockets
 {
     public class WebSocketHandler
     {

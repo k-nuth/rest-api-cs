@@ -9,7 +9,7 @@ using Microsoft.Extensions.Options;
 using Newtonsoft.Json.Linq;
 using Polly;
 
-namespace bitprim.insight
+namespace bitprim.insight.Websockets
 {
     public sealed class WebSocketForwarderClient : IDisposable
     {

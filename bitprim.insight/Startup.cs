@@ -9,6 +9,8 @@ using Microsoft.Extensions.Options;
 using Serilog;
 using Swashbuckle.AspNetCore.Swagger;
 using System.IO;
+using bitprim.insight.Middlewares;
+using bitprim.insight.Websockets;
 using Microsoft.AspNetCore.Mvc;
 
 namespace bitprim.insight

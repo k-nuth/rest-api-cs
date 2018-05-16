@@ -1,10 +1,12 @@
 using System;
+using System.Net;
 using System.Threading.Tasks;
+using bitprim.insight.Exceptions;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 
-namespace bitprim.insight
+namespace bitprim.insight.Middlewares
 {
     public class HttpStatusCodeExceptionMiddleware
     {
@@ -32,7 +34,7 @@ namespace bitprim.insight
                 }
 
                 context.Response.Clear();
-                context.Response.StatusCode = ex.StatusCode;
+                context.Response.StatusCode = (int)ex.StatusCode;
                 context.Response.ContentType = ex.ContentType;
 
                 await context.Response.WriteAsync(ex.Message);
@@ -46,7 +48,7 @@ namespace bitprim.insight
                 }
 
                 context.Response.Clear();
-                context.Response.StatusCode = 500;
+                context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
                 context.Response.ContentType = ex.ContentType;
 
                 await context.Response.WriteAsync(ex.ErrorCode.ToString());

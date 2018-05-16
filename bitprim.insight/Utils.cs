@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
+using System.Net;
 using System.Threading.Tasks;
+using bitprim.insight.Exceptions;
 using Bitprim;
 
 namespace bitprim.insight
@@ -48,7 +50,7 @@ namespace bitprim.insight
         {
             if(!acceptStaleRequests && chain.IsStale)
             {
-                throw new HttpStatusCodeException(500,"Node is still synchronizing; API cannot be used yet");
+                throw new HttpStatusCodeException(HttpStatusCode.InternalServerError,"Node is still synchronizing; API cannot be used yet");
             }
         }
 
