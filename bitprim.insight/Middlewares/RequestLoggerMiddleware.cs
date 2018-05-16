@@ -50,7 +50,7 @@ namespace bitprim.insight.Middlewares
                     httpContext.Response.Body = responseBody;
                     var elapsedMs = GetElapsedMilliseconds(start, Stopwatch.GetTimestamp());
                     await next_(httpContext);
-                    await LogHttpRequest(httpContext, elapsedMs, false);
+                    await LogHttpRequest(httpContext, elapsedMs);
                     await responseBody.CopyToAsync(originalBodyStream);
                 }
             }
@@ -65,11 +65,16 @@ namespace bitprim.insight.Middlewares
 
         private bool LogException(HttpContext httpContext, double elapsedMs, Exception ex)
         {
-            LogHttpRequest(httpContext, 0, true).Wait();
+            LogHttpRequest(httpContext, elapsedMs,ex).Wait();
             return false;
         }
 
-        private  async Task LogHttpRequest(HttpContext context, double elapsedMs, bool error)
+        private async Task LogHttpRequest(HttpContext context, double elapsedMs)
+        {
+            await LogHttpRequest(context, elapsedMs, null);
+        }
+    
+        private  async Task LogHttpRequest(HttpContext context, double elapsedMs, Exception ex)
         {
             HttpResponse response = context.Response;
             response.Body.Seek(0, SeekOrigin.Begin);
@@ -84,8 +89,10 @@ namespace bitprim.insight.Middlewares
             using(LogContext.PushProperty(LogPropertyNames.TIME_ZONE, timeZone_))
             using(LogContext.PushProperty(LogPropertyNames.ELAPSED_MS, elapsedMs))
             {
-                if (error)
-                    logger_.LogError(""); //Properties cover all information, so empty message
+                if (ex != null)
+                {
+                    logger_.LogError(ex,""); //Properties cover all information, so empty message
+                }
                 else
                 {
                     logger_.LogInformation(""); //Properties cover all information, so empty message
