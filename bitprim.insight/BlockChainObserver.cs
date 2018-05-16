@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using bitprim.insight.Websockets;
 using Bitprim;
 using Newtonsoft.Json;
 
