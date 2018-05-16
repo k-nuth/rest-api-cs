@@ -133,11 +133,11 @@ namespace bitprim.insight.Websockets
             await Publish(TXS_CHANNEL_NAME, tx);
         }
 
-        public async Task PublishTransactionAddress(string txid, List<string> addresses)
+        public async Task PublishTransactionAddress(string addresstx, List<string> addresses)
         {
             foreach (string address in addresses)
             {
-                await Publish(address, txid);    
+                await Publish(address, addresstx);    
             }
         }
 

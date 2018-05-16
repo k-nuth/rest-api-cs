@@ -6,6 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using Polly;
 
@@ -71,7 +72,14 @@ namespace bitprim.insight.Websockets
 
                                 var txid = obj["txid"].ToString();
                                 var addreses = ((JArray)obj["addresses"]).ToObject<List<string>>();
-                                await webSocketHandler_.PublishTransactionAddress(txid,addreses);
+                                
+                                var addresstx = new
+                                {
+                                    eventname = "addresstx",
+                                    txid = txid
+                                };
+                                
+                                await webSocketHandler_.PublishTransactionAddress(JsonConvert.SerializeObject(addresstx),addreses);
                                
                                 break;
 

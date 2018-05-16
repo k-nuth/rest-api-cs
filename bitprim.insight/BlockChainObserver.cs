@@ -56,7 +56,13 @@ namespace bitprim.insight
                 var task = webSocketHandler_.PublishTransaction(JsonConvert.SerializeObject(tx));
                 task.Wait();
 
-                task = webSocketHandler_.PublishTransactionAddress(txid,addresses);
+                var addresstx = new
+                {
+                    eventname = "addresstx",
+                    txid = txid
+                };
+
+                task = webSocketHandler_.PublishTransactionAddress(JsonConvert.SerializeObject(addresstx),addresses);
                 task.Wait();
             }
             return true;
