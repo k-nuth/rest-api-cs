@@ -281,6 +281,7 @@ namespace bitprim.insight.Controllers
             else
             {
                 txJson.blockheight = -1;
+                txJson.time = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
             }
             if ( !tx.IsCoinbase && ! nodeExecutor_.UseTestnetRules )
             {
