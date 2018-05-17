@@ -234,6 +234,7 @@ namespace bitprim.insight
             exec_.Stop();
             Log.Information("Destroying node...");
             exec_.Dispose();
+            System.Threading.Thread.Sleep(TimeSpan.FromMinutes(1)); //TODO Temporary workaround to node-cint shutdown issue
             Log.Information("Node shutdown OK!");
         }
     }
