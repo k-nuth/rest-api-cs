@@ -204,7 +204,8 @@ namespace bitprim.insight.Controllers
                             testnet = nodeExecutor_.UseTestnetRules,
                             relayfee = config_.RelayFee,
                             errors = "",
-                            network = GetNetworkType(nodeExecutor_.NetworkType)
+                            network = GetNetworkType(nodeExecutor_.NetworkType),
+                            coin = GetCoin()
                         }
                     }
                 );
@@ -331,6 +332,17 @@ namespace bitprim.insight.Controllers
                 var syncDataString = await httpClient_.GetStringAsync(Constants.SOCHAIN_LTC_URL);
                 dynamic syncData = JsonConvert.DeserializeObject<dynamic>(syncDataString);
                 return syncData.data.blocks;
+            }
+        }
+
+        private string GetCoin()
+        {
+            switch( NodeSettings.CurrencyType )
+            {
+                case CurrencyType.Bitcoin: return nodeExecutor_.UseTestnetRules? "tbtc" : "btc";
+                case CurrencyType.BitcoinCash: return nodeExecutor_.UseTestnetRules? "tbch" : "bch";
+                case CurrencyType.Litecoin: return nodeExecutor_.UseTestnetRules? "tltc" : "ltc";
+                default: throw new InvalidOperationException("Invalid coin: " + NodeSettings.CurrencyType);
             }
         }
 
