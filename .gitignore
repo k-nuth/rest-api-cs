@@ -19,8 +19,7 @@ bitprim.insight/appsettings.json
 bitprim.insight/log-*.txt
 .vscode/
 archive/
-bcc-mainnet.cfg
-bcc-testnet.cfg
+*.cfg
 curl_format.txt
 hosts.cache
 libbitprim-node-cint.so

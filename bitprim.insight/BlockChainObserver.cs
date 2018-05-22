@@ -27,9 +27,22 @@ namespace bitprim.insight
         {
             if(error == ErrorCode.Success && incoming != null && incoming.Count > 0)
             {
+                var lastHeightResult = executor_.Chain.FetchLastHeightAsync().Result;
+                Utils.CheckBitprimApiErrorCode(lastHeightResult.ErrorCode, "FetchLastHeightAsync failed");
+                string coinbaseTxHash = "";
+                string destinationAddress = "";
+                using(var getBlockResult = executor_.Chain.FetchBlockByHeightAsync(lastHeightResult.Result).Result )
+                {
+                    Utils.CheckBitprimApiErrorCode(getBlockResult.ErrorCode, "FetchBlockByHeightAsync(" + lastHeightResult.Result + ") failed");
+                    Transaction coinbaseTx = getBlockResult.Result.BlockData.GetNthTransaction(0);
+                    coinbaseTxHash = Binary.ByteArrayToHexString(coinbaseTx.Hash);
+                    destinationAddress = coinbaseTx.Outputs[0].PaymentAddress(executor_.UseTestnetRules).Encoded;
+                }
                 var newBlocksNotification = new
                 {
-                    eventname = "block"
+                    eventname = "block",
+                    coinbasetxid = coinbaseTxHash,
+                    destinationaddr = destinationAddress
                 };
                 var task = webSocketHandler_.PublishBlock(JsonConvert.SerializeObject(newBlocksNotification));
                 task.Wait();
