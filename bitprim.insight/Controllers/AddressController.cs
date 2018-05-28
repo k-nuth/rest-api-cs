@@ -146,20 +146,22 @@ namespace bitprim.insight.Controllers
         private List<object> GetUnconfirmedUtxo(PaymentAddress address)
         {
             var uncofirmedUtxo = new List<object>();
-            MempoolTransactionList unconfirmedTxs = chain_.GetMempoolTransactions(address, nodeExecutor_.UseTestnetRules);
-            foreach(MempoolTransaction unconfirmedTx in unconfirmedTxs)
+            using(MempoolTransactionList unconfirmedTxs = chain_.GetMempoolTransactions(address, nodeExecutor_.UseTestnetRules))
             {
-                uncofirmedUtxo.Add(new
+                foreach(MempoolTransaction unconfirmedTx in unconfirmedTxs)
                 {
-                    address = address.Encoded,
-                    txid = unconfirmedTx.Hash,
-                    vout = unconfirmedTx.Index,
-                    //scriptPubKey = getTxEc == ErrorCode.Success ? GetOutputScript(tx.Outputs[outputPoint.Index]) : null,
-                    amount = Utils.SatoshisToCoinUnits(ulong.Parse(unconfirmedTx.Satoshis)),
-                    satoshis = unconfirmedTx.Satoshis,
-                    height = -1,
-                    confirmations = 0
-                });
+                    uncofirmedUtxo.Add(new
+                    {
+                        address = address.Encoded,
+                        txid = unconfirmedTx.Hash,
+                        vout = unconfirmedTx.Index,
+                        //scriptPubKey = getTxEc == ErrorCode.Success ? GetOutputScript(tx.Outputs[outputPoint.Index]) : null,
+                        amount = Utils.SatoshisToCoinUnits(ulong.Parse(unconfirmedTx.Satoshis)),
+                        satoshis = unconfirmedTx.Satoshis,
+                        height = -1,
+                        confirmations = 0
+                    });
+                }
             }
             return uncofirmedUtxo;
         }
