@@ -17,7 +17,7 @@
      <When Condition="'$(BTC)' == 'true' ">
      
           <ItemGroup>
-            <PackageReference Include="bitprim-btc" Version="0.4.0-alpha0031" />
+            <PackageReference Include="bitprim-btc" Version="0.4.0-alpha0035" />
             <!-- <ProjectReference Include="../../bitprim-cs/bitprim/bitprim.csproj" /> -->
           </ItemGroup>
      
