@@ -219,7 +219,7 @@ namespace bitprim.insight.Controllers
             Utils.CheckIfChainIsFresh(chain_, config_.AcceptStaleRequests);
 
             using (var address = new PaymentAddress(paymentAddress))
-            using (var getTransactionResult = await chain_.FetchTransactionsAsync(address, UInt64.MaxValue, 0))
+            using (var getTransactionResult = await chain_.FetchConfirmedTransactionsAsync(address, UInt64.MaxValue, 0))
             {
                 Utils.CheckBitprimApiErrorCode(getTransactionResult.ErrorCode, "FetchTransactionAsync(" + paymentAddress + ") failed, check error log.");
                 
