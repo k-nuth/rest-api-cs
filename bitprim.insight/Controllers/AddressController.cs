@@ -13,6 +13,7 @@ namespace bitprim.insight.Controllers
     public class AddressController : Controller
     {
         private readonly Chain chain_;
+        private readonly Executor nodeExecutor_;
         private readonly NodeConfig config_;
 
         private struct AddressBalance
@@ -23,9 +24,10 @@ namespace bitprim.insight.Controllers
             public UInt64 Sent { get; set; }
         }
 
-        public AddressController(IOptions<NodeConfig> config, Chain chain)
+        public AddressController(IOptions<NodeConfig> config, Executor executor)
         {
-            chain_ = chain;
+            nodeExecutor_ = executor;
+            chain_ = nodeExecutor_.Chain;
             config_ = config.Value;
         }
 
@@ -131,7 +133,7 @@ namespace bitprim.insight.Controllers
             {
                 utxo.AddRange(await GetUtxo(address));
             }
-            return Json(utxo.ToArray());   
+            return Json(utxo.ToArray());
         }
 
         [ResponseCache(CacheProfileName = Constants.Cache.SHORT_CACHE_PROFILE_NAME)]
@@ -139,6 +141,29 @@ namespace bitprim.insight.Controllers
         public async Task<ActionResult> GetUtxoForMultipleAddressesPost([FromBody]GetUtxosForMultipleAddressesRequest requestParams)
         {
             return await GetUtxoForMultipleAddresses(requestParams.addrs);
+        }
+
+        private List<object> GetUnconfirmedUtxo(PaymentAddress address)
+        {
+            var uncofirmedUtxo = new List<object>();
+            using(MempoolTransactionList unconfirmedTxs = chain_.GetMempoolTransactions(address, nodeExecutor_.UseTestnetRules))
+            {
+                foreach(MempoolTransaction unconfirmedTx in unconfirmedTxs)
+                {
+                    uncofirmedUtxo.Add(new
+                    {
+                        address = address.Encoded,
+                        txid = unconfirmedTx.Hash,
+                        vout = unconfirmedTx.Index,
+                        //scriptPubKey = getTxEc == ErrorCode.Success ? GetOutputScript(tx.Outputs[outputPoint.Index]) : null,
+                        amount = Utils.SatoshisToCoinUnits(ulong.Parse(unconfirmedTx.Satoshis)),
+                        satoshis = unconfirmedTx.Satoshis,
+                        height = -1,
+                        confirmations = 0
+                    });
+                }
+            }
+            return uncofirmedUtxo;
         }
 
         private async Task<List<object>> GetUtxo(string paymentAddress)
@@ -179,6 +204,7 @@ namespace bitprim.insight.Controllers
                         }                        
                     }
                 }
+                utxo.AddRange(GetUnconfirmedUtxo(address));
                 return utxo;
             }
         }
