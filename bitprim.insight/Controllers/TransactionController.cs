@@ -238,6 +238,8 @@ namespace bitprim.insight.Controllers
                     }
                 }
                 UInt64 pageCount = (UInt64) Math.Ceiling((double)txIds.Count/(double)pageSize);
+                List<object> unconfirmedTxs = await GetUnconfirmedTransactions(address);
+                txs = unconfirmedTxs.Concat(txs).ToList(); //Unconfirmed txs go first
                 return new Tuple<List<object>, UInt64>(txs, pageCount);
             }
         }
@@ -338,6 +340,26 @@ namespace bitprim.insight.Controllers
                 jsonInput.valueSat = output.Value;
                 jsonInput.value = Utils.SatoshisToCoinUnits(output.Value);
                 jsonInput.doubleSpentTxID = null; //We don't handle double spent transactions
+            }
+        }
+
+        private async Task<List<object>> GetUnconfirmedTransactions(PaymentAddress address)
+        {
+            var unconfirmedTxsJson = new List<object>();
+            using(MempoolTransactionList unconfirmedTxs = chain_.GetMempoolTransactions(address, nodeExecutor_.UseTestnetRules))
+            {
+                foreach(MempoolTransaction unconfirmedTx in unconfirmedTxs)
+                {
+                    using(var getTxResult = await chain_.FetchTransactionAsync(Binary.HexStringToByteArray(unconfirmedTx.Hash), requireConfirmed: false))
+                    {
+                        Utils.CheckBitprimApiErrorCode(getTxResult.ErrorCode, "FetchTransactionAsync(" + unconfirmedTx.Hash + ") failed, check error log");
+                        unconfirmedTxsJson.Add
+                        (
+                            await TxToJSON(getTxResult.Result.Tx, 0, confirmed: false, noAsm: true, noScriptSig: true, noSpend: true)
+                        );
+                    }
+                }
+                return unconfirmedTxsJson;
             }
         }
 
