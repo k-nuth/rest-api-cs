@@ -52,10 +52,11 @@ namespace bitprim.insight.Controllers
             historyJson.totalReceivedSat = balance.Received;
             historyJson.totalSent = Utils.SatoshisToCoinUnits(balance.Sent);
             historyJson.totalSentSat = balance.Sent;
-            historyJson.unconfirmedBalance = 0; //We don't handle unconfirmed txs
-            historyJson.unconfirmedBalanceSat = 0; //We don't handle unconfirmed txs
-            historyJson.unconfirmedTxApperances = 0; //We don't handle unconfirmed txs
             historyJson.txApperances = balance.Transactions.Count;
+            Tuple<uint, UInt64> unconfirmedSummary = await GetUnconfirmedSummary(paymentAddress);
+            historyJson.unconfirmedBalance = Utils.SatoshisToCoinUnits(unconfirmedSummary.Item2);
+            historyJson.unconfirmedBalanceSat = unconfirmedSummary.Item2;
+            historyJson.unconfirmedTxApperances = unconfirmedSummary.Item1;
             
             if( noTxList == 0 )
             {
@@ -143,27 +144,30 @@ namespace bitprim.insight.Controllers
             return await GetUtxoForMultipleAddresses(requestParams.addrs);
         }
 
-        private List<object> GetUnconfirmedUtxo(PaymentAddress address)
+        private async Task<UInt64> SumAddressInputs(Transaction tx, PaymentAddress address)
         {
-            var uncofirmedUtxo = new List<object>();
-            using(MempoolTransactionList unconfirmedTxs = chain_.GetMempoolTransactions(address, nodeExecutor_.UseTestnetRules))
+            UInt64 inputSum = 0;
+            foreach(Input input in tx.Inputs)
             {
-                foreach(MempoolTransaction unconfirmedTx in unconfirmedTxs)
+                if(input.PreviousOutput == null)
                 {
-                    uncofirmedUtxo.Add(new
+                    continue;
+                }
+                using(var getTxResult = await chain_.FetchTransactionAsync(input.PreviousOutput.Hash, false))
+                {
+                    if(getTxResult.ErrorCode == ErrorCode.NotFound)
                     {
-                        address = address.Encoded,
-                        txid = unconfirmedTx.Hash,
-                        vout = unconfirmedTx.Index,
-                        //scriptPubKey = getTxEc == ErrorCode.Success ? GetOutputScript(tx.Outputs[outputPoint.Index]) : null,
-                        amount = Utils.SatoshisToCoinUnits(ulong.Parse(unconfirmedTx.Satoshis)),
-                        satoshis = unconfirmedTx.Satoshis,
-                        height = -1,
-                        confirmations = 0
-                    });
+                        continue;
+                    }
+                    Utils.CheckBitprimApiErrorCode(getTxResult.ErrorCode, "FetchTransactionAsync(" + Binary.ByteArrayToHexString(input.PreviousOutput.Hash) + ") failed, check error log");
+                    Output referencedOutput = getTxResult.Result.Tx.Outputs[input.PreviousOutput.Index];
+                    if(referencedOutput.PaymentAddress(nodeExecutor_.UseTestnetRules).Encoded == address.Encoded)
+                    {
+                        inputSum += referencedOutput.Value;
+                    }
                 }
             }
-            return uncofirmedUtxo;
+            return inputSum;
         }
 
         private async Task<List<object>> GetUtxo(string paymentAddress)
@@ -207,6 +211,62 @@ namespace bitprim.insight.Controllers
                 utxo.AddRange(GetUnconfirmedUtxo(address));
                 return utxo;
             }
+        }
+
+        private async Task<Tuple<uint, UInt64>> GetUnconfirmedSummary(string address)
+        {
+            using(var paymentAddress = new PaymentAddress(address))
+            using(MempoolTransactionList unconfirmedTxs = chain_.GetMempoolTransactions(paymentAddress, nodeExecutor_.UseTestnetRules))
+            {
+                UInt64 unconfirmedBalance = 0;
+                foreach(MempoolTransaction unconfirmedTx in unconfirmedTxs)
+                {
+                    using(var getTxResult = await chain_.FetchTransactionAsync(Binary.HexStringToByteArray(unconfirmedTx.Hash), requireConfirmed: false))
+                    {
+                        Utils.CheckBitprimApiErrorCode(getTxResult.ErrorCode, "FetchTransactionAsync(" + unconfirmedTx.Hash + ") failed, check error log");
+                        Transaction tx = getTxResult.Result.Tx;
+                        unconfirmedBalance -= await SumAddressInputs(tx, paymentAddress);
+                        unconfirmedBalance += SumAddressOutputs(tx, paymentAddress);
+                    }
+                }
+                return new Tuple<uint, UInt64>(unconfirmedTxs.Count, unconfirmedBalance);
+            }
+        }
+
+        private UInt64 SumAddressOutputs(Transaction tx, PaymentAddress address)
+        {
+            UInt64 outputSum = 0;
+            foreach(Output output in tx.Outputs)
+            {
+                if(output.PaymentAddress(nodeExecutor_.UseTestnetRules).Encoded == address.Encoded)
+                {
+                    outputSum += output.Value;
+                }
+            }
+            return outputSum;
+        }
+
+        private List<object> GetUnconfirmedUtxo(PaymentAddress address)
+        {
+            var uncofirmedUtxo = new List<object>();
+            using(MempoolTransactionList unconfirmedTxs = chain_.GetMempoolTransactions(address, nodeExecutor_.UseTestnetRules))
+            {
+                foreach(MempoolTransaction unconfirmedTx in unconfirmedTxs)
+                {
+                    uncofirmedUtxo.Add(new
+                    {
+                        address = address.Encoded,
+                        txid = unconfirmedTx.Hash,
+                        vout = unconfirmedTx.Index,
+                        //scriptPubKey = getTxEc == ErrorCode.Success ? GetOutputScript(tx.Outputs[outputPoint.Index]) : null,
+                        amount = Utils.SatoshisToCoinUnits(ulong.Parse(unconfirmedTx.Satoshis)),
+                        satoshis = unconfirmedTx.Satoshis,
+                        height = -1,
+                        confirmations = 0
+                    });
+                }
+            }
+            return uncofirmedUtxo;
         }
 
         private static object UtxoToJSON(PaymentAddress paymentAddress, Point outputPoint, ErrorCode getTxEc, Transaction tx, HistoryCompact compact, UInt64 topHeight)
