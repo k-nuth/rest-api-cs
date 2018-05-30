@@ -225,8 +225,8 @@ namespace bitprim.insight.Controllers
                     {
                         Utils.CheckBitprimApiErrorCode(getTxResult.ErrorCode, "FetchTransactionAsync(" + unconfirmedTx.Hash + ") failed, check error log");
                         Transaction tx = getTxResult.Result.Tx;
-                        unconfirmedBalance -= await SumAddressInputs(tx, paymentAddress);
                         unconfirmedBalance += SumAddressOutputs(tx, paymentAddress);
+                        unconfirmedBalance -= await SumAddressInputs(tx, paymentAddress);
                     }
                 }
                 return new Tuple<uint, UInt64>(unconfirmedTxs.Count, unconfirmedBalance);
