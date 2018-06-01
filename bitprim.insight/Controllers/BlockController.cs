@@ -12,6 +12,7 @@ using Microsoft.Extensions.Options;
 namespace bitprim.insight.Controllers
 {
     [Route("[controller]")]
+    [ApiController]
     public class BlockController : Controller
     {
         private readonly Chain chain_;

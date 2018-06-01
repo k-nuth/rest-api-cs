@@ -11,6 +11,7 @@ using System.Threading.Tasks;
 namespace bitprim.insight.Controllers
 {
     [Route("[controller]")]
+    [ApiController]
     public class AddressController : Controller
     {
         private readonly Chain chain_;

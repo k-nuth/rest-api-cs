@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace bitprim.insight.Controllers
 {
     [Route("[controller]")]
+    [ApiController]
     public class PeerController : Controller
     {
         [ResponseCache(CacheProfileName = Constants.Cache.SHORT_CACHE_PROFILE_NAME)]

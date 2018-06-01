@@ -16,6 +16,7 @@ using System.Globalization;
 namespace bitprim.insight.Controllers
 {
     [Route("[controller]")]
+    [ApiController]
     public class ChainController : Controller
     {
         private readonly Chain chain_;

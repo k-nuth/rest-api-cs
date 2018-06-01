@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace bitprim.insight.Controllers
 {
     [Route("[controller]")]
+    [ApiController]
     public class MessageController : Controller
     {
         [HttpGet("messages/verify")]

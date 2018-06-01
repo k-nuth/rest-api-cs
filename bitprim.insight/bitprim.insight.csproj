@@ -1,6 +1,6 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk.Web">
   <PropertyGroup>
-    <TargetFramework>netcoreapp2.0</TargetFramework>
+    <TargetFramework>netcoreapp2.1</TargetFramework>
     <Platforms>AnyCPU;x64</Platforms>
     <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
   </PropertyGroup>
@@ -45,11 +45,10 @@
 
 
   <ItemGroup>
-    
-    <PackageReference Include="Microsoft.AspNetCore.All" Version="2.0.7" />
-    <PackageReference Include="Polly" Version="5.9.0" />
+    <PackageReference Include="Microsoft.AspNetCore.App" />
+    <PackageReference Include="Polly" Version="6.0.1" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="2.4.0" />
-    <PackageReference Include="Microsoft.AspNetCore.WebSockets" Version="2.0.2" />
+    <PackageReference Include="Microsoft.AspNetCore.WebSockets" Version="2.1.0" />
     <PackageReference Include="Newtonsoft.Json" Version="11.0.2" />
     <PackageReference Include="Nito.AsyncEx" Version="5.0.0-pre-05" />
     <PackageReference Include="Serilog.AspNetCore" Version="2.1.1" />
@@ -59,8 +58,8 @@
   </ItemGroup>
 
   <Target Name="CopyLibAfterPublish" AfterTargets="Publish">
-    <Copy SourceFiles="$(TargetDir)libbitprim-node-cint.dll" DestinationFiles="$(PublishDir)libbitprim-node-cint.dll" Condition="Exists('$(TargetDir)libbitprim-node-cint.dll')"/>
-    <Copy SourceFiles="$(TargetDir)libbitprim-node-cint.so" DestinationFiles="$(PublishDir)libbitprim-node-cint.so" Condition="Exists('$(TargetDir)libbitprim-node-cint.so')"/>
+    <Copy SourceFiles="$(TargetDir)libbitprim-node-cint.dll" DestinationFiles="$(PublishDir)libbitprim-node-cint.dll" Condition="Exists('$(TargetDir)libbitprim-node-cint.dll')" />
+    <Copy SourceFiles="$(TargetDir)libbitprim-node-cint.so" DestinationFiles="$(PublishDir)libbitprim-node-cint.so" Condition="Exists('$(TargetDir)libbitprim-node-cint.so')" />
   </Target>
 
 </Project>
