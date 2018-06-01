@@ -1,9 +1,63 @@
-# bitprim-insight
+# Bitprim Insight <a target="_blank" href="http://semver.org">![Version][badge.version]</a> <a target="_blank" href="https://travis-ci.org/bitprim/bitprim-insight">![Travis status][badge.Travis]</a> [![Appveyor Status](https://ci.appveyor.com/api/projects/status/github/bitprim/bitprim-insight?svg=true&branch=master)](https://ci.appveyor.com/projects/bitprim/bitprim-insight) <a target="_blank" href="https://gitter.im/bitprim/Lobby">![Gitter Chat][badge.Gitter]</a>
 
-REST API, matching insight API interface, implemented in .NET Core 2.x
+> Multi-Cryptocurrency _Rest_ API.
+
+*Bitprim Insight* is a REST API written in _C#_ with .NET Core 2.x which exposes methods matching the insight API interface
+
+Bitprim Insight supports the following cryptocurrencies:
+  * [Bitcoin Cash](https://www.bitcoincash.org/)
+  * [Bitcoin](https://bitcoin.org/)
+
+## Installation Requirements
+
+- 64-bit machine.
+- [Conan](https://www.conan.io/) package manager, version 1.1.0 or newer. See [Conan Installation](http://docs.conan.io/en/latest/installation.html#install-with-pip-recommended).
+- [.NET Core 2.0 SDK](https://www.microsoft.com/net/download/)
+
+## Installation Procedure
+
+The *Bitprim* libraries can be installed on Linux, macOS, FreeBSD, Windows and others. These binaries are pre-built for the most usual operating system/compiler combinations and hosted in an online repository. If there are no pre-built binaries for your platform, a build from source will be attempted.
+
+1. Build 
+
+For Bitcoin Cash
+
+```
+dotnet build /property:Platform=x64 /p:BCH=true -c Release -f netcoreapp2.0 -v normal
+```
+
+For Bitcoin
+
+```
+dotnet build /property:Platform=x64 /p:BTC=true -c Release -f netcoreapp2.0 -v normal
+```
+
+2. Run
+
+```
+dotnet bin/x64/Release/netcoreapp2.0/bitprim.insight.dll --server.port=3000 --server.address=0.0.0.0
+```
+
+or you can publish the app and run over the published folder 
+
+```
+dotnet publish /property:Platform=x64 /p:BTC=true -c Release -f netcoreapp2.0 -v normal -o published
+```
+
+```
+dotnet bin/x64/Release/netcoreapp2.0/published/bitprim.insight.dll --server.port=3000 --server.address=0.0.0.0
+```
 
 
-# API HTTP Endpoints
+## Building from source Requirements
+
+In case there are no pre-built binaries for your platform, it is necessary to build from source code. In such a scenario, the following requirements must be added to the previous ones:
+
+- C++11 Conforming Compiler.
+- [CMake](https://cmake.org/) building tool, version 3.4 or newer.
+
+
+## API HTTP Endpoints
 
 ### Block
 
@@ -301,3 +355,12 @@ The following html page connects to the web socket insight API and listens for n
             </script>
         </body>
     </html>
+
+## Changelog
+
+
+<!-- Links -->
+[badge.Appveyor]: https://ci.appveyor.com/api/projects/status/github/bitprim/bitprim-insight?svg=true&branch=master
+[badge.Gitter]: https://img.shields.io/badge/gitter-join%20chat-blue.svg
+[badge.Travis]: https://travis-ci.org/bitprim/bitprim-insight.svg?branch=master
+[badge.version]: https://badge.fury.io/gh/bitprim%2Fbitprim-insight.svg
