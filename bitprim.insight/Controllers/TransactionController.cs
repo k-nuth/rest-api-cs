@@ -285,7 +285,7 @@ namespace bitprim.insight.Controllers
                 txJson.blockheight = -1;
                 txJson.time = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
             }
-            if ( !tx.IsCoinbase && ! nodeExecutor_.UseTestnetRules )
+            if ( !tx.IsCoinbase )
             {
                 txJson.fees = Utils.SatoshisToCoinUnits(inputsTotal - tx.TotalOutputValue); //TODO Solve at native layer
             }
