@@ -97,4 +97,4 @@ install:
 script:
   - |
     cd bitprim.insight
-    dotnet build /property:Platform=x64 /p:BTC=true -c Release -f netcoreapp2.0 -v normal
+    dotnet build /property:Platform=x64 /p:BTC=true -c Release -f netcoreapp2.1 -v normal
