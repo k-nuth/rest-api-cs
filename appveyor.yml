@@ -4,6 +4,7 @@ branches:
   only:
   - master
   - dev
+  - feature/RA-98
 
 configuration:
 - Release
