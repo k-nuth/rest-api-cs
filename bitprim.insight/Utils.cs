@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Net;
+using System.Numerics;
 using System.Threading.Tasks;
 using bitprim.insight.Exceptions;
 using Bitprim;
@@ -12,6 +13,11 @@ namespace bitprim.insight
         public static string EncodeInBase16(UInt32 number)
         {
             return Convert.ToString(number, 16);
+        }
+
+        public static double SatoshisToCoinUnits(BigInteger satoshis)
+        {
+            return (double)satoshis / 100000000;
         }
 
         public static double SatoshisToCoinUnits(UInt64 satoshis)
