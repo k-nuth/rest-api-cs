@@ -1,4 +1,4 @@
-# Bitprim Insight <a target="_blank" href="http://semver.org">![Version][badge.version]</a> <a target="_blank" href="https://travis-ci.org/bitprim/bitprim-insight">![Travis status][badge.Travis]</a> [![Appveyor Status](https://ci.appveyor.com/api/projects/status/github/bitprim/bitprim-insight?svg=true&branch=master)](https://ci.appveyor.com/projects/bitprim/bitprim-insight) <a target="_blank" href="https://gitter.im/bitprim/Lobby">![Gitter Chat][badge.Gitter]</a>
+# Bitprim Insight <a target="_blank" href="http://semver.org">![Version][badge.version]</a> <a target="_blank" href="https://travis-ci.org/bitprim/bitprim-insight">![Travis status][badge.Travis]</a> [![Appveyor Status](https://ci.appveyor.com/api/projects/status/github/bitprim/bitprim-insight?svg=true&branch=master)](https://ci.appveyor.com/project/bitprim/bitprim-insight) <a target="_blank" href="https://gitter.im/bitprim/Lobby">![Gitter Chat][badge.Gitter]</a>
 
 > Multi-Cryptocurrency _Rest_ API.
 
@@ -355,8 +355,6 @@ The following html page connects to the web socket insight API and listens for n
             </script>
         </body>
     </html>
-
-## Changelog
 
 
 <!-- Links -->
