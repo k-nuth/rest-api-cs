@@ -5,6 +5,7 @@ using Bitprim;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 using System.Dynamic;
+using System.Numerics;
 using System.Threading.Tasks;
 
 namespace bitprim.insight.Controllers
@@ -53,7 +54,7 @@ namespace bitprim.insight.Controllers
             historyJson.totalSent = Utils.SatoshisToCoinUnits(balance.Sent);
             historyJson.totalSentSat = balance.Sent;
             historyJson.txApperances = balance.Transactions.Count;
-            Tuple<uint, UInt64> unconfirmedSummary = await GetUnconfirmedSummary(paymentAddress);
+            Tuple<uint, BigInteger> unconfirmedSummary = await GetUnconfirmedSummary(paymentAddress);
             historyJson.unconfirmedBalance = Utils.SatoshisToCoinUnits(unconfirmedSummary.Item2);
             historyJson.unconfirmedBalanceSat = unconfirmedSummary.Item2;
             historyJson.unconfirmedTxApperances = unconfirmedSummary.Item1;
@@ -213,12 +214,12 @@ namespace bitprim.insight.Controllers
             }
         }
 
-        private async Task<Tuple<uint, UInt64>> GetUnconfirmedSummary(string address)
+        private async Task<Tuple<uint, BigInteger>> GetUnconfirmedSummary(string address)
         {
             using(var paymentAddress = new PaymentAddress(address))
             using(MempoolTransactionList unconfirmedTxs = chain_.GetMempoolTransactions(paymentAddress, nodeExecutor_.UseTestnetRules))
             {
-                UInt64 unconfirmedBalance = 0;
+                BigInteger unconfirmedBalance = 0;
                 foreach(MempoolTransaction unconfirmedTx in unconfirmedTxs)
                 {
                     using(var getTxResult = await chain_.FetchTransactionAsync(Binary.HexStringToByteArray(unconfirmedTx.Hash), requireConfirmed: false))
