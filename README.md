@@ -7,6 +7,7 @@
 Bitprim Insight supports the following cryptocurrencies:
   * [Bitcoin Cash](https://www.bitcoincash.org/)
   * [Bitcoin](https://bitcoin.org/)
+  * [Litecoin](https://litecoin.org/) (coming soon)
 
 ## Installation Requirements
 
@@ -14,11 +15,20 @@ Bitprim Insight supports the following cryptocurrencies:
 - [Conan](https://www.conan.io/) package manager, version 1.1.0 or newer. See [Conan Installation](http://docs.conan.io/en/latest/installation.html#install-with-pip-recommended).
 - [.NET Core 2.0 SDK](https://www.microsoft.com/net/download/)
 
-## Installation Procedure
+
+In case there are no pre-built binaries for your platform, it is necessary to build from source code. In such a scenario, the following requirements must be added to the previous ones:
+
+- C++11 Conforming Compiler.
+- [CMake](https://cmake.org/) building tool, version 3.4 or newer.
+
+
+## Building Procedure
 
 The *Bitprim* libraries can be installed on Linux, macOS, FreeBSD, Windows and others. These binaries are pre-built for the most usual operating system/compiler combinations and hosted in an online repository. If there are no pre-built binaries for your platform, a build from source will be attempted.
 
 1. Build 
+
+In the project folder run:
 
 For Bitcoin Cash
 
@@ -47,14 +57,6 @@ dotnet publish /property:Platform=x64 /p:BTC=true -c Release -f netcoreapp2.0 -v
 ```
 dotnet bin/x64/Release/netcoreapp2.0/published/bitprim.insight.dll --server.port=3000 --server.address=0.0.0.0
 ```
-
-
-## Building from source Requirements
-
-In case there are no pre-built binaries for your platform, it is necessary to build from source code. In such a scenario, the following requirements must be added to the previous ones:
-
-- C++11 Conforming Compiler.
-- [CMake](https://cmake.org/) building tool, version 3.4 or newer.
 
 
 ## API HTTP Endpoints
