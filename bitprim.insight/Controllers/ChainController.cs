@@ -40,34 +40,19 @@ namespace bitprim.insight.Controllers
             logger_ = logger;
         }
 
+        [HttpGet("healthcheck")]
+        public async Task<string> GetHealthCheck()
+        {
+            dynamic syncStatus = await DoGetSyncStatus();
+            bool isNumeric = Double.TryParse(syncStatus.syncPercentage, out double syncPercentage);
+            return isNumeric && syncPercentage > 99.0? "OK" : "NOK";
+        }
+
         [ResponseCache(CacheProfileName = Constants.Cache.SHORT_CACHE_PROFILE_NAME)]
         [HttpGet("sync")]
         public async Task<ActionResult> GetSyncStatus()
         {
-            var getLastHeightResult = await chain_.FetchLastHeightAsync();
-            Utils.CheckBitprimApiErrorCode(getLastHeightResult.ErrorCode, "GetLastHeight() failed");
-
-            var currentHeight = getLastHeightResult.Result;
-            UInt64? blockChainHeight = await GetCurrentBlockChainHeight();
-            dynamic syncStatus = new ExpandoObject();
-            if (blockChainHeight.HasValue)
-            {
-                var synced = currentHeight >= blockChainHeight;
-                syncStatus.status = synced ? "finished" : "synchronizing";
-                syncStatus.blockChainHeight = blockChainHeight;
-                syncStatus.syncPercentage = Math.Min((double)currentHeight / (double)blockChainHeight * 100.0, 100).ToString("N2");
-                syncStatus.error = null;
-            }
-            else
-            {
-                syncStatus.status = "unknown";
-                syncStatus.blockChainHeight = "unknown";
-                syncStatus.syncPercentage = "unknown";
-                syncStatus.error = "Could not determine max blockchain height; check log";
-            }
-            syncStatus.height = currentHeight;
-            syncStatus.type = config_.NodeType;
-            return Json(syncStatus);
+            return Json(await DoGetSyncStatus());
         }
 
         [ResponseCache(CacheProfileName = Constants.Cache.SHORT_CACHE_PROFILE_NAME)]
@@ -181,6 +166,34 @@ namespace bitprim.insight.Controllers
                     return networkType.ToString().ToLower();
 
             }
+        }
+
+        private async Task<object> DoGetSyncStatus()
+        {
+            var getLastHeightResult = await chain_.FetchLastHeightAsync();
+            Utils.CheckBitprimApiErrorCode(getLastHeightResult.ErrorCode, "GetLastHeight() failed");
+
+            var currentHeight = getLastHeightResult.Result;
+            UInt64? blockChainHeight = await GetCurrentBlockChainHeight();
+            dynamic syncStatus = new ExpandoObject();
+            if (blockChainHeight.HasValue)
+            {
+                var synced = currentHeight >= blockChainHeight;
+                syncStatus.status = synced ? "finished" : "synchronizing";
+                syncStatus.blockChainHeight = blockChainHeight;
+                syncStatus.syncPercentage = Math.Min((double)currentHeight / (double)blockChainHeight * 100.0, 100).ToString("N2");
+                syncStatus.error = null;
+            }
+            else
+            {
+                syncStatus.status = "unknown";
+                syncStatus.blockChainHeight = "unknown";
+                syncStatus.syncPercentage = "unknown";
+                syncStatus.error = "Could not determine max blockchain height; check log";
+            }
+            syncStatus.height = currentHeight;
+            syncStatus.type = config_.NodeType;
+            return syncStatus;
         }
 
         private async Task<ActionResult> GetInfo()
