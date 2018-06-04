@@ -46,11 +46,9 @@ namespace bitprim.insight.Controllers
             dynamic syncStatus = await DoGetSyncStatus();
             bool isNumeric = Double.TryParse(syncStatus.syncPercentage, out double syncPercentage);
             bool isHealthy = isNumeric && syncPercentage > minimumSync;
-            if( !isHealthy )
-            {
-                return StatusCode((int)System.Net.HttpStatusCode.PreconditionFailed, "NOK");
-            }
-            return StatusCode((int)System.Net.HttpStatusCode.OK, "OK");
+            return isHealthy? 
+                StatusCode((int)System.Net.HttpStatusCode.OK, "OK"):
+                StatusCode((int)System.Net.HttpStatusCode.PreconditionFailed, "NOK");
         }
 
         [ResponseCache(CacheProfileName = Constants.Cache.SHORT_CACHE_PROFILE_NAME)]
