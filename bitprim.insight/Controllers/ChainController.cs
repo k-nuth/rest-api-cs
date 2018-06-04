@@ -41,11 +41,16 @@ namespace bitprim.insight.Controllers
         }
 
         [HttpGet("healthcheck")]
-        public async Task<string> GetHealthCheck()
+        public async Task<ActionResult> GetHealthCheck(float minimumSync)
         {
             dynamic syncStatus = await DoGetSyncStatus();
             bool isNumeric = Double.TryParse(syncStatus.syncPercentage, out double syncPercentage);
-            return isNumeric && syncPercentage > 99.0? "OK" : "NOK";
+            bool isHealthy = isNumeric && syncPercentage > minimumSync;
+            if( !isHealthy )
+            {
+                return StatusCode((int)System.Net.HttpStatusCode.PreconditionFailed, "NOK");
+            }
+            return StatusCode((int)System.Net.HttpStatusCode.OK, "OK");
         }
 
         [ResponseCache(CacheProfileName = Constants.Cache.SHORT_CACHE_PROFILE_NAME)]
