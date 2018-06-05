@@ -5,14 +5,16 @@ using Bitprim;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 using System.Dynamic;
+using System.Numerics;
 using System.Threading.Tasks;
 
 namespace bitprim.insight.Controllers
 {
-    [Route("api/[controller]")]
+    [Route("[controller]")]
     public class AddressController : Controller
     {
-        private Chain chain_;
+        private readonly Chain chain_;
+        private readonly Executor nodeExecutor_;
         private readonly NodeConfig config_;
 
         private struct AddressBalance
@@ -23,16 +25,17 @@ namespace bitprim.insight.Controllers
             public UInt64 Sent { get; set; }
         }
 
-        public AddressController(IOptions<NodeConfig> config, Chain chain)
+        public AddressController(IOptions<NodeConfig> config, Executor executor)
         {
-            chain_ = chain;
+            nodeExecutor_ = executor;
+            chain_ = nodeExecutor_.Chain;
             config_ = config.Value;
         }
 
-        // GET: api/addr/{paymentAddress}
-        [ResponseCache(CacheProfileName = Constants.SHORT_CACHE_PROFILE_NAME)]
-        [HttpGet("/api/addr/{paymentAddress}")]
-        public async Task<ActionResult> GetAddressHistory(string paymentAddress, bool noTxList = false, int from = 0, int? to = null)
+        // GET: addr/{paymentAddress}
+        [ResponseCache(CacheProfileName = Constants.Cache.SHORT_CACHE_PROFILE_NAME)]
+        [HttpGet("addr/{paymentAddress}")]
+        public async Task<ActionResult> GetAddressHistory(string paymentAddress, int noTxList = 0, int? from = null, int? to = null)
         {
             if(!Validations.IsValidPaymentAddress(paymentAddress))
             {
@@ -44,75 +47,87 @@ namespace bitprim.insight.Controllers
             
             dynamic historyJson = new ExpandoObject();
             historyJson.addrStr = paymentAddress;
-            historyJson.balance = balance.Balance;
-            historyJson.balanceSat = Utils.SatoshisToCoinUnits(balance.Balance);
+            historyJson.balance = Utils.SatoshisToCoinUnits(balance.Balance);
+            historyJson.balanceSat = balance.Balance;
             historyJson.totalReceived = Utils.SatoshisToCoinUnits(balance.Received);
             historyJson.totalReceivedSat = balance.Received;
-            historyJson.totalSent = balance.Sent;
-            historyJson.totalSentSat = Utils.SatoshisToCoinUnits(balance.Sent);
-            historyJson.unconfirmedBalance = 0; //We don't handle unconfirmed txs
-            historyJson.unconfirmedBalanceSat = 0; //We don't handle unconfirmed txs
-            historyJson.unconfirmedTxApperances = 0; //We don't handle unconfirmed txs
+            historyJson.totalSent = Utils.SatoshisToCoinUnits(balance.Sent);
+            historyJson.totalSentSat = balance.Sent;
             historyJson.txApperances = balance.Transactions.Count;
+            Tuple<uint, BigInteger> unconfirmedSummary = await GetUnconfirmedSummary(paymentAddress);
+            historyJson.unconfirmedBalance = Utils.SatoshisToCoinUnits(unconfirmedSummary.Item2);
+            historyJson.unconfirmedBalanceSat = unconfirmedSummary.Item2;
+            historyJson.unconfirmedTxApperances = unconfirmedSummary.Item1;
             
-            if( ! noTxList )
+            if( noTxList == 0 )
             {
-                if(to == null || to.Value >= balance.Transactions.Count )
+                if (from == null && to == null)
                 {
-                    to = balance.Transactions.Count - 1;
+                    from = 0;
+                    to = balance.Transactions.Count;
+                }
+                else
+                {
+                    from = Math.Max(from ?? 0, 0); 
+                    to = Math.Min(to ?? balance.Transactions.Count, balance.Transactions.Count);
+                
+                    var validationResult = ValidateParameters(from.Value, to.Value);
+                    if( ! validationResult.Item1 )
+                    {
+                        return StatusCode((int)System.Net.HttpStatusCode.BadRequest, validationResult.Item2);
+                    }
                 }
                 
-                var validationResult = ValidateParameters(from, to.Value);
-                if( ! validationResult.Item1 )
-                {
-                    return StatusCode((int)System.Net.HttpStatusCode.BadRequest, validationResult.Item2);
-                }
-
-                historyJson.transactions = balance.Transactions.GetRange(from, to.Value).ToArray();
+                historyJson.transactions = balance.Transactions.GetRange(from.Value, to.Value - from.Value).ToArray();
             }
+
             return Json(historyJson);
         }
 
-        // GET: api/addr/{paymentAddress}/balance
-        [HttpGet("/api/addr/{paymentAddress}/balance")]
+        // GET: addr/{paymentAddress}/balance
+        [ResponseCache(CacheProfileName = Constants.Cache.SHORT_CACHE_PROFILE_NAME)]
+        [HttpGet("addr/{paymentAddress}/balance")]
         public async Task<ActionResult> GetAddressBalance(string paymentAddress)
         {
             return await GetBalanceProperty(paymentAddress, "Balance");
         }
 
-        // GET: api/addr/{paymentAddress}/totalReceived
-        [HttpGet("/api/addr/{paymentAddress}/totalReceived")]
+        // GET: addr/{paymentAddress}/totalReceived
+        [ResponseCache(CacheProfileName = Constants.Cache.SHORT_CACHE_PROFILE_NAME)]
+        [HttpGet("addr/{paymentAddress}/totalReceived")]
         public async Task<ActionResult> GetTotalReceived(string paymentAddress)
         {
             return await GetBalanceProperty(paymentAddress, "Received");
         }
 
-        // GET: api/addr/{paymentAddress}/totalSent
-        [HttpGet("/api/addr/{paymentAddress}/totalSent")]
+        // GET: addr/{paymentAddress}/totalSent
+        [ResponseCache(CacheProfileName = Constants.Cache.SHORT_CACHE_PROFILE_NAME)]
+        [HttpGet("addr/{paymentAddress}/totalSent")]
         public async Task<ActionResult> GetTotalSent(string paymentAddress)
         {
             return await GetBalanceProperty(paymentAddress, "Sent");
         }
 
-        // GET: api/addr/{paymentAddress}/unconfirmedBalance
-        [HttpGet("/api/addr/{paymentAddress}/unconfirmedBalance")]
+        // GET: addr/{paymentAddress}/unconfirmedBalance
+        [ResponseCache(CacheProfileName = Constants.Cache.SHORT_CACHE_PROFILE_NAME)]
+        [HttpGet("addr/{paymentAddress}/unconfirmedBalance")]
         public ActionResult GetUnconfirmedBalance(string paymentAddress)
         {
             Utils.CheckIfChainIsFresh(chain_, config_.AcceptStaleRequests);
             return Json(0); //We don't handle unconfirmed transactions
         }
 
-        // GET: api/addr/{paymentAddress}/utxo
-        [ResponseCache(CacheProfileName = Constants.SHORT_CACHE_PROFILE_NAME)]
-        [HttpGet("/api/addr/{paymentAddress}/utxo")]
+        // GET: addr/{paymentAddress}/utxo
+        [ResponseCache(CacheProfileName = Constants.Cache.SHORT_CACHE_PROFILE_NAME)]
+        [HttpGet("addr/{paymentAddress}/utxo")]
         public async Task<ActionResult> GetUtxoForSingleAddress(string paymentAddress)
         {
             var utxo = await GetUtxo(paymentAddress);
             return Json(utxo.ToArray());
         }
 
-        [ResponseCache(CacheProfileName = Constants.SHORT_CACHE_PROFILE_NAME)]
-        [HttpGet("/api/addrs/{paymentAddresses}/utxo")]
+        [ResponseCache(CacheProfileName = Constants.Cache.SHORT_CACHE_PROFILE_NAME)]
+        [HttpGet("addrs/{paymentAddresses}/utxo")]
         public async Task<ActionResult> GetUtxoForMultipleAddresses(string paymentAddresses)
         {
             var utxo = new List<object>();
@@ -120,13 +135,40 @@ namespace bitprim.insight.Controllers
             {
                 utxo.AddRange(await GetUtxo(address));
             }
-            return Json(utxo.ToArray());   
+            return Json(utxo.ToArray());
         }
 
-        [HttpPost("/api/addrs/utxo")]
+        [ResponseCache(CacheProfileName = Constants.Cache.SHORT_CACHE_PROFILE_NAME)]
+        [HttpPost("addrs/utxo")]
         public async Task<ActionResult> GetUtxoForMultipleAddressesPost([FromBody]GetUtxosForMultipleAddressesRequest requestParams)
         {
             return await GetUtxoForMultipleAddresses(requestParams.addrs);
+        }
+
+        private async Task<UInt64> SumAddressInputs(Transaction tx, PaymentAddress address)
+        {
+            UInt64 inputSum = 0;
+            foreach(Input input in tx.Inputs)
+            {
+                if(input.PreviousOutput == null)
+                {
+                    continue;
+                }
+                using(var getTxResult = await chain_.FetchTransactionAsync(input.PreviousOutput.Hash, false))
+                {
+                    if(getTxResult.ErrorCode == ErrorCode.NotFound)
+                    {
+                        continue;
+                    }
+                    Utils.CheckBitprimApiErrorCode(getTxResult.ErrorCode, "FetchTransactionAsync(" + Binary.ByteArrayToHexString(input.PreviousOutput.Hash) + ") failed, check error log");
+                    Output referencedOutput = getTxResult.Result.Tx.Outputs[input.PreviousOutput.Index];
+                    if(referencedOutput.PaymentAddress(nodeExecutor_.UseTestnetRules).Encoded == address.Encoded)
+                    {
+                        inputSum += referencedOutput.Value;
+                    }
+                }
+            }
+            return inputSum;
         }
 
         private async Task<List<object>> GetUtxo(string paymentAddress)
@@ -154,37 +196,103 @@ namespace bitprim.insight.Controllers
                         using (var outPoint = new OutputPoint(compact.Point.Hash, compact.Point.Index))
                         {
                             var getSpendResult = await chain_.FetchSpendAsync(outPoint);
-                            var outputPoint = getSpendResult.Result;
                             
                             if(getSpendResult.ErrorCode == ErrorCode.NotFound) //Unspent = it's an utxo
                             {
                                 //Get the tx to get the script
-                                using(var getTxResult = await chain_.FetchTransactionAsync(outputPoint.Hash, true))
+                                using(var getTxResult = await chain_.FetchTransactionAsync(compact.Point.Hash, true))
                                 {
-                                    utxo.Add(UtxoToJSON(paymentAddress, outputPoint, getTxResult.ErrorCode, getTxResult.Result.Tx, compact, topHeight));
+                                    Utils.CheckBitprimApiErrorCode(getTxResult.ErrorCode, "FetchTransactionAsync (" + Binary.ByteArrayToHexString(outPoint.Hash)  + ") failed, check error log");
+                                    utxo.Add(UtxoToJSON(address, compact.Point, getTxResult.ErrorCode, getTxResult.Result.Tx, compact, topHeight));
                                 }
                             }
                         }                        
                     }
                 }
+                utxo.AddRange(GetUnconfirmedUtxo(address));
                 return utxo;
             }
         }
 
-        private static object UtxoToJSON(string paymentAddress, Point outputPoint, ErrorCode getTxEc, Transaction tx, HistoryCompact compact, UInt64 topHeight)
+        private async Task<Tuple<uint, BigInteger>> GetUnconfirmedSummary(string address)
+        {
+            using(var paymentAddress = new PaymentAddress(address))
+            using(MempoolTransactionList unconfirmedTxs = chain_.GetMempoolTransactions(paymentAddress, nodeExecutor_.UseTestnetRules))
+            {
+                BigInteger unconfirmedBalance = 0;
+                foreach(MempoolTransaction unconfirmedTx in unconfirmedTxs)
+                {
+                    using(var getTxResult = await chain_.FetchTransactionAsync(Binary.HexStringToByteArray(unconfirmedTx.Hash), requireConfirmed: false))
+                    {
+                        Utils.CheckBitprimApiErrorCode(getTxResult.ErrorCode, "FetchTransactionAsync(" + unconfirmedTx.Hash + ") failed, check error log");
+                        Transaction tx = getTxResult.Result.Tx;
+                        unconfirmedBalance += SumAddressOutputs(tx, paymentAddress);
+                        unconfirmedBalance -= await SumAddressInputs(tx, paymentAddress);
+                    }
+                }
+                return new Tuple<uint, BigInteger>(unconfirmedTxs.Count, unconfirmedBalance);
+            }
+        }
+
+        private UInt64 SumAddressOutputs(Transaction tx, PaymentAddress address)
+        {
+            UInt64 outputSum = 0;
+            foreach(Output output in tx.Outputs)
+            {
+                if(output.PaymentAddress(nodeExecutor_.UseTestnetRules).Encoded == address.Encoded)
+                {
+                    outputSum += output.Value;
+                }
+            }
+            return outputSum;
+        }
+
+        private List<object> GetUnconfirmedUtxo(PaymentAddress address)
+        {
+            var uncofirmedUtxo = new List<object>();
+            using(MempoolTransactionList unconfirmedTxs = chain_.GetMempoolTransactions(address, nodeExecutor_.UseTestnetRules))
+            {
+                foreach(MempoolTransaction unconfirmedTx in unconfirmedTxs)
+                {
+                    uncofirmedUtxo.Add(new
+                    {
+                        address = address.Encoded,
+                        txid = unconfirmedTx.Hash,
+                        vout = unconfirmedTx.Index,
+                        //scriptPubKey = getTxEc == ErrorCode.Success ? GetOutputScript(tx.Outputs[outputPoint.Index]) : null,
+                        amount = Utils.SatoshisToCoinUnits(ulong.Parse(unconfirmedTx.Satoshis)),
+                        satoshis = unconfirmedTx.Satoshis,
+                        height = -1,
+                        confirmations = 0
+                    });
+                }
+            }
+            return uncofirmedUtxo;
+        }
+
+        private static object UtxoToJSON(PaymentAddress paymentAddress, Point outputPoint, ErrorCode getTxEc, Transaction tx, HistoryCompact compact, UInt64 topHeight)
         {
             return new
             {
-                address = paymentAddress,
+                address = paymentAddress.Encoded,
                 txid = Binary.ByteArrayToHexString(outputPoint.Hash),
                 vout = outputPoint.Index,
-                scriptPubKey = getTxEc == ErrorCode.Success? tx.Outputs[outputPoint.Index].Script.ToData(false) : null,
+                scriptPubKey = getTxEc == ErrorCode.Success ? GetOutputScript(tx.Outputs[outputPoint.Index]) : null,
                 amount = Utils.SatoshisToCoinUnits(compact.ValueOrChecksum),
                 satoshis = compact.ValueOrChecksum,
                 height = compact.Height,
-                confirmations = topHeight - compact.Height
+                confirmations = topHeight - compact.Height + 1
             };
         }
+
+        private static string GetOutputScript(Output output)
+        {
+            var script = output.Script;
+            var scriptData = script.ToData(false);
+            Array.Reverse(scriptData, 0, scriptData.Length);
+            return Binary.ByteArrayToHexString(scriptData);
+        }
+
 
         private async Task<AddressBalance> GetBalance(string paymentAddress)
         {
@@ -208,14 +316,13 @@ namespace bitprim.insight.Controllers
                         using (var outPoint = new OutputPoint(compact.Point.Hash, compact.Point.Index))
                         {
                             var getSpendResult = await chain_.FetchSpendAsync(outPoint);
-                        
-                            txs.Add(Binary.ByteArrayToHexString(compact.Point.Hash));
                             if(getSpendResult.ErrorCode == ErrorCode.NotFound)
                             {
                                 addressBalance += compact.ValueOrChecksum;
                             }
                         }
                     }
+                    txs.Add(Binary.ByteArrayToHexString(compact.Point.Hash));
                 }
 
                 UInt64 totalSent = received - addressBalance;
@@ -232,20 +339,11 @@ namespace bitprim.insight.Controllers
 
         private Tuple<bool, string> ValidateParameters(int from, int to)
         {
-            if(from < 0)
-            {
-                return new Tuple<bool, string>(false, "from(" + from + ") must be greater than or equal to zero");
-            }
-
-            if(to <= 0)
-            {
-                return new Tuple<bool, string>(false, "to(" + to + ") must be greater than zero");
-            }
-
             if(from >= to)
             {
-                return new Tuple<bool, string>(false, "to(" + to +  ") must be greater than from(" + from + ")");
+                return new Tuple<bool, string>(false, "'from' must be lower than 'to'");
             }
+
             return new Tuple<bool, string>(true, "");
         }
     }

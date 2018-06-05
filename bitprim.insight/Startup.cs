@@ -8,9 +8,10 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Serilog;
 using Swashbuckle.AspNetCore.Swagger;
-using System.Globalization;
+using System.IO;
+using bitprim.insight.Middlewares;
+using bitprim.insight.Websockets;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Caching.Memory;
 
 namespace bitprim.insight
 {
@@ -40,6 +41,9 @@ namespace bitprim.insight
         // This method gets called by the runtime. Use this method to add services to the container.
         public void ConfigureServices(IServiceCollection services)
         {
+            
+            Log.Information("Current Dir: " + Environment.CurrentDirectory); 
+
             // Add functionality to inject IOptions<T>
             services.AddOptions();
             // Add our Config object so it can be injected
@@ -61,6 +65,10 @@ namespace bitprim.insight
 
             services.AddSingleton<WebSocketHandler>(webSocketHandler_);
 
+            var poolInfo = new PoolsInfo(nodeConfig_.PoolsFile);
+            poolInfo.Load();
+            services.AddSingleton<PoolsInfo>(poolInfo);
+
             StartNode(services, serviceProvider);
         }
 
@@ -68,6 +76,10 @@ namespace bitprim.insight
         public void Configure(IApplicationBuilder app, IHostingEnvironment env, IServiceProvider serviceProvider,
                               IApplicationLifetime applicationLifetime)
         {
+            app.UseRequestLoggerMiddleware();
+            app.UseHttpStatusCodeExceptionMiddleware();
+            app.UseExceptionHandler();
+            
             //Enable web sockets for sending block and tx notifications
             ConfigureWebSockets(app);
             // Enable middleware to serve generated Swagger as a JSON endpoint.
@@ -81,8 +93,7 @@ namespace bitprim.insight
             applicationLifetime.ApplicationStopping.Register(OnShutdown);
             app.UseCors(CORS_POLICY_NAME);
             app.UseStaticFiles(); //TODO For testing web sockets
-            app.UseHttpStatusCodeExceptionMiddleware();
-
+            
             if (!nodeConfig_.InitializeNode)
             {
                 app.UseForwarderMiddleware();
@@ -95,17 +106,18 @@ namespace bitprim.insight
         {
             services.AddMvcCore(opt =>
                 {
-                    opt.CacheProfiles.Add(Constants.SHORT_CACHE_PROFILE_NAME,
+                    opt.CacheProfiles.Add(Constants.Cache.SHORT_CACHE_PROFILE_NAME,
                         new CacheProfile()
                         {
                             Duration = nodeConfig_.ShortResponseCacheDurationInSeconds
                         });
-                    opt.CacheProfiles.Add(Constants.LONG_CACHE_PROFILE_NAME,
+                    opt.CacheProfiles.Add(Constants.Cache.LONG_CACHE_PROFILE_NAME,
                         new CacheProfile()
                         {
                             Duration = nodeConfig_.LongResponseCacheDurationInSeconds
                         });
                     opt.RespectBrowserAcceptHeader = true;
+                    opt.Conventions.Insert(0, new RouteConvention(new  RouteAttribute(nodeConfig_.ApiPrefix) ));
                 })
             .AddApiExplorer()
             .AddFormatterMappings()
@@ -113,17 +125,15 @@ namespace bitprim.insight
             .AddCors();
             services.AddMemoryCache( opt =>
                 {
-                    opt.SizeLimit = nodeConfig_.MaxCachedBlocks;
+                    opt.SizeLimit = nodeConfig_.MaxCacheSize;
                 }
             );
         }
 
         private void ConfigureLogging()
         {
-            var timeZone = DateTimeOffset.Now.ToString("%K").Replace(CultureInfo.CurrentCulture.DateTimeFormat.TimeSeparator, "");
             Log.Logger = new LoggerConfiguration()
                 .ReadFrom.Configuration(Configuration)
-                .Enrich.WithProperty(LogPropertyNames.TIME_ZONE, timeZone)
                 .CreateLogger();
         }
 
@@ -180,14 +190,22 @@ namespace bitprim.insight
 
         private void StartFullNode(IServiceCollection services)
         {
+            Log.Information("Node Config File: " + nodeConfig_.NodeConfigFile);
+            if (!string.IsNullOrWhiteSpace(nodeConfig_.NodeConfigFile))
+                Log.Information("FullPath Node Config File: " + Path.GetFullPath(nodeConfig_.NodeConfigFile) );
+
             // Initialize and register chain service
-         
             exec_ = new Executor(nodeConfig_.NodeConfigFile);
-             
+
+            if (!exec_.IsLoadConfigValid)
+            {
+                throw new ApplicationException("Error loading config file");
+            }
+
             int result = exec_.InitAndRunAsync().GetAwaiter().GetResult();
             if (result != 0)
             {
-                throw new ApplicationException("Executor::RunWait failed; error code: " + result);
+                throw new ApplicationException("Executor::InitAndRunAsync failed; error code: " + result);
             }
                 
             blockChainObserver_ = new BlockChainObserver(exec_, webSocketHandler_);
@@ -214,8 +232,12 @@ namespace bitprim.insight
             
             Log.Information("Stopping node...");
             exec_.Stop();
+            Log.Information("Waiting for node to stop...");
+            System.Threading.Thread.Sleep(TimeSpan.FromMinutes(1)); //TODO Temporary workaround to node-cint shutdown issue
             Log.Information("Destroying node...");
             exec_.Dispose();
+            Log.Information("Waiting for node to shut down...");
+            System.Threading.Thread.Sleep(TimeSpan.FromSeconds(30)); //TODO Temporary workaround to node-cint shutdown issue
             Log.Information("Node shutdown OK!");
         }
     }

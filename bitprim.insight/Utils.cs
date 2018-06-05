@@ -1,4 +1,9 @@
 using System;
+using System.Collections.Generic;
+using System.Net;
+using System.Numerics;
+using System.Threading.Tasks;
+using bitprim.insight.Exceptions;
 using Bitprim;
 
 namespace bitprim.insight
@@ -8,6 +13,11 @@ namespace bitprim.insight
         public static string EncodeInBase16(UInt32 number)
         {
             return Convert.ToString(number, 16);
+        }
+
+        public static double SatoshisToCoinUnits(BigInteger satoshis)
+        {
+            return (double)satoshis / 100000000;
         }
 
         public static double SatoshisToCoinUnits(UInt64 satoshis)
@@ -38,7 +48,7 @@ namespace bitprim.insight
         {
             if(errorCode != ErrorCode.Success)
             {
-                throw new ApplicationException(errorMsg + ". ErrorCode: " + errorCode.ToString());
+                throw new BitprimException(errorCode,errorMsg);
             }
         }
 
@@ -46,8 +56,59 @@ namespace bitprim.insight
         {
             if(!acceptStaleRequests && chain.IsStale)
             {
-                throw new ApplicationException("Node is still synchronizing; API cannot be used yet");
+                throw new HttpStatusCodeException(HttpStatusCode.InternalServerError,"Node is still synchronizing; API cannot be used yet");
             }
+        }
+
+        private static async Task<List<string>> GetAddressFromInput(Executor executor, Transaction tx)
+        {
+            var ret = new List<string>();
+
+            if (tx.IsCoinbase)
+                return ret;
+
+            foreach (Input input in tx.Inputs)
+            {
+                OutputPoint previousOutput = input.PreviousOutput;
+
+                using(DisposableApiCallResult<GetTxDataResult> getTxResult = await  executor.Chain.FetchTransactionAsync(previousOutput.Hash, false))
+                {
+                    Utils.CheckBitprimApiErrorCode(getTxResult.ErrorCode, "FetchTransactionAsync(" + Binary.ByteArrayToHexString(previousOutput.Hash) + ") failed, check errog log");
+                
+                    Output output = getTxResult.Result.Tx.Outputs[previousOutput.Index];
+                    
+                    PaymentAddress outputAddress = output.PaymentAddress(executor.UseTestnetRules);
+                    if(outputAddress.IsValid)
+                    {
+                        ret.Add(outputAddress.Encoded);
+                    }
+                }
+            }
+
+            return ret;
+        }
+
+        private static List<string> GetAddressFromOutput(Executor executor, Transaction tx)
+        {
+            var ret = new List<string>();
+            foreach (Output output in tx.Outputs)
+            { 
+                PaymentAddress outputAddress = output.PaymentAddress(executor.UseTestnetRules);
+                if(outputAddress.IsValid)
+                {
+                    ret.Add(outputAddress.Encoded);
+                }
+            }
+
+            return ret;
+        }
+
+        public static async Task<List<string>> GetTransactionAddresses(Executor executor,Transaction tx)
+        {
+            var ret = new List<string>();
+            ret.AddRange(await GetAddressFromInput(executor,tx));
+            ret.AddRange(GetAddressFromOutput(executor,tx));
+            return ret;
         }
     }
 }

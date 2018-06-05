@@ -53,6 +53,7 @@ function launchClientConnection(i) {
             if (connection.connected) {
                 connection.sendUTF("SubscribeToBlocks");
                 connection.sendUTF("SubscribeToTxs");
+                connection.sendUTF("n3qGzyFFBHmtqaqRMQQCV8dWdaXF1aNdPp");
             }
         }
         sendSubscriptions();

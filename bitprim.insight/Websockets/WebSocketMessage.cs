@@ -1,4 +1,6 @@
-namespace bitprim.insight
+
+
+namespace bitprim.insight.Websockets
 {
     internal enum BitprimWebSocketMessageType
     {

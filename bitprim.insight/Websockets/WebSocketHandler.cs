@@ -1,29 +1,37 @@
 using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Net.WebSockets;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using Bitprim;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using Nito.AsyncEx;
 
-namespace bitprim.insight
+namespace bitprim.insight.Websockets
 {
     public class WebSocketHandler
     {
         private readonly AsyncProducerConsumerQueue<BitprimWebSocketMessage> messageQueue_;
         private readonly ConcurrentDictionary<WebSocket, ConcurrentDictionary<string, byte>> subscriptions_;
+        
         private const int DICT_REMOVAL_HOLDOFF = 5;
         private const int MAX_CHANNEL_REMOVAL_TRIES = 5;
         private const int RECEPTION_BUFFER_SIZE = 1024 * 4;
+        
         private const string BLOCKS_CHANNEL_NAME = "BlocksChannel";
         private const string BLOCKS_SUBSCRIPTION_MESSAGE = "SubscribeToBlocks";
+        
         private const string SERVER_ABORT_MESSAGE = "ServerAbort";
         private const string SERVER_CLOSE_MESSAGE = "ServerClose";
+        
         private const string TXS_CHANNEL_NAME = "TxsChannel";
         private const string TXS_SUBSCRIPTION_MESSAGE = "SubscribeToTxs";
+        
         private int acceptSubscriptions_ = 1; //It is an int because Interlocked does not support bool 
+        
         private readonly ILogger<WebSocketHandler> logger_;
 
         public WebSocketHandler(ILogger<WebSocketHandler> logger)
@@ -79,6 +87,16 @@ namespace bitprim.insight
                         {
                             RegisterChannel(webSocket, TXS_CHANNEL_NAME);
                         }
+                        else 
+                        {
+                            using (var address = new PaymentAddress(content))
+                            {
+                                if (address.IsValid)
+                                {
+                                    RegisterChannel(webSocket, content);
+                                }
+                            }
+                        }
                     }
                     else if (result.MessageType == WebSocketMessageType.Close)
                     {
@@ -113,6 +131,14 @@ namespace bitprim.insight
         public async Task PublishTransaction(string tx)
         {
             await Publish(TXS_CHANNEL_NAME, tx);
+        }
+
+        public async Task PublishTransactionAddress(string addresstx, List<string> addresses)
+        {
+            foreach (string address in addresses)
+            {
+                await Publish(address, addresstx);    
+            }
         }
 
         public async Task Shutdown()

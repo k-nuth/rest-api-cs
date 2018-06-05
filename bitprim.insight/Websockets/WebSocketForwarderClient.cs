@@ -1,14 +1,16 @@
 using System;
+using System.Collections.Generic;
 using System.Net.WebSockets;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using Polly;
 
-namespace bitprim.insight
+namespace bitprim.insight.Websockets
 {
     public sealed class WebSocketForwarderClient : IDisposable
     {
@@ -67,6 +69,18 @@ namespace bitprim.insight
                                 break;
                             case "tx":
                                 await webSocketHandler_.PublishTransaction(content);
+
+                                var txid = obj["txid"].ToString();
+                                var addreses = ((JArray)obj["addresses"]).ToObject<List<string>>();
+                                
+                                var addresstx = new
+                                {
+                                    eventname = "addresstx",
+                                    txid = txid
+                                };
+                                
+                                await webSocketHandler_.PublishTransactionAddress(JsonConvert.SerializeObject(addresstx),addreses);
+                               
                                 break;
 
                         }
