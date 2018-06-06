@@ -58,6 +58,142 @@ dotnet publish /property:Platform=x64 /p:BTC=true -c Release -f netcoreapp2.0 -v
 dotnet bin/x64/Release/netcoreapp2.0/published/bitprim.insight.dll --server.port=3000 --server.address=0.0.0.0
 ```
 
+## Configuration Options
+
+You need to create an appsettings.json file in the build directory to run the application. You can use appsettings.example.json as starting point.
+
+Eg.
+
+```
+{
+  "ApiPrefix" : "api", 
+  "AcceptStaleRequests" : true,
+  "AllowedOrigins": "http://localhost:1549",
+  "Connections": 8,
+  "DateInputFormat": "yyyy-MM-dd",
+  "EstimateFeeDefault": "0.00001000",
+  "ForwardUrl" : "http://localhost:1234",
+  "InitializeNode" : true,
+  "LongResponseCacheDurationInSeconds": 86400,
+  "MaxBlockSummarySize": 500,
+  "MaxCacheSize": 10000,
+  "NodeConfigFile": "config.cfg",
+  "NodeType": "bitprim node",
+  "PoolsFile":  "pools.json", 
+  "ProtocolVersion": "70015",
+  "Proxy": "",
+  "RelayFee": "0.00001",
+  "ShortResponseCacheDurationInSeconds": 30,
+  "TimeOffset": "0",
+  "TransactionsByAddressPageSize": 10,
+  "Version": "170000",
+  "WebSocketTimeoutInSeconds" : 5,
+  "Serilog":
+  {
+    "Using": ["Serilog.Sinks.Console", "Serilog.Sinks.File"],
+    "MinimumLevel":
+    {
+      "Default": "Information",
+      "Override":
+      {
+        "Microsoft": "Warning"
+      }
+    },
+    "WriteTo":
+    [
+      {
+        "Name": "Console",
+        "Args":
+        {
+          "outputTemplate" : "[{Timestamp:yyyy-MM-dd HH:mm:ss} {TimeZone}] {Level:u3} {SourceIP} {RequestId} {HttpMethod} {RequestPath} {HttpProtocol} {HttpResponseStatusCode} {HttpResponseLength} {ElapsedMs} {Message:lj}{NewLine}{Exception}"
+        }
+      }
+    ],
+    "Enrich": ["FromLogContext"]
+  }
+}
+```
+The application has two different modes of operations. As a **Full Node** or a **Forwarder**.
+
+In **Full Node** mode, the application start a full bitprim node, generating a copy of the blockchain.
+
+In **Forwarder** mode, the application only relay the request to a **Full Node** application.
+
+### Settings
+
+**ApiPrefix**: Define the name of the url segment where you expose the api methods.
+```
+http://blockdozer.com/[ApiPrefix]/blocks/
+```
+
+**AcceptStaleRequests**: Allow the api to respond to request although the chain is stale. 
+
+**AllowedOrigins**: Configure the allowed CORS origins.
+
+**Connections**: Configure the value returned in the *connection* element of /status request. 
+
+**DateInputFormat**: Define the date format used by /blocks and others requests that requieres dates.
+
+**EstimateFeeDefault**: Set the value returned by /utils/estimatefee.
+
+**ForwardUrl**: When you use the application in **Forwarder** mode. This setting set the url of a **Full Node**. 
+
+**InitializeNode**: This setting define the working mode of the node. *True* for Full Node or *False* for Forwarder Node.
+
+**LongResponseCacheDurationInSeconds**: Duration of the long cache responses. Used by: 
+* /rawblock 
+* /rawtx
+ 
+
+**MaxBlockSummarySize**: Define the max limit of the /blocks method.
+
+**MaxCacheSize**: Configure the size limit of the cache.
+
+**NodeConfigFile**: The path of the config file used by the node. Only use in **Full Node** mode.
+
+**NodeType**: The value returned in *type* element by /sync method.
+
+**PoolsFile**: Path to the json file with the mining pool information.
+
+**ProtocolVersion**: The value returned in *protocolversion* element by /status method.
+
+**Proxy**: The value returned in *proxy* element by /status method.
+
+**RelayFee**: The value returned in *relayfee* element by /status method.
+
+**ShortResponseCacheDurationInSeconds**: Duration of the short cache responses. Used by:
+* /txs
+* /addrs/{paymentAddresses}/txs
+* /addrs/txs
+* /tx/{hash}
+* /txs
+* /rawblock-index/{height}
+* /blocks
+* /block/{hash}
+* /block-index/{height}
+* /sync
+* /status
+* /addr/{paymentAddress}/balance
+* /addr/{paymentAddress}/totalReceived
+* /addr/{paymentAddress}/totalSent
+* /addr/{paymentAddress}/unconfirmedBalance
+* /addr/{paymentAddress}/utxo
+* /addrs/{paymentAddresses}/utxo
+* /addrs/utxo
+* /addr/{paymentAddress}
+* /peer
+* /version
+
+**TimeOffset**: The value returned in *timeoffset* element by /status method.
+
+**TransactionsByAddressPageSize**: The max page limit used by /txs method. 
+
+**Version**: The value returned in *version* element by /status method. 
+
+**WebSocketTimeoutInSeconds**: Define HttpClient timeout. Used by the forwarders. 
+
+**Serilog**: The serilog configuration. For more documentation check https://github.com/serilog/serilog/wiki/Getting-Started
+
 
 ## API HTTP Endpoints
 
