@@ -87,7 +87,7 @@ Eg.
   "TimeOffset": "0",
   "TransactionsByAddressPageSize": 10,
   "Version": "170000",
-  "WebSocketTimeoutInSeconds" : 5,
+  "HttpClientTimeoutInSeconds" : 5,
   "Serilog":
   {
     "Using": ["Serilog.Sinks.Console", "Serilog.Sinks.File"],
@@ -190,7 +190,7 @@ http://blockdozer.com/[ApiPrefix]/blocks/
 
 **Version**: The value returned in *version* element by /status method. 
 
-**WebSocketTimeoutInSeconds**: Define HttpClient timeout. Used by the forwarders. 
+**HttpClientTimeoutInSeconds**: Define HttpClient timeout. Used by the forwarders. 
 
 **Serilog**: The serilog configuration. For more documentation check https://github.com/serilog/serilog/wiki/Getting-Started
 
