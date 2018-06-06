@@ -112,6 +112,12 @@ namespace bitprim.insight.Controllers
             return await DoGetTransactionsForMultipleAddresses(request.addrs, request.from, request.to, request.noAsm == 1, request.noScriptSig == 1, request.noSpend == 1);
         }
 
+        [HttpGet("tx/send")]
+        public ActionResult GetBroadcastTransaction(RawTxRequest request)
+        {
+            return StatusCode((int)System.Net.HttpStatusCode.BadRequest, "tx/send method only accept POST requests");
+        }
+
         [HttpPost("tx/send")]
         public async Task<ActionResult> BroadcastTransaction([FromBody] RawTxRequest request)
         {

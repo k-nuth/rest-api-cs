@@ -30,7 +30,7 @@ namespace bitprim.insight.Middlewares
             next_ = next ?? throw new ArgumentNullException(nameof(next));
             logger_ = logger;
             client.BaseAddress = new Uri(config.Value.ForwardUrl);
-            client.Timeout = TimeSpan.FromSeconds(config.Value.WebSocketTimeoutInSeconds);
+            client.Timeout = TimeSpan.FromSeconds(config.Value.HttpClientTimeoutInSeconds);
         }
 
         public async Task Invoke(HttpContext context)
