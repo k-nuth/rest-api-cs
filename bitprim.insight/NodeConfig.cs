@@ -16,7 +16,7 @@ namespace bitprim.insight
         public int MaxCacheSize { get; set; }
         public int ShortResponseCacheDurationInSeconds { get; set; }
         public int TransactionsByAddressPageSize { get; set; }
-        public int WebSocketTimeoutInSeconds { get; set; }
+        public int HttpClientTimeoutInSeconds { get; set; }
         public double EstimateFeeDefault {get; set; }   
         public string ApiPrefix { get; set; }
         public string DateInputFormat { get; set; }
