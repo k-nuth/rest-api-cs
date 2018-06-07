@@ -48,10 +48,11 @@ namespace bitprim.insight.Middlewares
                 using (var responseBody = new MemoryStream())
                 {
                     httpContext.Response.Body = responseBody;
-                    var elapsedMs = GetElapsedMilliseconds(start, Stopwatch.GetTimestamp());
                     await next_(httpContext);
+                    var elapsedMs = GetElapsedMilliseconds(start, Stopwatch.GetTimestamp());
                     await LogHttpRequest(httpContext, elapsedMs);
-                    await responseBody.CopyToAsync(originalBodyStream);
+                    if (!httpContext.WebSockets.IsWebSocketRequest)
+                        await responseBody.CopyToAsync(originalBodyStream);
                 }
             }
             // Never caught, because `LogException()` returns false.
@@ -77,15 +78,14 @@ namespace bitprim.insight.Middlewares
         private  async Task LogHttpRequest(HttpContext context, double elapsedMs, Exception ex)
         {
             HttpResponse response = context.Response;
-            response.Body.Seek(0, SeekOrigin.Begin);
-            var responseText = await new StreamReader(response.Body).ReadToEndAsync();
-            response.Body.Seek(0, SeekOrigin.Begin);
+            //var responseText = await new StreamReader(response.Body).ReadToEndAsync();
+            //response.Body.Seek(0, SeekOrigin.Begin);
             using(LogContext.PushProperty(LogPropertyNames.SOURCE_IP, context.Connection.RemoteIpAddress))
             using(LogContext.PushProperty(LogPropertyNames.HTTP_METHOD, context.Request.Method))
             using(LogContext.PushProperty(LogPropertyNames.HTTP_REQUEST_URL, context.Request.Path.Value))
             using(LogContext.PushProperty(LogPropertyNames.HTTP_PROTOCOL_VERSION, context.Request.Protocol))
             using(LogContext.PushProperty(LogPropertyNames.HTTP_RESPONSE_STATUS_CODE, context.Response.StatusCode))
-            using(LogContext.PushProperty(LogPropertyNames.HTTP_RESPONSE_LENGTH, responseText.Length))
+            using(LogContext.PushProperty(LogPropertyNames.HTTP_RESPONSE_LENGTH, response.ContentLength ?? context.Response.Body.Length))
             using(LogContext.PushProperty(LogPropertyNames.TIME_ZONE, timeZone_))
             using(LogContext.PushProperty(LogPropertyNames.ELAPSED_MS, elapsedMs))
             {
@@ -98,6 +98,7 @@ namespace bitprim.insight.Middlewares
                     logger_.LogInformation(""); //Properties cover all information, so empty message
                 }
             }
+            context.Response.Body.Position = 0;
         }
     }
 
