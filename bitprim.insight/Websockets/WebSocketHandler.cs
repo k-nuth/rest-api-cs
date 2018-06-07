@@ -251,8 +251,7 @@ namespace bitprim.insight.Websockets
             logger_.LogInformation("Closing websocket");
             if (WebSocketCanSend(webSocket))
             {
-                //await webSocket.CloseOutputAsync (WebSocketCloseStatus.EndpointUnavailable, "All subscriptions cancelled", CancellationToken.None);
-                await webSocket.CloseAsync(WebSocketCloseStatus.EndpointUnavailable, "All subscriptions cancelled", CancellationToken.None);
+                await webSocket.CloseOutputAsync (WebSocketCloseStatus.EndpointUnavailable, "All subscriptions cancelled", CancellationToken.None);
                 logger_.LogInformation("Websocket closed");
             }
            
