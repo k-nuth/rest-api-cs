@@ -60,7 +60,7 @@ dotnet bin/x64/Release/netcoreapp2.0/published/bitprim.insight.dll --server.port
 
 ## Configuration Options
 
-You need to create an appsettings.json file in the build directory to run the application. You can use appsettings.example.json as starting point.
+You need to create an appsettings.json file in the build directory to run the application. You can use appsettings.example.json as a starting point.
 
 Eg.
 
@@ -124,53 +124,53 @@ Eg.
   }
 }
 ```
-The application has two different modes of operations. As a **Full Node** or a **Forwarder**.
+The application has two different operation modes. As a **Full Node** or a **Forwarder**.
 
-In **Full Node** mode, the application start a full bitprim node, generating a copy of the blockchain.
+In **Full Node** mode, the application starts a full Bitprim node, generating a copy of the blockchain.
 
-In **Forwarder** mode, the application only relay the request to a **Full Node** application.
+In **Forwarder** mode, the application only relays the request to a **Full Node** application.
 
 ### Settings
 
-**ApiPrefix**: Define the name of the url segment where you expose the api methods.
+**ApiPrefix**: Defines the name of the url segment where you expose the api methods.
 ```
 http://blockdozer.com/[ApiPrefix]/blocks/
 ```
 
-**AcceptStaleRequests**: Allow the api to respond to request although the chain is stale. 
+**AcceptStaleRequests**: Allows the API to respond to requests even if the chain is stale (the local copy of the blockchain isn't fully synchronized with the network). 
 
-**AllowedOrigins**: Configure the allowed CORS origins.
+**AllowedOrigins**: Configure the allowed CORS origins. For multiple origins, separate them with semicolon (;)
 
-**Connections**: Configure the value returned in the *connection* element of /status request. 
+**Connections**: Configures the value returned in the *connection* element of the /status request. 
 
-**DateInputFormat**: Define the date format used by /blocks and others requests that requieres dates.
+**DateInputFormat**: Defines the date format used by /blocks and other requests that require dates.
 
-**EstimateFeeDefault**: Set the value returned by /utils/estimatefee.
+**EstimateFeeDefault**: Sets the value returned by /utils/estimatefee.
 
-**ForwardUrl**: When you use the application in **Forwarder** mode. This setting set the url of a **Full Node**. 
+**ForwardUrl**: When you use the application in **Forwarder** mode, this settings defines the Full Node's URL. 
 
-**InitializeNode**: This setting define the working mode of the node. *True* for Full Node or *False* for Forwarder Node.
+**InitializeNode**: This setting defines the node's working mode: *True* for Full Node, *False* for Forwarder Node.
 
 **LongResponseCacheDurationInSeconds**: Duration of the long cache responses. Used by: 
 * /rawblock 
 * /rawtx
  
 
-**MaxBlockSummarySize**: Define the max limit of the /blocks method.
+**MaxBlockSummarySize**: Defines the max limit of the /blocks method.
 
-**MaxCacheSize**: Configure the size limit of the cache.
+**MaxCacheSize**: Configures the cache size limit; this is an adimensional value, because measuring object size is not trivial. The size for each cache entry is also adimensional and arbitrarily set by the user. The total size sum will never exceed this value.
 
-**NodeConfigFile**: The path of the config file used by the node. Only use in **Full Node** mode.
+**NodeConfigFile**: Node config file path; can be absolute, or relative to the project directory. Only use in **Full Node** mode.
 
-**NodeType**: The value returned in *type* element by /sync method.
+**NodeType**: The value returned in *type* element by the /sync method.
 
 **PoolsFile**: Path to the json file with the mining pool information.
 
-**ProtocolVersion**: The value returned in *protocolversion* element by /status method.
+**ProtocolVersion**: The value returned in *protocolversion* element by the /status method.
 
-**Proxy**: The value returned in *proxy* element by /status method.
+**Proxy**: The value returned in *proxy* element by the /status method.
 
-**RelayFee**: The value returned in *relayfee* element by /status method.
+**RelayFee**: The value returned in *relayfee* element by the /status method.
 
 **ShortResponseCacheDurationInSeconds**: Duration of the short cache responses. Used by:
 * /txs
@@ -195,15 +195,15 @@ http://blockdozer.com/[ApiPrefix]/blocks/
 * /peer
 * /version
 
-**TimeOffset**: The value returned in *timeoffset* element by /status method.
+**TimeOffset**: The value returned in *timeoffset* element by the /status method.
 
-**TransactionsByAddressPageSize**: The max page limit used by /txs method. 
+**TransactionsByAddressPageSize**: The max page limit used by the /txs method. 
 
-**Version**: The value returned in *version* element by /status method. 
+**Version**: The value returned in *version* element by the /status method. 
 
-**HttpClientTimeoutInSeconds**: Define HttpClient timeout. Used by the forwarders. 
+**HttpClientTimeoutInSeconds**: Defines HttpClient timeout. Used by the forwarders. 
 
-**Serilog**: The serilog configuration. For more documentation check https://github.com/serilog/serilog/wiki/Getting-Started
+**Serilog**: The Serilog configuration. For more detailed documentation, check https://github.com/serilog/serilog/wiki/Getting-Started
 
 
 ## API HTTP Endpoints
