@@ -125,11 +125,14 @@ namespace bitprim.insight.Websockets
             {
                 logger_.LogDebug("Status " + webSocket.State);
                 logger_.LogDebug("Close Status " + webSocket.CloseStatus);
+                logger_.LogDebug("WebSocketErrorCode " + ex.WebSocketErrorCode);
 
-                if (webSocket.State != WebSocketState.CloseSent)
+                if (webSocket.State != WebSocketState.CloseSent &&
+                    ex.WebSocketErrorCode != WebSocketError.ConnectionClosedPrematurely)
                 {
                     logger_.LogWarning("Subscribe - Web socket error, closing connection; " + ex);
                 }
+                
                 await UnregisterChannels(webSocket);
             }
             catch (Exception e)
