@@ -50,9 +50,11 @@ namespace bitprim.insight.Middlewares
                     httpContext.Response.Body = responseBody;
                     await next_(httpContext);
                     var elapsedMs = GetElapsedMilliseconds(start, Stopwatch.GetTimestamp());
-                    await LogHttpRequest(httpContext, elapsedMs);
+                    LogHttpRequest(httpContext, elapsedMs);
                     if (!httpContext.WebSockets.IsWebSocketRequest)
+                    {
                         await responseBody.CopyToAsync(originalBodyStream);
+                    }
                 }
             }
             // Never caught, because `LogException()` returns false.
@@ -66,20 +68,18 @@ namespace bitprim.insight.Middlewares
 
         private bool LogException(HttpContext httpContext, double elapsedMs, Exception ex)
         {
-            LogHttpRequest(httpContext, elapsedMs,ex).Wait();
+            LogHttpRequest(httpContext, elapsedMs,ex);
             return false;
         }
 
-        private async Task LogHttpRequest(HttpContext context, double elapsedMs)
+        private void LogHttpRequest(HttpContext context, double elapsedMs)
         {
-            await LogHttpRequest(context, elapsedMs, null);
+             LogHttpRequest(context, elapsedMs, null);
         }
     
-        private  async Task LogHttpRequest(HttpContext context, double elapsedMs, Exception ex)
+        private void LogHttpRequest(HttpContext context, double elapsedMs, Exception ex)
         {
             HttpResponse response = context.Response;
-            //var responseText = await new StreamReader(response.Body).ReadToEndAsync();
-            //response.Body.Seek(0, SeekOrigin.Begin);
             using(LogContext.PushProperty(LogPropertyNames.SOURCE_IP, context.Connection.RemoteIpAddress))
             using(LogContext.PushProperty(LogPropertyNames.HTTP_METHOD, context.Request.Method))
             using(LogContext.PushProperty(LogPropertyNames.HTTP_REQUEST_URL, context.Request.Path.Value))
