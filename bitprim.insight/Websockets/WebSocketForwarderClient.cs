@@ -29,7 +29,7 @@ namespace bitprim.insight.Websockets
 
         private int active_ = 1;
 
-        public WebSocketForwarderClient(IOptions<NodeConfig> config, ILogger<WebSocketForwarderClient> logger,WebSocketHandler webSocketHandler)
+        public WebSocketForwarderClient(IOptions<NodeConfig> config, ILogger<WebSocketForwarderClient> logger, WebSocketHandler webSocketHandler)
         {
             config_ = config;
             logger_ = logger;

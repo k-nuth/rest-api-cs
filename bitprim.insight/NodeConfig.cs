@@ -14,7 +14,9 @@ namespace bitprim.insight
         /// a size of BLOCKCHAIN_HEIGHT_CACHE_ENTRY_SIZE. The added size of cached blocks and the blockchain height will not exceed this value.
         ///</summary>
         public int MaxCacheSize { get; set; }
+        public int MaxSocketPublishRetries { get; set; }
         public int ShortResponseCacheDurationInSeconds { get; set; }
+        public int SocketPublishRetryIntervalInSeconds { get; set; }
         public int TransactionsByAddressPageSize { get; set; }
         public int HttpClientTimeoutInSeconds { get; set; }
         public double EstimateFeeDefault {get; set; }   
