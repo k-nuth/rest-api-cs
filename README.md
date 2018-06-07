@@ -107,6 +107,17 @@ Eg.
         {
           "outputTemplate" : "[{Timestamp:yyyy-MM-dd HH:mm:ss} {TimeZone}] {Level:u3} {SourceIP} {RequestId} {HttpMethod} {RequestPath} {HttpProtocol} {HttpResponseStatusCode} {HttpResponseLength} {ElapsedMs} {Message:lj}{NewLine}{Exception}"
         }
+      },
+      {
+        "Name": "File",
+        "Args":
+        {
+           "path": "log-.txt",
+           "rollingInterval": "Day",
+           "fileSizeLimitBytes": null,
+           "retainedFileCountLimit" : 5, 
+           "outputTemplate" : "[{Timestamp:yyyy-MM-dd HH:mm:ss} {TimeZone}] {Level:u3} {SourceIP} {RequestId} {HttpMethod} {RequestPath} {HttpProtocol} {HttpResponseStatusCode} {HttpResponseLength} {ElapsedMs} {Message:lj}{NewLine}{Exception}"
+        }
       }
     ],
     "Enrich": ["FromLogContext"]
