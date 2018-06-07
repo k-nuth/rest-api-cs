@@ -60,7 +60,7 @@ namespace bitprim.insight
 
             var serviceProvider = services.BuildServiceProvider();
 
-            webSocketHandler_ = new WebSocketHandler(serviceProvider.GetService<ILogger<WebSocketHandler>>());
+            webSocketHandler_ = new WebSocketHandler(serviceProvider.GetService<ILogger<WebSocketHandler>>(), nodeConfig_);
             webSocketHandler_.Init();
 
             services.AddSingleton<WebSocketHandler>(webSocketHandler_);
