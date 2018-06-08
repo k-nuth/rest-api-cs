@@ -121,9 +121,10 @@ namespace bitprim.insight.Controllers
         public async Task<ActionResult> BroadcastTransaction([FromBody] RawTxRequest request)
         {
             Utils.CheckIfChainIsFresh(chain_, config_.AcceptStaleRequests);
-
-            using (var tx = new Transaction(Constants.TRANSACTION_VERSION_PROTOCOL,request.rawtx))
+            Transaction tx = null;
+            try
             {
+                tx = new Transaction(Constants.TRANSACTION_VERSION_PROTOCOL, request.rawtx);
                 var ec = await chain_.OrganizeTransactionAsync(tx);
 
                 if (ec != ErrorCode.Success)
@@ -140,6 +141,16 @@ namespace bitprim.insight.Controllers
                                 .Hash) //TODO Check if this should be returned by organize call
                     }
                 );
+            }catch(Exception e) //TODO Use a BitprimException from bitprim-cs to avoid this
+            {
+                return StatusCode((int) System.Net.HttpStatusCode.BadRequest, "Invalid transaction: " + e.Message);
+            }
+            finally
+            {
+                if( tx != null )
+                {
+                    tx.Dispose();
+                }
             }
         }
 
