@@ -8,7 +8,9 @@ using System.Threading.Tasks;
 using Bitprim;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Nito.AsyncEx;
+using Polly;
 
 namespace bitprim.insight.Websockets
 {
@@ -33,12 +35,24 @@ namespace bitprim.insight.Websockets
         private int acceptSubscriptions_ = 1; //It is an int because Interlocked does not support bool 
         
         private readonly ILogger<WebSocketHandler> logger_;
+        private readonly NodeConfig config_;
+        private readonly Policy retryPolicy_;
 
-        public WebSocketHandler(ILogger<WebSocketHandler> logger)
+        public WebSocketHandler(ILogger<WebSocketHandler> logger, NodeConfig config)
         {
             messageQueue_ = new AsyncProducerConsumerQueue<BitprimWebSocketMessage>();
             subscriptions_ = new ConcurrentDictionary<WebSocket, ConcurrentDictionary<string, byte>>();
             logger_ = logger;
+            config_ = config;
+            retryPolicy_ = Policy.Handle<Exception>().WaitAndRetryAsync
+            (
+                config_.MaxSocketPublishRetries,
+                retryAttempt => TimeSpan.FromSeconds(config_.SocketPublishRetryIntervalInSeconds),
+                (exception, timeSpan, retryCount, context) => 
+                {
+                    logger_.LogWarning("Sending to socket failed, retry " + retryCount + "/" + config_.MaxSocketPublishRetries);
+                }
+            );
         }
 
         public void Init()
@@ -111,15 +125,20 @@ namespace bitprim.insight.Websockets
             {
                 logger_.LogDebug("Status " + webSocket.State);
                 logger_.LogDebug("Close Status " + webSocket.CloseStatus);
+                logger_.LogDebug("WebSocketErrorCode " + ex.WebSocketErrorCode);
 
-                if (webSocket.State != WebSocketState.CloseSent)
+                if (webSocket.State != WebSocketState.CloseSent &&
+                    ex.WebSocketErrorCode != WebSocketError.ConnectionClosedPrematurely)
                 {
                     logger_.LogWarning("Subscribe - Web socket error, closing connection; " + ex);
                 }
+                
+                await UnregisterChannels(webSocket);
             }
             catch (Exception e)
             {
                 logger_.LogWarning("Subscribe - error, closing connection; " + e);
+                await UnregisterChannels(webSocket);
             }
         }
 
@@ -187,18 +206,22 @@ namespace bitprim.insight.Websockets
                             {
                                 try
                                 {
-                                    await ws.Key.SendAsync
-                                    (
-                                        new ArraySegment<byte>(buffer, 0, message.Content.Length),
-                                        WebSocketMessageType.Text,
-                                        true,
-                                        CancellationToken.None
-                                    );
-                                    logger_.LogDebug($"Sent Frame {WebSocketMessageType.Text}: Len={message.Content.Length}, Fin={true}: {message.Content}");
+                                    await retryPolicy_.ExecuteAsync( async () => 
+                                    { 
+                                        await ws.Key.SendAsync
+                                        (
+                                            new ArraySegment<byte>(buffer, 0, message.Content.Length),
+                                            WebSocketMessageType.Text,
+                                            true,
+                                            CancellationToken.None
+                                        );
+                                        logger_.LogDebug($"Sent Frame {WebSocketMessageType.Text}: Len={message.Content.Length}, Fin={true}: {message.Content}");
+                                    });
                                 }
                                 catch(WebSocketException ex)
                                 {
-                                    logger_.LogWarning("Error sending to client: " + ex.ToString());
+                                    logger_.LogWarning("Maxed out retries sending to client: " + ex.ToString() + ", closing channels");
+                                    await UnregisterChannels(ws.Key);
                                 }
                             }
                         }
@@ -232,9 +255,10 @@ namespace bitprim.insight.Websockets
             if (WebSocketCanSend(webSocket))
             {
                 await webSocket.CloseOutputAsync (WebSocketCloseStatus.EndpointUnavailable, "All subscriptions cancelled", CancellationToken.None);
+                logger_.LogInformation("Websocket closed");
             }
            
-            logger_.LogInformation("Websocket closed");
+            logger_.LogInformation("Channel unregistered");
         }
 
         private void RegisterChannel(WebSocket webSocket, string channelName)

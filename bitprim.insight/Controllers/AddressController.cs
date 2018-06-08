@@ -250,25 +250,25 @@ namespace bitprim.insight.Controllers
 
         private List<object> GetUnconfirmedUtxo(PaymentAddress address)
         {
-            var uncofirmedUtxo = new List<object>();
+            var unconfirmedUtxo = new List<object>();
             using(MempoolTransactionList unconfirmedTxs = chain_.GetMempoolTransactions(address, nodeExecutor_.UseTestnetRules))
             {
                 foreach(MempoolTransaction unconfirmedTx in unconfirmedTxs)
                 {
-                    uncofirmedUtxo.Add(new
+                    unconfirmedUtxo.Add(new
                     {
                         address = address.Encoded,
                         txid = unconfirmedTx.Hash,
                         vout = unconfirmedTx.Index,
                         //scriptPubKey = getTxEc == ErrorCode.Success ? GetOutputScript(tx.Outputs[outputPoint.Index]) : null,
-                        amount = Utils.SatoshisToCoinUnits(ulong.Parse(unconfirmedTx.Satoshis)),
+                        amount = Utils.SatoshisToCoinUnits(BigInteger.Parse(unconfirmedTx.Satoshis)).ToString("F"),
                         satoshis = unconfirmedTx.Satoshis,
                         height = -1,
                         confirmations = 0
                     });
                 }
             }
-            return uncofirmedUtxo;
+            return unconfirmedUtxo;
         }
 
         private static object UtxoToJSON(PaymentAddress paymentAddress, Point outputPoint, ErrorCode getTxEc, Transaction tx, HistoryCompact compact, UInt64 topHeight)

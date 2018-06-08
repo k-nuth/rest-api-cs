@@ -24,7 +24,7 @@ namespace bitprim.insight.Controllers
         public ActionResult GetApiVersion()
         {
             //TODO Implement versioning (RA-6)
-            return Json(new{version = "0.1.0"});
+            return Json(new{version = "1.0.0"});
         }
     }
 }
