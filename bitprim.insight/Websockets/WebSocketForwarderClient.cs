@@ -23,8 +23,8 @@ namespace bitprim.insight.Websockets
 
         private ClientWebSocket webSocket_;
 
-        private readonly Policy breakerPolicy_ = Policy.Handle<Exception>().CircuitBreakerAsync(2, TimeSpan.FromSeconds(10));
-        private readonly Policy retryPolicy_ = Policy.Handle<Exception>().WaitAndRetryForeverAsync(retryAttempt => TimeSpan.FromSeconds(Math.Pow(2, retryAttempt)));
+        private readonly Policy breakerPolicy_ = Policy.Handle<Exception>().CircuitBreakerAsync(2, TimeSpan.FromSeconds(Constants.WEBSOCKET_FORWARDER_CLIENT_RETRY_DELAY));
+        private readonly Policy retryPolicy_;
         private readonly Policy execPolicy_;
 
         private int active_ = 1;
@@ -34,6 +34,15 @@ namespace bitprim.insight.Websockets
             config_ = config;
             logger_ = logger;
             webSocketHandler_ = webSocketHandler;
+
+            retryPolicy_ = Policy.Handle<Exception>()
+                                    .WaitAndRetryForeverAsync(
+                                                                retryAttempt =>
+                                                                {
+                                                                    logger_.LogWarning("Retry attempt " + retryAttempt);
+                                                                    return TimeSpan.FromSeconds(Constants.WEBSOCKET_FORWARDER_CLIENT_RETRY_DELAY);
+                                                                });
+
             execPolicy_ = Policy.WrapAsync(retryPolicy_,breakerPolicy_);
         }
 
