@@ -67,7 +67,7 @@ namespace bitprim.insight.Middlewares
     {
         public static IApplicationBuilder UseForwarderMiddleware(this IApplicationBuilder builder)
         {
-            builder.Map("/forwarder", applicationBuilder =>
+            builder.Map("/forwarderhealth", applicationBuilder =>
             {
                 applicationBuilder.Run(async context =>
                 {
