@@ -249,12 +249,12 @@ namespace bitprim.insight.Controllers
 
         private List<object> GetUnconfirmedUtxo(PaymentAddress address)
         {
-            var uncofirmedUtxo = new List<object>();
+            var unconfirmedUtxo = new List<object>();
             using(MempoolTransactionList unconfirmedTxs = chain_.GetMempoolTransactions(address, nodeExecutor_.UseTestnetRules))
             {
                 foreach(MempoolTransaction unconfirmedTx in unconfirmedTxs)
                 {
-                    uncofirmedUtxo.Add(new
+                    unconfirmedUtxo.Add(new
                     {
                         address = address.Encoded,
                         txid = unconfirmedTx.Hash,
@@ -267,7 +267,7 @@ namespace bitprim.insight.Controllers
                     });
                 }
             }
-            return uncofirmedUtxo;
+            return unconfirmedUtxo;
         }
 
         private static object UtxoToJSON(PaymentAddress paymentAddress, Point outputPoint, ErrorCode getTxEc, Transaction tx, HistoryCompact compact, UInt64 topHeight)
