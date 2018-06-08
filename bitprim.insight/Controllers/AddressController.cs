@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using bitprim.insight.DTOs;
 using Bitprim;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using System.Dynamic;
 using System.Numerics;
@@ -16,7 +15,6 @@ namespace bitprim.insight.Controllers
     {
         private readonly Chain chain_;
         private readonly Executor nodeExecutor_;
-        private readonly ILogger<AddressController> logger_;
         private readonly NodeConfig config_;
 
         private struct AddressBalance
@@ -27,12 +25,11 @@ namespace bitprim.insight.Controllers
             public UInt64 Sent { get; set; }
         }
 
-        public AddressController(IOptions<NodeConfig> config, Executor executor, ILogger<AddressController> logger)
+        public AddressController(IOptions<NodeConfig> config, Executor executor)
         {
             nodeExecutor_ = executor;
             chain_ = nodeExecutor_.Chain;
             config_ = config.Value;
-            logger_ = logger;
         }
 
         // GET: addr/{paymentAddress}
@@ -252,32 +249,25 @@ namespace bitprim.insight.Controllers
 
         private List<object> GetUnconfirmedUtxo(PaymentAddress address)
         {
-            var uncofirmedUtxo = new List<object>();
+            var unconfirmedUtxo = new List<object>();
             using(MempoolTransactionList unconfirmedTxs = chain_.GetMempoolTransactions(address, nodeExecutor_.UseTestnetRules))
             {
                 foreach(MempoolTransaction unconfirmedTx in unconfirmedTxs)
                 {
-                    try
+                    unconfirmedUtxo.Add(new
                     {
-                        uncofirmedUtxo.Add(new
-                        {
-                            address = address.Encoded,
-                            txid = unconfirmedTx.Hash,
-                            vout = unconfirmedTx.Index,
-                            //scriptPubKey = getTxEc == ErrorCode.Success ? GetOutputScript(tx.Outputs[outputPoint.Index]) : null,
-                            amount = Utils.SatoshisToCoinUnits(BigInteger.Parse(unconfirmedTx.Satoshis)),
-                            satoshis = unconfirmedTx.Satoshis,
-                            height = -1,
-                            confirmations = 0
-                        });
-                    }
-                    catch(OverflowException e)
-                    {
-                        logger_.LogError("Overflow when parsing Satoshis value: " + unconfirmedTx.Satoshis + "; txid = " + unconfirmedTx.Hash); //TODO Test
-                    }
+                        address = address.Encoded,
+                        txid = unconfirmedTx.Hash,
+                        vout = unconfirmedTx.Index,
+                        //scriptPubKey = getTxEc == ErrorCode.Success ? GetOutputScript(tx.Outputs[outputPoint.Index]) : null,
+                        amount = Utils.SatoshisToCoinUnits(BigInteger.Parse(unconfirmedTx.Satoshis)).ToString("F"),
+                        satoshis = unconfirmedTx.Satoshis,
+                        height = -1,
+                        confirmations = 0
+                    });
                 }
             }
-            return uncofirmedUtxo;
+            return unconfirmedUtxo;
         }
 
         private static object UtxoToJSON(PaymentAddress paymentAddress, Point outputPoint, ErrorCode getTxEc, Transaction tx, HistoryCompact compact, UInt64 topHeight)
