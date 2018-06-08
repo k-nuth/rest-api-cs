@@ -77,7 +77,6 @@ namespace bitprim.insight
         {
             app.UseRequestLoggerMiddleware();
             app.UseHttpStatusCodeExceptionMiddleware();
-            app.UseExceptionHandler();
             
             //Enable web sockets for sending block and tx notifications
             ConfigureWebSockets(app);
