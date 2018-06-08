@@ -441,9 +441,9 @@ POST response:
 
 ### Status of the Bitcoin Network
 
-    /api/status?q=xxx
+    /api/status?q=method
 
-Where "xxx" can be:
+Where "method" can be:
 
 *   getInfo
 *   getDifficulty
@@ -454,6 +454,12 @@ Where "xxx" can be:
 
     /api/utils/estimatefee[?nbBlocks=2]
 
+
+### Healthcheck Methods
+
+    * /api/healthcheck[?minimumSync]
+    * /forwarder (only for Forwarder mode)
+    
 ## Web Socket API
 
 The web socket API is served using [standard, pure web sockets](https://developer.mozilla.org/en-US/docs/Web/API/WebSocket). The first step is connecting to `_domain_/wss`; once connection is established, specific messages need to be sent to the server in order to subscribe to the different events (see each event entry). To simplify event subscription, the `ScopedPureWebSocket` class can be used.
