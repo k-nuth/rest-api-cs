@@ -458,7 +458,7 @@ Where "method" can be:
 ### Healthcheck Methods
 
     * /api/healthcheck[?minimumSync]
-    * /forwarder (only for Forwarder mode)
+    * /forwarderhealth (only for Forwarder mode)
     
 ## Web Socket API
 
