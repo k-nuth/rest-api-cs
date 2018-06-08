@@ -23,8 +23,8 @@ namespace bitprim.insight.Websockets
 
         private ClientWebSocket webSocket_;
 
-        private readonly Policy breakerPolicy_ = Policy.Handle<Exception>().CircuitBreakerAsync(2, TimeSpan.FromMinutes(1));
-        private readonly Policy retryPolicy_ = Policy.Handle<Exception>().RetryForeverAsync();
+        private readonly Policy breakerPolicy_ = Policy.Handle<Exception>().CircuitBreakerAsync(2, TimeSpan.FromSeconds(10));
+        private readonly Policy retryPolicy_ = Policy.Handle<Exception>().WaitAndRetryForeverAsync(retryAttempt => TimeSpan.FromSeconds(Math.Pow(2, retryAttempt)));
         private readonly Policy execPolicy_;
 
         private int active_ = 1;
@@ -51,7 +51,6 @@ namespace bitprim.insight.Websockets
                     {
                         if (Interlocked.CompareExchange(ref active_, 0, 0) > 0)
                         {
-                            logger_.LogWarning("Reinitializing connection to websocket");
                             await ReInit();
                         }
                     }
@@ -91,7 +90,6 @@ namespace bitprim.insight.Websockets
                     if (Interlocked.CompareExchange(ref active_, 0, 0) > 0)
                     {
                         logger_.LogWarning(e,"Error processing ReceiveHandler");
-                        logger_.LogWarning("Reinitializing connection to websocket");
                         await ReInit();
                     }   
                 }
@@ -100,13 +98,18 @@ namespace bitprim.insight.Websockets
 
         private async Task CreateAndOpen()
         {
+            logger_.LogInformation("Initializing connection to websocket");
+            Dispose();
             webSocket_ = new ClientWebSocket();
             await webSocket_.ConnectAsync(
                 new Uri(config_.Value.ForwardUrl.Replace("http://", "ws://")), CancellationToken.None);
+            logger_.LogInformation("Connection to websocket established");
         }
 
         private async Task SendSubscriptions()
         {
+            logger_.LogInformation("Sending Block subscription");
+
             await webSocket_.SendAsync
             (
                 new ArraySegment<byte>(Encoding.UTF8.GetBytes(SUBSCRIPTION_MESSAGE_BLOCKS), 0, SUBSCRIPTION_MESSAGE_BLOCKS.Length),
@@ -114,6 +117,8 @@ namespace bitprim.insight.Websockets
                 true,
                 CancellationToken.None
             );
+
+            logger_.LogInformation("Sending Tx subscription");
 
             await webSocket_.SendAsync
             (
@@ -126,16 +131,14 @@ namespace bitprim.insight.Websockets
 
         private async Task ReInit()
         {
-            await execPolicy_.ExecuteAsync(CreateAndOpen);
+            await execPolicy_.ExecuteAsync(async ()=> await CreateAndOpen());
             await SendSubscriptions();
         }
 
         public async Task Init()
         {
             await execPolicy_.ExecuteAsync(async ()=> await CreateAndOpen());
-
-            Task receiverTask = ReceiveHandler();
-
+            _ = ReceiveHandler();
             await SendSubscriptions();
         }
 
@@ -148,6 +151,7 @@ namespace bitprim.insight.Websockets
 
         public async Task Close()
         {
+            logger_.LogWarning("Closing websocket client");
             Interlocked.Decrement(ref active_);
             try
             {
