@@ -41,7 +41,6 @@ namespace bitprim.insight
         // This method gets called by the runtime. Use this method to add services to the container.
         public void ConfigureServices(IServiceCollection services)
         {
-            
             Log.Information("Current Dir: " + Environment.CurrentDirectory); 
 
             // Add functionality to inject IOptions<T>
