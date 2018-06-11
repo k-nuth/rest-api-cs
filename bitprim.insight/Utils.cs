@@ -15,7 +15,7 @@ namespace bitprim.insight
             return Convert.ToString(number, 16);
         }
 
-        public static double SatoshisToCoinUnits(BigInteger satoshis)
+        public static double SatoshisToCoinUnits(Int64 satoshis)
         {
             return (double)satoshis / 100000000;
         }

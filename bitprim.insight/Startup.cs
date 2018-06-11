@@ -41,7 +41,6 @@ namespace bitprim.insight
         // This method gets called by the runtime. Use this method to add services to the container.
         public void ConfigureServices(IServiceCollection services)
         {
-
             Log.Information("Current Dir: " + Environment.CurrentDirectory);
 
             // Add functionality to inject IOptions<T>
@@ -78,8 +77,7 @@ namespace bitprim.insight
         {
             app.UseRequestLoggerMiddleware();
             app.UseHttpStatusCodeExceptionMiddleware();
-            //app.UseExceptionHandler();
-
+            
             //Enable web sockets for sending block and tx notifications
             ConfigureWebSockets(app);
             // Enable middleware to serve generated Swagger as a JSON endpoint.
