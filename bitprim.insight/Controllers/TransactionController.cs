@@ -112,6 +112,7 @@ namespace bitprim.insight.Controllers
         }
 
         [HttpGet("tx/send")]
+        [ApiExplorerSettings(IgnoreApi=true)]
         public ActionResult GetBroadcastTransaction(RawTxRequest request)
         {
             return StatusCode((int)System.Net.HttpStatusCode.BadRequest, "tx/send method only accept POST requests");
