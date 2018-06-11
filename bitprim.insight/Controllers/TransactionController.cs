@@ -122,7 +122,22 @@ namespace bitprim.insight.Controllers
         {
             Utils.CheckIfChainIsFresh(chain_, config_.AcceptStaleRequests);
 
-            using (var tx = new Transaction(Constants.TRANSACTION_VERSION_PROTOCOL,request.rawtx))
+            if(string.IsNullOrWhiteSpace(request?.rawtx))
+            {
+                return StatusCode((int)System.Net.HttpStatusCode.BadRequest, "Specify rawtx parameter");
+            }
+
+            Transaction tx;
+            try
+            {
+                tx = new Transaction(Constants.TRANSACTION_VERSION_PROTOCOL, request.rawtx);
+            }
+            catch(Exception e) //TODO Use a BitprimException from bitprim-cs to avoid this
+            {
+                return StatusCode((int) System.Net.HttpStatusCode.BadRequest, "Invalid transaction: " + e.Message);
+            }
+
+            try
             {
                 var ec = await chain_.OrganizeTransactionAsync(tx);
 
@@ -140,6 +155,14 @@ namespace bitprim.insight.Controllers
                                 .Hash) //TODO Check if this should be returned by organize call
                     }
                 );
+            }
+            catch (Exception e)
+            {
+                return StatusCode((int) System.Net.HttpStatusCode.BadRequest, "Error broadcasting transaction: " + e.Message);
+            }
+            finally
+            {
+                tx?.Dispose();
             }
         }
 

@@ -1,9 +1,212 @@
-# bitprim-insight
+# Bitprim Insight <a target="_blank" href="http://semver.org">![Version][badge.version]</a> <a target="_blank" href="https://travis-ci.org/bitprim/bitprim-insight">![Travis status][badge.Travis]</a> [![Appveyor Status](https://ci.appveyor.com/api/projects/status/github/bitprim/bitprim-insight?svg=true&branch=master)](https://ci.appveyor.com/project/bitprim/bitprim-insight) <a target="_blank" href="https://gitter.im/bitprim/Lobby">![Gitter Chat][badge.Gitter]</a>
 
-REST API, matching insight API interface, implemented in .NET Core 2.x
+> Multi-Cryptocurrency _Rest_ API.
+
+*Bitprim Insight* is a REST API written in _C#_ with .NET Core 2.x which exposes methods matching the insight API interface
+
+Bitprim Insight supports the following cryptocurrencies:
+  * [Bitcoin Cash](https://www.bitcoincash.org/)
+  * [Bitcoin](https://bitcoin.org/)
+  * [Litecoin](https://litecoin.org/) (coming soon)
+
+## Installation Requirements
+
+- 64-bit machine.
+- [Conan](https://www.conan.io/) package manager, version 1.1.0 or newer. See [Conan Installation](http://docs.conan.io/en/latest/installation.html#install-with-pip-recommended).
+- [.NET Core 2.0 SDK](https://www.microsoft.com/net/download/)
 
 
-# API HTTP Endpoints
+In case there are no pre-built binaries for your platform, it is necessary to build from source code. In such a scenario, the following requirements must be added to the previous ones:
+
+- C++11 Conforming Compiler.
+- [CMake](https://cmake.org/) building tool, version 3.4 or newer.
+
+
+## Building Procedure
+
+The *Bitprim* libraries can be installed using conan (see below) on Linux, macOS, FreeBSD, Windows and others. These binaries are pre-built for the most usual operating system/compiler combinations and are downloaded from an online repository. If there are no pre-built binaries for your platform, conan will attempt to build from source during the installation.
+
+1. Build 
+
+In the project folder run:
+
+For Bitcoin Cash
+
+```
+dotnet build /property:Platform=x64 /p:BCH=true -c Release -f netcoreapp2.0 -v normal
+```
+
+For Bitcoin
+
+```
+dotnet build /property:Platform=x64 /p:BTC=true -c Release -f netcoreapp2.0 -v normal
+```
+
+2. Run
+
+```
+dotnet bin/x64/Release/netcoreapp2.0/bitprim.insight.dll --server.port=3000 --server.address=0.0.0.0
+```
+
+or you can publish the app and run over the published folder 
+
+```
+dotnet publish /property:Platform=x64 /p:BTC=true -c Release -f netcoreapp2.0 -v normal -o published
+```
+
+```
+dotnet bin/x64/Release/netcoreapp2.0/published/bitprim.insight.dll --server.port=3000 --server.address=0.0.0.0
+```
+
+## Configuration Options
+
+You need to create an appsettings.json file in the build directory to run the application. You can use appsettings.example.json as a starting point.
+
+Eg.
+
+```
+{
+  "ApiPrefix" : "api", 
+  "AcceptStaleRequests" : true,
+  "AllowedOrigins": "http://localhost:1549",
+  "Connections": 8,
+  "DateInputFormat": "yyyy-MM-dd",
+  "EstimateFeeDefault": "0.00001000",
+  "ForwardUrl" : "http://localhost:1234",
+  "InitializeNode" : true,
+  "LongResponseCacheDurationInSeconds": 86400,
+  "MaxBlockSummarySize": 500,
+  "MaxCacheSize": 10000,
+  "NodeConfigFile": "config.cfg",
+  "NodeType": "bitprim node",
+  "PoolsFile":  "pools.json", 
+  "ProtocolVersion": "70015",
+  "Proxy": "",
+  "RelayFee": "0.00001",
+  "ShortResponseCacheDurationInSeconds": 30,
+  "TimeOffset": "0",
+  "TransactionsByAddressPageSize": 10,
+  "Version": "170000",
+  "HttpClientTimeoutInSeconds" : 5,
+  "Serilog":
+  {
+    "Using": ["Serilog.Sinks.Console", "Serilog.Sinks.File"],
+    "MinimumLevel":
+    {
+      "Default": "Information",
+      "Override":
+      {
+        "Microsoft": "Warning"
+      }
+    },
+    "WriteTo":
+    [
+      {
+        "Name": "Console",
+        "Args":
+        {
+          "outputTemplate" : "[{Timestamp:yyyy-MM-dd HH:mm:ss} {TimeZone}] {Level:u3} {SourceIP} {RequestId} {HttpMethod} {RequestPath} {HttpProtocol} {HttpResponseStatusCode} {HttpResponseLength} {ElapsedMs} {Message:lj}{NewLine}{Exception}"
+        }
+      },
+      {
+        "Name": "File",
+        "Args":
+        {
+           "path": "log-.txt",
+           "rollingInterval": "Day",
+           "fileSizeLimitBytes": null,
+           "retainedFileCountLimit" : 5, 
+           "outputTemplate" : "[{Timestamp:yyyy-MM-dd HH:mm:ss} {TimeZone}] {Level:u3} {SourceIP} {RequestId} {HttpMethod} {RequestPath} {HttpProtocol} {HttpResponseStatusCode} {HttpResponseLength} {ElapsedMs} {Message:lj}{NewLine}{Exception}"
+        }
+      }
+    ],
+    "Enrich": ["FromLogContext"]
+  }
+}
+```
+The application has two different operation modes. As a **Full Node** or a **Forwarder**.
+
+In **Full Node** mode, the application starts a full Bitprim node, generating a copy of the blockchain.
+
+In **Forwarder** mode, the application only relays the request to a **Full Node** application.
+
+### Settings
+
+**ApiPrefix**: Defines the name of the url segment where you expose the api methods.
+```
+http://blockdozer.com/[ApiPrefix]/blocks/
+```
+
+**AcceptStaleRequests**: Allows the API to respond to requests even if the chain is stale (the local copy of the blockchain isn't fully synchronized with the network). 
+
+**AllowedOrigins**: Configure the allowed CORS origins. For multiple origins, separate them with semicolon (;)
+
+**Connections**: Configures the value returned in the *connection* element of the /status request. 
+
+**DateInputFormat**: Defines the date format used by /blocks and other requests that require dates.
+
+**EstimateFeeDefault**: Sets the value returned by /utils/estimatefee.
+
+**ForwardUrl**: When you use the application in **Forwarder** mode, this settings defines the Full Node's URL. 
+
+**InitializeNode**: This setting defines the node's working mode: *True* for Full Node, *False* for Forwarder Node.
+
+**LongResponseCacheDurationInSeconds**: Duration of the long cache responses. Used by: 
+* /rawblock 
+* /rawtx
+ 
+
+**MaxBlockSummarySize**: Defines the max limit of the /blocks method.
+
+**MaxCacheSize**: Configures the cache size limit; this is an adimensional value, because measuring object size is not trivial. The size for each cache entry is also adimensional and arbitrarily set by the user. The total size sum will never exceed this value.
+
+**NodeConfigFile**: Node config file path; can be absolute, or relative to the project directory. Only use in **Full Node** mode.
+
+**NodeType**: The value returned in *type* element by the /sync method.
+
+**PoolsFile**: Path to the json file with the mining pool information.
+
+**ProtocolVersion**: The value returned in *protocolversion* element by the /status method.
+
+**Proxy**: The value returned in *proxy* element by the /status method.
+
+**RelayFee**: The value returned in *relayfee* element by the /status method.
+
+**ShortResponseCacheDurationInSeconds**: Duration of the short cache responses. Used by:
+* /txs
+* /addrs/{paymentAddresses}/txs
+* /addrs/txs
+* /tx/{hash}
+* /txs
+* /rawblock-index/{height}
+* /blocks
+* /block/{hash}
+* /block-index/{height}
+* /sync
+* /status
+* /addr/{paymentAddress}/balance
+* /addr/{paymentAddress}/totalReceived
+* /addr/{paymentAddress}/totalSent
+* /addr/{paymentAddress}/unconfirmedBalance
+* /addr/{paymentAddress}/utxo
+* /addrs/{paymentAddresses}/utxo
+* /addrs/utxo
+* /addr/{paymentAddress}
+* /peer
+* /version
+
+**TimeOffset**: The value returned in *timeoffset* element by the /status method.
+
+**TransactionsByAddressPageSize**: The max page limit used by the /txs method. 
+
+**Version**: The value returned in *version* element by the /status method. 
+
+**HttpClientTimeoutInSeconds**: Defines HttpClient timeout. Used by the forwarders. 
+
+**Serilog**: The Serilog configuration. For more detailed documentation, check https://github.com/serilog/serilog/wiki/Getting-Started
+
+
+## API HTTP Endpoints
 
 ### Block
 
@@ -206,16 +409,24 @@ POST method:
 
 POST params:
 
-    rawtx: "signed transaction as hex string"
+    {
+        "rawtx": "signed transaction as hex string"
+    }
+
     eg
-    rawtx: 01000000017b1eabe0209b1fe794124575ef807057c77ada2138ae4fa8d6c4de0398a14f3f00000000494830450221008949f0cb400094ad2b5eb399d59d01c14d73d8fe6e96df1a7150deb388ab8935022079656090d7f6bac4c9a94e0aad311a4268e082a725f8aeae0573fb12ff866a5f01ffffffff01f0ca052a010000001976a914cbc20a7664f2f69e5355aa427045bc15e7c6c77288ac00000000
+    
+    {
+        "rawtx": "01000000017b1eabe0209b1fe794124575ef807057c77ada2138ae4fa8d6c4de0398a14f3f00000000494830450221008949f0cb400094ad2b5eb399d59d01c14d73d8fe6e96df1a7150deb388ab8935022079656090d7f6bac4c9a94e0aad311a4268e082a725f8aeae0573fb12ff866a5f01ffffffff01f0ca052a010000001976a914cbc20a7664f2f69e5355aa427045bc15e7c6c77288ac00000000"
+    }
 
 POST response:
 
     {
         txid: [:txid]
     }
+    
     eg
+    
     {
         txid: "c7736a0a0046d5a8cc61c8c3c2821d4d7517f5de2bc66a966011aaa79965ffba"
     }
@@ -230,9 +441,9 @@ POST response:
 
 ### Status of the Bitcoin Network
 
-    /api/status?q=xxx
+    /api/status?q=method
 
-Where "xxx" can be:
+Where "method" can be:
 
 *   getInfo
 *   getDifficulty
@@ -243,6 +454,12 @@ Where "xxx" can be:
 
     /api/utils/estimatefee[?nbBlocks=2]
 
+
+### Healthcheck Methods
+
+    * /api/healthcheck[?minimumSync]
+    * /forwarderhealth (only for Forwarder mode)
+    
 ## Web Socket API
 
 The web socket API is served using [standard, pure web sockets](https://developer.mozilla.org/en-US/docs/Web/API/WebSocket). The first step is connecting to `_domain_/wss`; once connection is established, specific messages need to be sent to the server in order to subscribe to the different events (see each event entry). To simplify event subscription, the `ScopedPureWebSocket` class can be used.
@@ -301,3 +518,10 @@ The following html page connects to the web socket insight API and listens for n
             </script>
         </body>
     </html>
+
+
+<!-- Links -->
+[badge.Appveyor]: https://ci.appveyor.com/api/projects/status/github/bitprim/bitprim-insight?svg=true&branch=master
+[badge.Gitter]: https://img.shields.io/badge/gitter-join%20chat-blue.svg
+[badge.Travis]: https://travis-ci.org/bitprim/bitprim-insight.svg?branch=master
+[badge.version]: https://badge.fury.io/gh/bitprim%2Fbitprim-insight.svg
