@@ -324,7 +324,11 @@ namespace bitprim.insight.Controllers
                             }
                         }
                     }
-                    txs.Add(Binary.ByteArrayToHexString(compact.Point.Hash));
+                    string txHashStr = Binary.ByteArrayToHexString(compact.Point.Hash);
+                    if( !txs.Contains(txHashStr) )
+                    {
+                        txs.Add(txHashStr);
+                    }
                 }
 
                 UInt64 totalSent = received - addressBalance;
