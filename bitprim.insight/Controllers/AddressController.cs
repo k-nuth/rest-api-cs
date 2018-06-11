@@ -54,7 +54,7 @@ namespace bitprim.insight.Controllers
             historyJson.totalSent = Utils.SatoshisToCoinUnits(balance.Sent);
             historyJson.totalSentSat = balance.Sent;
             historyJson.txApperances = balance.Transactions.Count;
-            Tuple<uint, BigInteger> unconfirmedSummary = await GetUnconfirmedSummary(paymentAddress);
+            Tuple<uint, Int64> unconfirmedSummary = await GetUnconfirmedSummary(paymentAddress);
             historyJson.unconfirmedBalance = Utils.SatoshisToCoinUnits(unconfirmedSummary.Item2);
             historyJson.unconfirmedBalanceSat = unconfirmedSummary.Item2;
             historyJson.unconfirmedTxApperances = unconfirmedSummary.Item1;
@@ -214,23 +214,23 @@ namespace bitprim.insight.Controllers
             }
         }
 
-        private async Task<Tuple<uint, BigInteger>> GetUnconfirmedSummary(string address)
+        private async Task<Tuple<uint, Int64>> GetUnconfirmedSummary(string address)
         {
             using(var paymentAddress = new PaymentAddress(address))
             using(MempoolTransactionList unconfirmedTxs = chain_.GetMempoolTransactions(paymentAddress, nodeExecutor_.UseTestnetRules))
             {
-                BigInteger unconfirmedBalance = 0;
+                Int64 unconfirmedBalance = 0;
                 foreach(MempoolTransaction unconfirmedTx in unconfirmedTxs)
                 {
                     using(var getTxResult = await chain_.FetchTransactionAsync(Binary.HexStringToByteArray(unconfirmedTx.Hash), requireConfirmed: false))
                     {
                         Utils.CheckBitprimApiErrorCode(getTxResult.ErrorCode, "FetchTransactionAsync(" + unconfirmedTx.Hash + ") failed, check error log");
                         Transaction tx = getTxResult.Result.Tx;
-                        unconfirmedBalance += SumAddressOutputs(tx, paymentAddress);
-                        unconfirmedBalance -= await SumAddressInputs(tx, paymentAddress);
+                        unconfirmedBalance += (Int64)SumAddressOutputs(tx, paymentAddress);
+                        unconfirmedBalance -=  (Int64)await SumAddressInputs(tx, paymentAddress);
                     }
                 }
-                return new Tuple<uint, BigInteger>(unconfirmedTxs.Count, unconfirmedBalance);
+                return new Tuple<uint, Int64>(unconfirmedTxs.Count, unconfirmedBalance);
             }
         }
 
@@ -254,14 +254,16 @@ namespace bitprim.insight.Controllers
             {
                 foreach(MempoolTransaction unconfirmedTx in unconfirmedTxs)
                 {
+                    var satoshis = Int64.Parse(unconfirmedTx.Satoshis);
+
                     unconfirmedUtxo.Add(new
                     {
                         address = address.Encoded,
                         txid = unconfirmedTx.Hash,
                         vout = unconfirmedTx.Index,
                         //scriptPubKey = getTxEc == ErrorCode.Success ? GetOutputScript(tx.Outputs[outputPoint.Index]) : null,
-                        amount = Utils.SatoshisToCoinUnits(BigInteger.Parse(unconfirmedTx.Satoshis)).ToString("F"),
-                        satoshis = unconfirmedTx.Satoshis,
+                        amount = Utils.SatoshisToCoinUnits(satoshis),
+                        satoshis = satoshis,
                         height = -1,
                         confirmations = 0
                     });
