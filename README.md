@@ -286,6 +286,8 @@ Example response:
     /api/addr/mmvP3mTe53qxHdPqXEvdu8WdC7GfQ2vmx5?noTxList=1
     /api/addr/mmvP3mTe53qxHdPqXEvdu8WdC7GfQ2vmx5?from=1000&to=2000
 
+* noTxList: 1 to include transactions, 0 otherwise.    
+
 ### Address Properties
 
     /api/addr/[:addr]/balance
