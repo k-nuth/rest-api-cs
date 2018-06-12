@@ -24,3 +24,5 @@ curl_format.txt
 hosts.cache
 libbitprim-node-cint.so
 /database/
+bitprim.insight.tests/bin/
+bitprim.insight.tests/obj/

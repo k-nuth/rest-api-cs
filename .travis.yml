@@ -97,3 +97,5 @@ script:
   - |
     cd bitprim.insight
     dotnet build /property:Platform=x64 /p:BTC=true -c Release -f netcoreapp2.0 -v normal
+    cd ../bitprim.insight.tests
+    dotnet test

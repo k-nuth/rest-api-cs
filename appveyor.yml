@@ -27,3 +27,7 @@ build_script:
 
 install:
   - "%PYTHON%/Scripts/pip.exe install conan --upgrade"
+
+test_script:
+  - cd bitprim.insight.tests
+  - dotnet test
