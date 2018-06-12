@@ -19,6 +19,8 @@ namespace bitprim.insight
         public int SocketPublishRetryIntervalInSeconds { get; set; }
         public int TransactionsByAddressPageSize { get; set; }
         public int HttpClientTimeoutInSeconds { get; set; }
+        public int WebsocketForwarderClientRetryDelay { get; set; }
+
         public double EstimateFeeDefault {get; set; }   
         public string ApiPrefix { get; set; }
         public string DateInputFormat { get; set; }

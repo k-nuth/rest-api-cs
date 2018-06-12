@@ -88,6 +88,7 @@ Eg.
   "TransactionsByAddressPageSize": 10,
   "Version": "170000",
   "HttpClientTimeoutInSeconds" : 5,
+  "WebsocketForwarderClientRetryDelay": 10, 
   "Serilog":
   {
     "Using": ["Serilog.Sinks.Console", "Serilog.Sinks.File"],
@@ -202,6 +203,8 @@ http://blockdozer.com/[ApiPrefix]/blocks/
 **Version**: The value returned in *version* element by the /status method. 
 
 **HttpClientTimeoutInSeconds**: Defines HttpClient timeout. Used by the forwarders. 
+
+**WebsocketForwarderClientRetryDelay**: The delay in seconds beetween retries when the websocket connection is trying to initialize.
 
 **Serilog**: The Serilog configuration. For more detailed documentation, check https://github.com/serilog/serilog/wiki/Getting-Started
 
