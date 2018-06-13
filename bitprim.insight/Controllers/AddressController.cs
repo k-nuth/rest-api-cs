@@ -18,7 +18,7 @@ namespace bitprim.insight.Controllers
 
         private struct AddressBalance
         {
-            public List<string> Transactions { get; set;}
+            public OrderedSet<string> Transactions { get; set;}
             public UInt64 Balance { get; set;}
             public UInt64 Received { get; set; }
             public UInt64 Sent { get; set; }
@@ -306,7 +306,7 @@ namespace bitprim.insight.Controllers
                 
                 UInt64 received = 0;
                 UInt64 addressBalance = 0;
-                var txs = new List<string>();
+                var txs = new OrderedSet<string>();
 
                 foreach(HistoryCompact compact in history)
                 {
