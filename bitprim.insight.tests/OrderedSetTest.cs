@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using Xunit;
 
@@ -71,6 +72,34 @@ namespace bitprim.insight.tests
                 Assert.Equal(setItem, setItems[j]);
                 j++;
             }
+        }
+
+        [Fact]
+        public void GetRangeNegativeArgsThrow()
+        {
+            var set = new OrderedSet<int>{0, 1, 2, 3};
+            var exception = Assert.Throws<ArgumentException>( () => set.GetRange(-1, 3) );
+            Assert.Equal("Index and count must be positive", exception.Message);
+            var exception2 = Assert.Throws<ArgumentException>( () => set.GetRange(0, -3) );
+            Assert.Equal("Index and count must be positive", exception2.Message);
+        }
+
+        [Fact]
+        public void GetRangeOutOfBoundsThrows()
+        {
+            var set = new OrderedSet<int>{0, 1, 2, 3};
+            var exception = Assert.Throws<ArgumentException>( () => set.GetRange(2, 3) );
+            Assert.Equal("Trying to get range outside collection bounds", exception.Message);
+        }
+
+        [Fact]
+        public void GetRangeSuccessfully()
+        {
+            var set = new OrderedSet<int>{0, 1, 2, 3, 4, 5};
+            var subSet = set.GetRange(3, 2);
+            Assert.Equal(subSet.Count, 2);
+            Assert.Equal(subSet[0], 3);
+            Assert.Equal(subSet[1], 4);
         }
 
         [Fact]

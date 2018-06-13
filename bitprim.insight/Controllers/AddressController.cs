@@ -78,7 +78,7 @@ namespace bitprim.insight.Controllers
                     }
                 }
                 
-                historyJson.transactions = balance.Transactions.ToList().GetRange(from.Value, to.Value - from.Value).ToArray();
+                historyJson.transactions = balance.Transactions.GetRange(from.Value, to.Value - from.Value).ToArray();
             }
 
             return Json(historyJson);
