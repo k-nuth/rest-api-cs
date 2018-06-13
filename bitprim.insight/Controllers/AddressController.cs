@@ -5,9 +5,7 @@ using Bitprim;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 using System.Dynamic;
-using System.Numerics;
 using System.Threading.Tasks;
-using Newtonsoft.Json;
 
 namespace bitprim.insight.Controllers
 {
