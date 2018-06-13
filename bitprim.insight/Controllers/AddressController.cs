@@ -5,7 +5,6 @@ using Bitprim;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 using System.Dynamic;
-using System.Numerics;
 using System.Threading.Tasks;
 
 namespace bitprim.insight.Controllers
@@ -80,7 +79,7 @@ namespace bitprim.insight.Controllers
                 
                 historyJson.transactions = balance.Transactions.GetRange(from.Value, to.Value - from.Value).ToArray();
             }
-
+            
             return Json(historyJson);
         }
 
