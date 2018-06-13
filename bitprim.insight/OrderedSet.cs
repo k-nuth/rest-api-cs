@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace bitprim.insight
 {
@@ -55,7 +56,8 @@ namespace bitprim.insight
             }
             dictionary_.Remove(item);
             linkedList_.Remove(node);
-            index.Remove(node);
+            var indexEntryToRemove = index_.First(kvp => kvp.Value.Value.Equals(node.Value));
+            index_.Remove(indexEntryToRemove.Key);
             return true;
         }
 
