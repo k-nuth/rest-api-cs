@@ -42,6 +42,7 @@ namespace bitprim.insight
         {
             linkedList_.Clear();
             dictionary_.Clear();
+            index_.Clear();
         }
 
         public bool Remove(T item)
@@ -54,6 +55,7 @@ namespace bitprim.insight
             }
             dictionary_.Remove(item);
             linkedList_.Remove(node);
+            index.Remove(node);
             return true;
         }
 
