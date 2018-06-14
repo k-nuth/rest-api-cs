@@ -6,6 +6,7 @@ branches:
   only:
   - master
   - dev
+  - feature-RA-101
 
 configuration:
 - Release
