@@ -5,7 +5,6 @@ using Bitprim;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 using System.Dynamic;
-using System.Numerics;
 using System.Threading.Tasks;
 
 namespace bitprim.insight.Controllers
@@ -19,7 +18,7 @@ namespace bitprim.insight.Controllers
 
         private struct AddressBalance
         {
-            public List<string> Transactions { get; set;}
+            public OrderedSet<string> Transactions { get; set;}
             public UInt64 Balance { get; set;}
             public UInt64 Received { get; set; }
             public UInt64 Sent { get; set; }
@@ -80,7 +79,7 @@ namespace bitprim.insight.Controllers
                 
                 historyJson.transactions = balance.Transactions.GetRange(from.Value, to.Value - from.Value).ToArray();
             }
-
+            
             return Json(historyJson);
         }
 
@@ -307,7 +306,7 @@ namespace bitprim.insight.Controllers
                 
                 UInt64 received = 0;
                 UInt64 addressBalance = 0;
-                var txs = new List<string>();
+                var txs = new OrderedSet<string>();
 
                 foreach(HistoryCompact compact in history)
                 {
