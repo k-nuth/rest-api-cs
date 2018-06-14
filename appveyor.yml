@@ -4,7 +4,6 @@ branches:
   only:
   - master
   - dev
-  - feature-RA-101
 
 platform:
   - x64
