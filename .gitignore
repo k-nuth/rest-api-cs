@@ -1,10 +1,11 @@
 ﻿################################################################################
 # This .gitignore file was automatically created by Microsoft(R) Visual Studio.
 ################################################################################
+
+/.vs
 /.vscode
 /bitprim.insight/obj/
 /bitprim.insight/bin/
-bitprim.insight/.vs/
 bitprim.insight/blockchain/
 bitprim.insight/bitprim-cs-log.txt
 bitprim.insight/conanbuildinfo.txt
@@ -17,10 +18,13 @@ bitprim.insight/wwwroot/package-lock.json
 bitprim.insight/Properties/launchSettings.json
 bitprim.insight/appsettings.json
 bitprim.insight/log-*.txt
-.vscode/
 archive/
 *.cfg
 curl_format.txt
 hosts.cache
 libbitprim-node-cint.so
 /database/
+bitprim.insight.tests/bin/
+bitprim.insight.tests/obj/
+/tools/*
+!tools/packages.config

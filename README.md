@@ -88,6 +88,7 @@ Eg.
   "TransactionsByAddressPageSize": 10,
   "Version": "170000",
   "HttpClientTimeoutInSeconds" : 5,
+  "WebsocketForwarderClientRetryDelay": 10, 
   "Serilog":
   {
     "Using": ["Serilog.Sinks.Console", "Serilog.Sinks.File"],
@@ -203,6 +204,8 @@ http://blockdozer.com/[ApiPrefix]/blocks/
 
 **HttpClientTimeoutInSeconds**: Defines HttpClient timeout. Used by the forwarders. 
 
+**WebsocketForwarderClientRetryDelay**: The delay in seconds beetween retries when the websocket connection is trying to initialize.
+
 **Serilog**: The Serilog configuration. For more detailed documentation, check https://github.com/serilog/serilog/wiki/Getting-Started
 
 
@@ -285,6 +288,8 @@ Example response:
     /api/addr/[:addr][?noTxList=1][&from=&to=]
     /api/addr/mmvP3mTe53qxHdPqXEvdu8WdC7GfQ2vmx5?noTxList=1
     /api/addr/mmvP3mTe53qxHdPqXEvdu8WdC7GfQ2vmx5?from=1000&to=2000
+
+* noTxList: 1 to include transactions, 0 otherwise.    
 
 ### Address Properties
 

@@ -63,7 +63,7 @@ namespace bitprim.insight.Controllers
                     Utils.CheckBitprimApiErrorCode(getNextBlockResult.ErrorCode, "FetchBlockByHeightHashTimestampAsync(" + blockHeight + 1 + ") failed, check error log");
                 }
                 
-                double blockReward;
+                decimal blockReward;
                 PoolsInfo.PoolInfo poolInfo;
                 using(DisposableApiCallResult<GetTxDataResult> coinbase = await chain_.FetchTransactionAsync(getBlockResult.Result.TransactionHashes[0], true))
                 {
@@ -357,7 +357,7 @@ namespace bitprim.insight.Controllers
         }
 
         private static object BlockToJSON(Header blockHeader, UInt64 blockHeight, HashList txHashes,
-                                          double blockReward, UInt64 currentHeight, byte[] nextBlockHash,
+                                          decimal blockReward, UInt64 currentHeight, byte[] nextBlockHash,
                                           UInt64 serializedBlockSize, PoolsInfo.PoolInfo poolInfo)
         {
             BigInteger.TryParse(blockHeader.ProofString, out var proof);

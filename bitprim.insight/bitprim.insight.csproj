@@ -17,7 +17,7 @@
      <When Condition="'$(BTC)' == 'true' ">
      
           <ItemGroup>
-            <PackageReference Include="bitprim-btc" Version="0.4.0" />
+            <PackageReference Include="bitprim-btc" Version="0.4.1" />
             <!-- <ProjectReference Include="../../bitprim-cs/bitprim/bitprim.csproj" /> -->
           </ItemGroup>
      
@@ -26,7 +26,7 @@
      <When Condition="'$(BCH)' == 'true' ">
      
           <ItemGroup>
-            <PackageReference Include="bitprim-bch" Version="0.4.0" />
+            <PackageReference Include="bitprim-bch" Version="0.4.1" />
             <!-- <ProjectReference Include="../../bitprim-cs/bitprim/bitprim.csproj" /> -->
           </ItemGroup>
      
@@ -35,7 +35,7 @@
      <Otherwise>
      
           <ItemGroup>
-            <PackageReference Include="bitprim-bch" Version="0.4.0" />
+            <PackageReference Include="bitprim-bch" Version="0.4.1" />
             <!-- <ProjectReference Include="../../bitprim-cs/bitprim/bitprim.csproj" /> -->
           </ItemGroup>
      

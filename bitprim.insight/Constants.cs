@@ -20,8 +20,6 @@ namespace bitprim.insight
         public const int MAX_RETRIES = 3;
         public const int SEED_DELAY = 100;
         public const int TRANSACTION_VERSION_PROTOCOL = 1;
-        //TODO Move to appsettings.json
-        public const int WEBSOCKET_FORWARDER_CLIENT_RETRY_DELAY = 10;
         public const string BITSTAMP_BCCUSD = "bchusd";
         public const string BITSTAMP_BTCUSD = "btcusd";
         public const string BITSTAMP_LTCUSD = "ltcusd";
