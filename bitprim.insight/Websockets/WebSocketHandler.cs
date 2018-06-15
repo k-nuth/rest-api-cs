@@ -8,7 +8,6 @@ using System.Threading.Tasks;
 using Bitprim;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 using Nito.AsyncEx;
 using Polly;
 
