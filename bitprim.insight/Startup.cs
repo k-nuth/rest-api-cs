@@ -9,6 +9,7 @@ using Microsoft.Extensions.Options;
 using Serilog;
 using Swashbuckle.AspNetCore.Swagger;
 using System.IO;
+using System.Reflection;
 using bitprim.insight.Middlewares;
 using bitprim.insight.Websockets;
 using Microsoft.AspNetCore.Mvc;
@@ -32,11 +33,29 @@ namespace bitprim.insight
                 .AddJsonFile($"appsettings.{env.EnvironmentName}.json", optional: true)
                 .AddEnvironmentVariables();
             Configuration = builder.Build();
+            
+            ValidateConfiguration<NodeConfig>();
+            
             ConfigureLogging();
+
             nodeConfig_ = Configuration.Get<NodeConfig>();
         }
 
         public IConfigurationRoot Configuration { get; }
+
+
+        private void ValidateConfiguration<T>()
+        {
+            TypeInfo typeInfo = typeof(T).GetTypeInfo();
+            foreach (PropertyInfo propertyInfo in typeInfo.DeclaredProperties)
+            {
+                IConfigurationSection section = Configuration.GetSection(propertyInfo.Name);
+                if (section.Value == null)
+                {
+                    throw new ApplicationException(string.Format("You must configure the {0} setting",section.Key));
+                }
+            }
+        }
 
         // This method gets called by the runtime. Use this method to add services to the container.
         public void ConfigureServices(IServiceCollection services)
