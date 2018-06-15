@@ -16,7 +16,7 @@ Bitprim Insight supports the following cryptocurrencies:
 - [.NET Core 2.0 SDK](https://www.microsoft.com/net/download/)
 
 
-In case there are no pre-built binaries for your platform, it is necessary to build from source code. In such a scenario, the following requirements must be added to the previous ones:
+In case there are no pre-built binaries for your platform, conan will automatically try to build from source code. In such a scenario, the following requirements must be added to the previous ones:
 
 - C++11 Conforming Compiler.
 - [CMake](https://cmake.org/) building tool, version 3.4 or newer.
@@ -154,7 +154,7 @@ http://blockdozer.com/[ApiPrefix]/blocks/
 
 **InitializeNode**: This setting defines the node's working mode: *True* for Full Node, *False* for Forwarder Node.
 
-**LongResponseCacheDurationInSeconds**: Duration of the long cache responses. Used by: 
+**LongResponseCacheDurationInSeconds**: Duration of the long cache responses. Used to cache results for the following requests: 
 * /rawblock 
 * /rawtx
  
@@ -177,7 +177,7 @@ http://blockdozer.com/[ApiPrefix]/blocks/
 
 **RelayFee**: The value returned in *relayfee* element by the /status method.
 
-**ShortResponseCacheDurationInSeconds**: Duration of the short cache responses. Used by:
+**ShortResponseCacheDurationInSeconds**: Duration of the short cache responses. Used to cache results for the following requests:
 * /txs
 * /addrs/{paymentAddresses}/txs
 * /addrs/txs
@@ -200,7 +200,9 @@ http://blockdozer.com/[ApiPrefix]/blocks/
 * /peer
 * /version
 
-**SocketPublishRetryIntervalInSeconds**: Defines how much time the server waits between retries publishing websocket messages. 
+**SocketPublishRetryIntervalInSeconds**: Delay in seconds between retries for "Publish" websocket messages. 
+
+**MaxSocketPublishRetries**: Maximum number of retriess for a "Publish" websocket message
 
 **TimeOffset**: The value returned in *timeoffset* element by the /status method.
 
@@ -208,9 +210,9 @@ http://blockdozer.com/[ApiPrefix]/blocks/
 
 **Version**: The value returned in *version* element by the /status method. 
 
-**HttpClientTimeoutInSeconds**: Defines HttpClient timeout. Used by the forwarders. 
+**HttpClientTimeoutInSeconds**: Defines HttpClient timeout. Used in forwarder mode. 
 
-**WebsocketForwarderClientRetryDelay**: The delay in seconds beetween retries when the websocket connection is trying to initialize.
+**WebsocketForwarderClientRetryDelay**: The delay in seconds beetween retries when the websocket connection to the fullnode fails.
 
 **Serilog**: The Serilog configuration. For more detailed documentation, check https://github.com/serilog/serilog/wiki/Getting-Started
 
