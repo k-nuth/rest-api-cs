@@ -66,7 +66,7 @@ Eg.
 
 ```
 {
-  "ApiPrefix" : "api", 
+  "ApiPrefix" : "api",
   "AcceptStaleRequests" : true,
   "AllowedOrigins": "http://localhost:1549",
   "Connections": 8,
@@ -76,7 +76,8 @@ Eg.
   "InitializeNode" : true,
   "LongResponseCacheDurationInSeconds": 86400,
   "MaxBlockSummarySize": 500,
-  "MaxCacheSize": 10000,
+  "MaxCacheSize": 50000,
+  "MaxSocketPublishRetries": 3,
   "NodeConfigFile": "config.cfg",
   "NodeType": "bitprim node",
   "PoolsFile":  "pools.json", 
@@ -84,10 +85,12 @@ Eg.
   "Proxy": "",
   "RelayFee": "0.00001",
   "ShortResponseCacheDurationInSeconds": 30,
+  "SocketPublishRetryIntervalInSeconds": 1,
   "TimeOffset": "0",
   "TransactionsByAddressPageSize": 10,
   "Version": "170000",
   "HttpClientTimeoutInSeconds" : 5,
+  "WebsocketForwarderClientRetryDelay": 10,
   "Serilog":
   {
     "Using": ["Serilog.Sinks.Console", "Serilog.Sinks.File"],
@@ -160,6 +163,8 @@ http://blockdozer.com/[ApiPrefix]/blocks/
 
 **MaxCacheSize**: Configures the cache size limit; this is an adimensional value, because measuring object size is not trivial. The size for each cache entry is also adimensional and arbitrarily set by the user. The total size sum will never exceed this value.
 
+**MaxSocketPublishRetries**: Defines how many times the server retries when publishing websocket messages before throwing an exception.  
+
 **NodeConfigFile**: Node config file path; can be absolute, or relative to the project directory. Only use in **Full Node** mode.
 
 **NodeType**: The value returned in *type* element by the /sync method.
@@ -195,6 +200,8 @@ http://blockdozer.com/[ApiPrefix]/blocks/
 * /peer
 * /version
 
+**SocketPublishRetryIntervalInSeconds**: Defines how much time the server waits between retries publishing websocket messages. 
+
 **TimeOffset**: The value returned in *timeoffset* element by the /status method.
 
 **TransactionsByAddressPageSize**: The max page limit used by the /txs method. 
@@ -202,6 +209,8 @@ http://blockdozer.com/[ApiPrefix]/blocks/
 **Version**: The value returned in *version* element by the /status method. 
 
 **HttpClientTimeoutInSeconds**: Defines HttpClient timeout. Used by the forwarders. 
+
+**WebsocketForwarderClientRetryDelay**: The delay in seconds beetween retries when the websocket connection is trying to initialize.
 
 **Serilog**: The Serilog configuration. For more detailed documentation, check https://github.com/serilog/serilog/wiki/Getting-Started
 
@@ -285,6 +294,8 @@ Example response:
     /api/addr/[:addr][?noTxList=1][&from=&to=]
     /api/addr/mmvP3mTe53qxHdPqXEvdu8WdC7GfQ2vmx5?noTxList=1
     /api/addr/mmvP3mTe53qxHdPqXEvdu8WdC7GfQ2vmx5?from=1000&to=2000
+
+* noTxList: 1 to include transactions, 0 otherwise.    
 
 ### Address Properties
 

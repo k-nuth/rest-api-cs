@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Net;
-using System.Numerics;
 using System.Threading.Tasks;
 using bitprim.insight.Exceptions;
 using Bitprim;
@@ -15,14 +14,14 @@ namespace bitprim.insight
             return Convert.ToString(number, 16);
         }
 
-        public static double SatoshisToCoinUnits(BigInteger satoshis)
+        public static decimal SatoshisToCoinUnits(Int64 satoshis)
         {
-            return (double)satoshis / 100000000;
+            return (decimal)satoshis / 100000000;
         }
 
-        public static double SatoshisToCoinUnits(UInt64 satoshis)
+        public static decimal SatoshisToCoinUnits(UInt64 satoshis)
         {
-            return (double)satoshis / 100000000;
+            return (decimal)satoshis / 100000000;
         }
 
         //TODO Remove this when bitprim wrapper implemented

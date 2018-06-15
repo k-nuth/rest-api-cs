@@ -112,6 +112,7 @@ namespace bitprim.insight.Controllers
         }
 
         [HttpGet("tx/send")]
+        [ApiExplorerSettings(IgnoreApi=true)]
         public ActionResult GetBroadcastTransaction(RawTxRequest request)
         {
             return StatusCode((int)System.Net.HttpStatusCode.BadRequest, "tx/send method only accept POST requests");
@@ -267,7 +268,7 @@ namespace bitprim.insight.Controllers
                     }
                 }
                 UInt64 pageCount = (UInt64) Math.Ceiling((double)txIds.Count/(double)pageSize);
-                List<object> unconfirmedTxs = await GetUnconfirmedTransactions(address);
+                List<object> unconfirmedTxs = await GetUnconfirmedTransactions(address, noAsm, noScriptSig, noSpend);
                 txs = unconfirmedTxs.Concat(txs).ToList(); //Unconfirmed txs go first
                 return new Tuple<List<object>, UInt64>(txs, pageCount);
             }
@@ -372,7 +373,7 @@ namespace bitprim.insight.Controllers
             }
         }
 
-        private async Task<List<object>> GetUnconfirmedTransactions(PaymentAddress address)
+        private async Task<List<object>> GetUnconfirmedTransactions(PaymentAddress address, bool noAsm, bool noScriptSig, bool noSpend)
         {
             var unconfirmedTxsJson = new List<object>();
             using(MempoolTransactionList unconfirmedTxs = chain_.GetMempoolTransactions(address, nodeExecutor_.UseTestnetRules))
@@ -384,7 +385,7 @@ namespace bitprim.insight.Controllers
                         Utils.CheckBitprimApiErrorCode(getTxResult.ErrorCode, "FetchTransactionAsync(" + unconfirmedTx.Hash + ") failed, check error log");
                         unconfirmedTxsJson.Add
                         (
-                            await TxToJSON(getTxResult.Result.Tx, 0, confirmed: false, noAsm: true, noScriptSig: true, noSpend: true)
+                            await TxToJSON(getTxResult.Result.Tx, 0, confirmed: false, noAsm: noAsm, noScriptSig: noScriptSig, noSpend: noSpend)
                         );
                     }
                 }

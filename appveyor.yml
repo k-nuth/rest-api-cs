@@ -1,10 +1,13 @@
-build: false
+build: off
 
 branches:
   only:
   - master
   - dev
 
+platform:
+  - x64
+  
 configuration:
 - Release
 
@@ -12,18 +15,20 @@ environment:
     PYTHON: "C:\\Python27"
     PYTHON_VERSION: "2.7.8"
     PYTHON_ARCH: "32"
-    NUGET_API_KEY:
-      secure: QXiv4MV3IX8V/7hl+CGMAH9vcLaUJ12ZEk2ohcKiumfT0jS3AzfkJ13qES92E5Pt
-
+  
     VS150COMNTOOLS: "C:\\Program Files (x86)\\Microsoft Visual Studio\\2017\\Community\\Common7\\Tools\\"
 
     matrix:
         - APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2017
 
-build_script:
-  - SET PATH=%PATH%;%PYTHON%/Scripts/
-  - cd bitprim.insight
-  - dotnet build /property:Platform=x64 /p:BTC=true
+assembly_info:
+  patch: false
 
 install:
   - "%PYTHON%/Scripts/pip.exe install conan --upgrade"
+
+build_script:
+  - SET PATH=%PATH%;%PYTHON%/Scripts/
+  - powershell .\build.ps1
+
+test: off
