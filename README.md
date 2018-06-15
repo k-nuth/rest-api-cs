@@ -66,19 +66,19 @@ Eg.
 
 ```
 {
-  "ApiPrefix" : "insight-api",
+  "ApiPrefix" : "api",
   "AcceptStaleRequests" : true,
   "AllowedOrigins": "http://localhost:1549",
   "Connections": 8,
   "DateInputFormat": "yyyy-MM-dd",
   "EstimateFeeDefault": "0.00001000",
   "ForwardUrl" : "http://localhost:1234",
-  "InitializeNode" : false,
+  "InitializeNode" : true,
   "LongResponseCacheDurationInSeconds": 86400,
   "MaxBlockSummarySize": 500,
   "MaxCacheSize": 50000,
   "MaxSocketPublishRetries": 3,
-  "NodeConfigFile": "",
+  "NodeConfigFile": "config.cfg",
   "NodeType": "bitprim node",
   "PoolsFile":  "pools.json", 
   "ProtocolVersion": "70015",
