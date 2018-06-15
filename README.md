@@ -202,7 +202,7 @@ http://blockdozer.com/[ApiPrefix]/blocks/
 
 **SocketPublishRetryIntervalInSeconds**: Delay in seconds between retries for "Publish" websocket messages. 
 
-**MaxSocketPublishRetries**: Maximum number of retriess for a "Publish" websocket message
+**MaxSocketPublishRetries**: Maximum number of retries for a "Publish" websocket message
 
 **TimeOffset**: The value returned in *timeoffset* element by the /status method.
 
