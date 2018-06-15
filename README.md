@@ -163,7 +163,7 @@ http://blockdozer.com/[ApiPrefix]/blocks/
 
 **MaxCacheSize**: Configures the cache size limit; this is an adimensional value, because measuring object size is not trivial. The size for each cache entry is also adimensional and arbitrarily set by the user. The total size sum will never exceed this value.
 
-**MaxSocketPublishRetries**: Defines how many times the server retries publish websocket messages before throws an exception.  
+**MaxSocketPublishRetries**: Defines how many times the server retries when publishing websocket messages before throwing an exception.  
 
 **NodeConfigFile**: Node config file path; can be absolute, or relative to the project directory. Only use in **Full Node** mode.
 
