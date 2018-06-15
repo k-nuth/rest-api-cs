@@ -66,29 +66,31 @@ Eg.
 
 ```
 {
-  "ApiPrefix" : "api", 
+  "ApiPrefix" : "insight-api",
   "AcceptStaleRequests" : true,
   "AllowedOrigins": "http://localhost:1549",
   "Connections": 8,
   "DateInputFormat": "yyyy-MM-dd",
   "EstimateFeeDefault": "0.00001000",
   "ForwardUrl" : "http://localhost:1234",
-  "InitializeNode" : true,
+  "InitializeNode" : false,
   "LongResponseCacheDurationInSeconds": 86400,
   "MaxBlockSummarySize": 500,
-  "MaxCacheSize": 10000,
-  "NodeConfigFile": "config.cfg",
+  "MaxCacheSize": 50000,
+  "MaxSocketPublishRetries": 3,
+  "NodeConfigFile": "",
   "NodeType": "bitprim node",
   "PoolsFile":  "pools.json", 
   "ProtocolVersion": "70015",
   "Proxy": "",
   "RelayFee": "0.00001",
   "ShortResponseCacheDurationInSeconds": 30,
+  "SocketPublishRetryIntervalInSeconds": 1,
   "TimeOffset": "0",
   "TransactionsByAddressPageSize": 10,
   "Version": "170000",
   "HttpClientTimeoutInSeconds" : 5,
-  "WebsocketForwarderClientRetryDelay": 10, 
+  "WebsocketForwarderClientRetryDelay": 10,
   "Serilog":
   {
     "Using": ["Serilog.Sinks.Console", "Serilog.Sinks.File"],
@@ -161,6 +163,8 @@ http://blockdozer.com/[ApiPrefix]/blocks/
 
 **MaxCacheSize**: Configures the cache size limit; this is an adimensional value, because measuring object size is not trivial. The size for each cache entry is also adimensional and arbitrarily set by the user. The total size sum will never exceed this value.
 
+**MaxSocketPublishRetries**: Defines how many times the server retries publish websocket messages before throws an exception.  
+
 **NodeConfigFile**: Node config file path; can be absolute, or relative to the project directory. Only use in **Full Node** mode.
 
 **NodeType**: The value returned in *type* element by the /sync method.
@@ -195,6 +199,8 @@ http://blockdozer.com/[ApiPrefix]/blocks/
 * /addr/{paymentAddress}
 * /peer
 * /version
+
+**SocketPublishRetryIntervalInSeconds**: Defines how much time the server waits between retries publishing websocket messages. 
 
 **TimeOffset**: The value returned in *timeoffset* element by the /status method.
 
