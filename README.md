@@ -139,43 +139,60 @@ In **Forwarder** mode, the application only relays the request to a **Full Node*
 ```
 http://blockdozer.com/[ApiPrefix]/blocks/
 ```
+*Default value:api*
 
 **AcceptStaleRequests**: Allows the API to respond to requests even if the chain is stale (the local copy of the blockchain isn't fully synchronized with the network). 
+*Default value:true*
 
-**AllowedOrigins**: Configure the allowed CORS origins. For multiple origins, separate them with semicolon (;)
+**AllowedOrigins**: Configure the allowed CORS origins. For multiple origins, separate them with semicolon (;).
+*Default value:**
 
 **Connections**: Configures the value returned in the *connection* element of the /status request. 
+*Default value:8*
 
 **DateInputFormat**: Defines the date format used by /blocks and other requests that require dates.
+*Default value:yyyy-MM-dd*
 
 **EstimateFeeDefault**: Sets the value returned by /utils/estimatefee.
+*Default value:0.00001000*
 
 **ForwardUrl**: When you use the application in **Forwarder** mode, this settings defines the Full Node's URL. 
+*Default value:""*
 
 **InitializeNode**: This setting defines the node's working mode: *True* for Full Node, *False* for Forwarder Node.
+*Default value:true*
 
 **LongResponseCacheDurationInSeconds**: Duration of the long cache responses. Used to cache results for the following requests: 
 * /rawblock 
 * /rawtx
- 
+*Default value:86400* 
 
 **MaxBlockSummarySize**: Defines the max limit of the /blocks method.
+*Default value:500* 
 
 **MaxCacheSize**: Configures the cache size limit; this is an adimensional value, because measuring object size is not trivial. The size for each cache entry is also adimensional and arbitrarily set by the user. The total size sum will never exceed this value.
+*Default value:50000*
 
 **MaxSocketPublishRetries**: Defines how many times the server retries when publishing websocket messages before throwing an exception.  
+*Default value:3*
 
 **NodeConfigFile**: Node config file path; can be absolute, or relative to the project directory. Only use in **Full Node** mode.
+*Default value:""*
 
 **NodeType**: The value returned in *type* element by the /sync method.
+*Default value:bitprim node*
 
 **PoolsFile**: Path to the json file with the mining pool information.
+*Default value:pools.json*
 
 **ProtocolVersion**: The value returned in *protocolversion* element by the /status method.
+*Default value:70015*
 
 **Proxy**: The value returned in *proxy* element by the /status method.
+*Default value:""*
 
 **RelayFee**: The value returned in *relayfee* element by the /status method.
+*Default value:0.00001*
 
 **ShortResponseCacheDurationInSeconds**: Duration of the short cache responses. Used to cache results for the following requests:
 * /txs
@@ -199,20 +216,28 @@ http://blockdozer.com/[ApiPrefix]/blocks/
 * /addr/{paymentAddress}
 * /peer
 * /version
+*Default value:30*
 
-**SocketPublishRetryIntervalInSeconds**: Delay in seconds between retries for "Publish" websocket messages. 
+**SocketPublishRetryIntervalInSeconds**: Delay in seconds between retries for "Publish" websocket messages.
+*Default value:1*
 
 **MaxSocketPublishRetries**: Maximum number of retries for a "Publish" websocket message
+*Default value:3*
 
 **TimeOffset**: The value returned in *timeoffset* element by the /status method.
+*Default value:0*
 
 **TransactionsByAddressPageSize**: The max page limit used by the /txs method. 
+*Default value:10*
 
 **Version**: The value returned in *version* element by the /status method. 
+*Default value:""*
 
 **HttpClientTimeoutInSeconds**: Defines HttpClient timeout. Used in forwarder mode. 
+*Default value:5*
 
 **WebsocketForwarderClientRetryDelay**: The delay in seconds beetween retries when the websocket connection to the fullnode fails.
+*Default value:10*
 
 **Serilog**: The Serilog configuration. For more detailed documentation, check https://github.com/serilog/serilog/wiki/Getting-Started
 

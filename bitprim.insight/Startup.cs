@@ -34,28 +34,12 @@ namespace bitprim.insight
                 .AddEnvironmentVariables();
             Configuration = builder.Build();
             
-            ValidateConfiguration<NodeConfig>();
-            
             ConfigureLogging();
 
             nodeConfig_ = Configuration.Get<NodeConfig>();
         }
 
         public IConfigurationRoot Configuration { get; }
-
-
-        private void ValidateConfiguration<T>()
-        {
-            TypeInfo typeInfo = typeof(T).GetTypeInfo();
-            foreach (PropertyInfo propertyInfo in typeInfo.DeclaredProperties)
-            {
-                IConfigurationSection section = Configuration.GetSection(propertyInfo.Name);
-                if (section.Value == null)
-                {
-                    throw new ApplicationException(string.Format("You must configure the {0} setting",section.Key));
-                }
-            }
-        }
 
         // This method gets called by the runtime. Use this method to add services to the container.
         public void ConfigureServices(IServiceCollection services)
@@ -177,7 +161,7 @@ namespace bitprim.insight
         {
             services.AddCors(o => o.AddPolicy(CORS_POLICY_NAME, builder =>
             {
-                builder.WithOrigins(Configuration.GetValue<string>("AllowedOrigins"));
+                builder.WithOrigins(nodeConfig_.AllowedOrigins);
             }));
         }
 
