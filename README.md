@@ -60,11 +60,11 @@ dotnet bin/x64/Release/netcoreapp2.0/published/bitprim.insight.dll --server.port
 
 ### Command line arguments
 
-**--server.port**: Defines the listening port. 
+**--server.port**: Defines the listening TCP port. 
 
 *Default value:1549*
 
-**--server.address**: Defines the listening IP.
+**--server.address**: Defines the listening IP address.
 
 *Default value:localhost*
 
