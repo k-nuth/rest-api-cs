@@ -58,7 +58,18 @@ dotnet publish /property:Platform=x64 /p:BTC=true -c Release -f netcoreapp2.0 -v
 dotnet bin/x64/Release/netcoreapp2.0/published/bitprim.insight.dll --server.port=3000 --server.address=0.0.0.0
 ```
 
+### Command line arguments
+
+**--server.port**: Defines the listening port. 
+
+*Default value:1549*
+
+**--server.address**: Defines the listening IP.
+
+*Default value:localhost*
+
 ## Configuration Options
+
 
 You need to create an appsettings.json file in the build directory to run the application. You can use appsettings.example.json as a starting point.
 
@@ -127,6 +138,16 @@ Eg.
   }
 }
 ```
+
+All the settings can be passed as command line arguments prefixing the name with '--'
+
+Eg.
+
+```
+dotnet bin/x64/Release/netcoreapp2.0/published/bitprim.insight.dll --server.port=3000 --server.address=0.0.0.0 --MaxBlockSummarySize=1000
+```
+
+
 The application has two different operation modes. As a **Full Node** or a **Forwarder**.
 
 In **Full Node** mode, the application starts a full Bitprim node, generating a copy of the blockchain.

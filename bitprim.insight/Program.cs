@@ -16,8 +16,8 @@ namespace bitprim.insight
             try
             {
                 var config = new ConfigurationBuilder()
-                    .AddCommandLine(args)
-                    .Build();
+                                .AddCommandLine(args)
+                                .Build();
 
                 var address = config.GetValue("server.address", IPAddress.Loopback.ToString());
 
@@ -35,6 +35,14 @@ namespace bitprim.insight
                     .UseContentRoot(Directory.GetCurrentDirectory())
                     .UseSerilog()
                     .UseIISIntegration()
+                    .ConfigureAppConfiguration((hostingContext, configBuilder) =>
+                    {
+                        configBuilder.SetBasePath(Directory.GetCurrentDirectory());
+                        configBuilder.AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
+                            .AddJsonFile($"appsettings.{hostingContext.HostingEnvironment.EnvironmentName}.json", optional: true, reloadOnChange: true);
+                        configBuilder.AddEnvironmentVariables();
+                        configBuilder.AddCommandLine(args);
+                    })
                     .UseStartup<Startup>()
                     .Build();
 
