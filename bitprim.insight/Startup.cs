@@ -23,7 +23,8 @@ namespace bitprim.insight
         private Executor exec_;
         private WebSocketHandler webSocketHandler_;
         private WebSocketForwarderClient webSocketForwarderClient_;
-        private readonly NodeConfig nodeConfig_;     
+        private readonly NodeConfig nodeConfig_;
+        private readonly IConfigurationRoot configuration_;
 
         public Startup(IHostingEnvironment env)
         {
@@ -32,14 +33,22 @@ namespace bitprim.insight
                 .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
                 .AddJsonFile($"appsettings.{env.EnvironmentName}.json", optional: true)
                 .AddEnvironmentVariables();
-            Configuration = builder.Build();
+            configuration_ = builder.Build();
             
             ConfigureLogging();
 
-            nodeConfig_ = Configuration.Get<NodeConfig>();
+            nodeConfig_ = configuration_.Get<NodeConfig>();
+            LogSettings(nodeConfig_);
         }
 
-        public IConfigurationRoot Configuration { get; }
+        private void LogSettings<T>(T instance)
+        {
+            TypeInfo typeInfo = typeof(T).GetTypeInfo();
+            foreach (PropertyInfo propertyInfo in typeInfo.DeclaredProperties)
+            {
+                Log.Debug(string.Format("{0}:{1}",propertyInfo.Name,propertyInfo.GetValue(instance))); 
+            }
+        }
 
         // This method gets called by the runtime. Use this method to add services to the container.
         public void ConfigureServices(IServiceCollection services)
@@ -49,7 +58,7 @@ namespace bitprim.insight
             // Add functionality to inject IOptions<T>
             services.AddOptions();
             // Add our Config object so it can be injected
-            services.Configure<NodeConfig>(Configuration);
+            services.Configure<NodeConfig>(configuration_);
             // Add framework services.
             ConfigureFrameworkServices(services);
            
@@ -134,7 +143,7 @@ namespace bitprim.insight
         private void ConfigureLogging()
         {
             Log.Logger = new LoggerConfiguration()
-                .ReadFrom.Configuration(Configuration)
+                .ReadFrom.Configuration(configuration_)
                 .CreateLogger();
         }
 
