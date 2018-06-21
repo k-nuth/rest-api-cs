@@ -24,16 +24,11 @@ namespace bitprim.insight
         private WebSocketHandler webSocketHandler_;
         private WebSocketForwarderClient webSocketForwarderClient_;
         private readonly NodeConfig nodeConfig_;
-        private readonly IConfigurationRoot configuration_;
+        private readonly IConfiguration configuration_;
 
-        public Startup(IHostingEnvironment env)
+        public Startup(IConfiguration configuration)
         {
-            var builder = new ConfigurationBuilder()
-                .SetBasePath(env.ContentRootPath)
-                .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
-                .AddJsonFile($"appsettings.{env.EnvironmentName}.json", optional: true)
-                .AddEnvironmentVariables();
-            configuration_ = builder.Build();
+            configuration_ = configuration;
             
             ConfigureLogging();
 
@@ -117,12 +112,12 @@ namespace bitprim.insight
             services.AddMvcCore(opt =>
                 {
                     opt.CacheProfiles.Add(Constants.Cache.SHORT_CACHE_PROFILE_NAME,
-                        new CacheProfile()
+                        new CacheProfile
                         {
                             Duration = nodeConfig_.ShortResponseCacheDurationInSeconds
                         });
                     opt.CacheProfiles.Add(Constants.Cache.LONG_CACHE_PROFILE_NAME,
-                        new CacheProfile()
+                        new CacheProfile
                         {
                             Duration = nodeConfig_.LongResponseCacheDurationInSeconds
                         });
