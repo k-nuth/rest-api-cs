@@ -56,7 +56,7 @@ namespace bitprim.insight
             }
             dictionary_.Remove(item);
             linkedList_.Remove(node);
-            var indexEntryToRemove = index_.First(kvp => kvp.Value.Value.Equals(node.Value));
+            var indexEntryToRemove = index_.First(kvp => kvp.Value.Value.Equals(node.Value)); //TODO Avoid this search by saving index in node
             index_.Remove(indexEntryToRemove.Key);
             return true;
         }

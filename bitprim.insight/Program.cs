@@ -1,7 +1,6 @@
 ﻿using System;
 using System.IO;
 using System.Net;
-using Microsoft.AspNetCore;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Serilog;
@@ -16,7 +15,7 @@ namespace bitprim.insight
         {
             try
             {
-                CreateWebHostBuilder(args).Build().Run();
+                CreateWebHostBuilder(args).Build().Run();  
             }
             catch(Exception ex)
             {
@@ -27,7 +26,6 @@ namespace bitprim.insight
                 Log.CloseAndFlush();
             }
         }
-
 
         public static IWebHostBuilder CreateWebHostBuilder(string[] args)
         {
@@ -44,12 +42,19 @@ namespace bitprim.insight
 
             var serverPort = config.GetValue("server.port",DEFAULT_PORT);
 
-
             return new WebHostBuilder()
                 .UseKestrel(options => { options.Listen(ip, serverPort); })
                 .UseContentRoot(Directory.GetCurrentDirectory())
                 .UseSerilog()
                 .UseIISIntegration()
+                .ConfigureAppConfiguration((hostingContext, configBuilder) =>
+                    {
+                        configBuilder.SetBasePath(Directory.GetCurrentDirectory());
+                        configBuilder.AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
+                            .AddJsonFile($"appsettings.{hostingContext.HostingEnvironment.EnvironmentName}.json", optional: true, reloadOnChange: true);
+                        configBuilder.AddEnvironmentVariables();
+                        configBuilder.AddCommandLine(args);
+                    })
                 .UseStartup<Startup>();
         }
     }
