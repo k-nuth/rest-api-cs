@@ -9,6 +9,7 @@ using Microsoft.Extensions.Options;
 using Serilog;
 using Swashbuckle.AspNetCore.Swagger;
 using System.IO;
+using System.Reflection;
 using bitprim.insight.Middlewares;
 using bitprim.insight.Websockets;
 using Microsoft.AspNetCore.Mvc;
@@ -22,21 +23,27 @@ namespace bitprim.insight
         private Executor exec_;
         private WebSocketHandler webSocketHandler_;
         private WebSocketForwarderClient webSocketForwarderClient_;
-        private readonly NodeConfig nodeConfig_;     
+        private readonly NodeConfig nodeConfig_;
+        private readonly IConfiguration configuration_;
 
-        public Startup(IHostingEnvironment env)
+        public Startup(IConfiguration configuration)
         {
-            var builder = new ConfigurationBuilder()
-                .SetBasePath(env.ContentRootPath)
-                .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
-                .AddJsonFile($"appsettings.{env.EnvironmentName}.json", optional: true)
-                .AddEnvironmentVariables();
-            Configuration = builder.Build();
+            configuration_ = configuration;
+            
             ConfigureLogging();
-            nodeConfig_ = Configuration.Get<NodeConfig>();
+
+            nodeConfig_ = configuration_.Get<NodeConfig>();
+            LogSettings(nodeConfig_);
         }
 
-        public IConfigurationRoot Configuration { get; }
+        private void LogSettings<T>(T instance)
+        {
+            TypeInfo typeInfo = typeof(T).GetTypeInfo();
+            foreach (PropertyInfo propertyInfo in typeInfo.DeclaredProperties)
+            {
+                Log.Debug(string.Format("{0}:{1}",propertyInfo.Name,propertyInfo.GetValue(instance))); 
+            }
+        }
 
         // This method gets called by the runtime. Use this method to add services to the container.
         public void ConfigureServices(IServiceCollection services)
@@ -46,7 +53,7 @@ namespace bitprim.insight
             // Add functionality to inject IOptions<T>
             services.AddOptions();
             // Add our Config object so it can be injected
-            services.Configure<NodeConfig>(Configuration);
+            services.Configure<NodeConfig>(configuration_);
             // Add framework services.
             ConfigureFrameworkServices(services);
            
@@ -105,12 +112,12 @@ namespace bitprim.insight
             services.AddMvcCore(opt =>
                 {
                     opt.CacheProfiles.Add(Constants.Cache.SHORT_CACHE_PROFILE_NAME,
-                        new CacheProfile()
+                        new CacheProfile
                         {
                             Duration = nodeConfig_.ShortResponseCacheDurationInSeconds
                         });
                     opt.CacheProfiles.Add(Constants.Cache.LONG_CACHE_PROFILE_NAME,
-                        new CacheProfile()
+                        new CacheProfile
                         {
                             Duration = nodeConfig_.LongResponseCacheDurationInSeconds
                         });
@@ -131,7 +138,7 @@ namespace bitprim.insight
         private void ConfigureLogging()
         {
             Log.Logger = new LoggerConfiguration()
-                .ReadFrom.Configuration(Configuration)
+                .ReadFrom.Configuration(configuration_)
                 .CreateLogger();
         }
 
@@ -158,7 +165,7 @@ namespace bitprim.insight
         {
             services.AddCors(o => o.AddPolicy(CORS_POLICY_NAME, builder =>
             {
-                builder.WithOrigins(Configuration.GetValue<string>("AllowedOrigins"));
+                builder.WithOrigins(nodeConfig_.AllowedOrigins);
             }));
         }
 

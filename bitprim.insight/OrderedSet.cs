@@ -56,7 +56,7 @@ namespace bitprim.insight
             }
             dictionary_.Remove(item);
             linkedList_.Remove(node);
-            var indexEntryToRemove = index_.First(kvp => kvp.Value.Value.Equals(node.Value));
+            var indexEntryToRemove = index_.First(kvp => kvp.Value.Value.Equals(node.Value)); //TODO Avoid this search by saving index in node
             index_.Remove(indexEntryToRemove.Key);
             return true;
         }
@@ -104,10 +104,12 @@ namespace bitprim.insight
             {
                 throw new ArgumentException("Index and count must be positive");
             }
-            if(index + count >= linkedList_.Count)
-            {
+
+            if (linkedList_.Count - index < count) 
+            { 
                 throw new ArgumentException("Trying to get range outside collection bounds");
-            }
+            } 
+
             var range = new List<T>(count);
             for(int i=0; i<count; i++)
             {

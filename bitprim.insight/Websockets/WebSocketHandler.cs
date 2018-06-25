@@ -129,14 +129,14 @@ namespace bitprim.insight.Websockets
                 if (webSocket.State != WebSocketState.CloseSent &&
                     ex.WebSocketErrorCode != WebSocketError.ConnectionClosedPrematurely)
                 {
-                    logger_.LogWarning("Subscribe - Web socket error, closing connection; " + ex);
+                    logger_.LogWarning(ex,"Subscribe - Web socket error, closing connection");
                 }
                 
                 await UnregisterChannels(webSocket);
             }
             catch (Exception e)
             {
-                logger_.LogWarning("Subscribe - error, closing connection; " + e);
+                logger_.LogWarning(e,"Subscribe - error, closing connection");
                 await UnregisterChannels(webSocket);
             }
         }
@@ -170,7 +170,7 @@ namespace bitprim.insight.Websockets
                 }
                 catch(WebSocketException ex)
                 {
-                    logger_.LogWarning("Error unregistering channel: " + ex.ToString());
+                    logger_.LogWarning(ex,"Error unregistering channel");
                 }
             }
 
@@ -219,7 +219,7 @@ namespace bitprim.insight.Websockets
                                 }
                                 catch(WebSocketException ex)
                                 {
-                                    logger_.LogWarning("Maxed out retries sending to client: " + ex.ToString() + ", closing channels");
+                                    logger_.LogWarning(ex,"Maxed out retries sending to client, closing channels");
                                     await UnregisterChannels(ws.Key);
                                 }
                             }
@@ -229,7 +229,7 @@ namespace bitprim.insight.Websockets
             }
             catch(Exception ex)
             {
-                logger_.LogError("PublisherThread - Error: " + ex);
+                logger_.LogError(ex,"PublisherThread error");
             }
         }
 
