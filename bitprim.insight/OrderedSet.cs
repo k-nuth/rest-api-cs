@@ -104,10 +104,12 @@ namespace bitprim.insight
             {
                 throw new ArgumentException("Index and count must be positive");
             }
-            if(index + count >= linkedList_.Count)
-            {
+
+            if (linkedList_.Count - index < count) 
+            { 
                 throw new ArgumentException("Trying to get range outside collection bounds");
-            }
+            } 
+
             var range = new List<T>(count);
             for(int i=0; i<count; i++)
             {
