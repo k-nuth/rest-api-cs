@@ -96,11 +96,32 @@ namespace bitprim.insight.Websockets
                         }
                     }
                 }
+                catch (WebSocketException ex)
+                {
+                    logger_.LogDebug("Status " + webSocket_.State);
+                    logger_.LogDebug("Close Status " + webSocket_.CloseStatus);
+                    logger_.LogDebug("WebSocketErrorCode " + ex.WebSocketErrorCode);
+                    
+                    if (Interlocked.CompareExchange(ref active_, 0, 0) > 0)
+                    {
+                        if (webSocket_.State != WebSocketState.CloseSent &&
+                            ex.WebSocketErrorCode != WebSocketError.ConnectionClosedPrematurely)
+                        {
+                            logger_.LogWarning(ex,"Error processing ReceiveHandler");
+                        }
+                        await ReInit();
+                    }     
+                }
                 catch (Exception e)
                 {
                     if (Interlocked.CompareExchange(ref active_, 0, 0) > 0)
                     {
-                        logger_.LogWarning(e,"Error processing ReceiveHandler");
+                        //Internal WinHttpException not exposed...
+                        if (e.HResult != Constants.WIN_HTTP_EXCEPTION_ERR_NUMBER)
+                        {
+                            logger_.LogWarning(e,"Error processing ReceiveHandler");
+                        }
+
                         await ReInit();
                     }   
                 }

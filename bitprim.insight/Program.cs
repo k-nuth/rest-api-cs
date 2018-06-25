@@ -50,7 +50,7 @@ namespace bitprim.insight
                 .ConfigureAppConfiguration((hostingContext, configBuilder) =>
                     {
                         configBuilder.SetBasePath(Directory.GetCurrentDirectory());
-                        configBuilder.AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
+                        configBuilder.AddJsonFile("appsettings.json", optional: true, reloadOnChange: true)
                             .AddJsonFile($"appsettings.{hostingContext.HostingEnvironment.EnvironmentName}.json", optional: true, reloadOnChange: true);
                         configBuilder.AddEnvironmentVariables();
                         configBuilder.AddCommandLine(args);
