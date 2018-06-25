@@ -103,6 +103,14 @@ namespace bitprim.insight.tests
         }
 
         [Fact]
+        public void GetRangeEmptySuccessfully()
+        {
+            var set = new OrderedSet<int>();
+            var subSet = set.GetRange(0, 0);
+            Assert.Equal(subSet.Count, 0);
+        }
+
+        [Fact]
         public void InsertionOrderIsPreserved()
         {
             var set = new OrderedSet<int>();
