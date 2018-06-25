@@ -34,5 +34,7 @@ namespace bitprim.insight
         public const string SOCHAIN_LTC_URL = "https://chain.so/api/v2/get_info/LTC";
         public const string SOCHAIN_TBTC_URL = "https://chain.so/api/v2/get_info/BTCTEST";
         public const string SOCHAIN_TLTC_URL = "https://chain.so/api/v2/get_info/LTCTEST";
+
+        public const int WIN_HTTP_EXCEPTION_ERR_NUMBER = -2147012865;
     }
 }

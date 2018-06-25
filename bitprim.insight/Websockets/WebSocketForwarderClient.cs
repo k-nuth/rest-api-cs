@@ -117,7 +117,7 @@ namespace bitprim.insight.Websockets
                     if (Interlocked.CompareExchange(ref active_, 0, 0) > 0)
                     {
                         //Internal WinHttpException not exposed...
-                        if (e.HResult != -2147012865)
+                        if (e.HResult != Constants.WIN_HTTP_EXCEPTION_ERR_NUMBER)
                         {
                             logger_.LogWarning(e,"Error processing ReceiveHandler");
                         }
