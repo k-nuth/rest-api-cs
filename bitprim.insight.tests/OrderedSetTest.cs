@@ -103,7 +103,7 @@ namespace bitprim.insight.tests
         }
 
         [Fact]
-        public void GetRangeEmptySuccessfully()
+        public void GetEmptyRangeSuccessfully()
         {
             var set = new OrderedSet<int>();
             var subSet = set.GetRange(0, 0);
