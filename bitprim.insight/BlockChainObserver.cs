@@ -75,7 +75,7 @@ namespace bitprim.insight
                         eventname = "addresstx",
                         txid = txid,
                         address = addr,
-                        balanceDelta = await Utils.CalculateBalanceDelta(newTransaction, addr, executor_.Chain, executor_.UseTestnetRules)
+                        balanceDelta = Utils.CalculateBalanceDelta(newTransaction, addr, executor_.Chain, executor_.UseTestnetRules).Result
                     };
                     addressesToPublish[addr] = JsonConvert.SerializeObject(addresstx);
                 }
