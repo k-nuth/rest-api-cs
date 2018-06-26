@@ -144,32 +144,6 @@ namespace bitprim.insight.Controllers
             return await GetUtxoForMultipleAddresses(requestParams.addrs);
         }
 
-        private async Task<UInt64> SumAddressInputs(Transaction tx, PaymentAddress address)
-        {
-            UInt64 inputSum = 0;
-            foreach(Input input in tx.Inputs)
-            {
-                if(input.PreviousOutput == null)
-                {
-                    continue;
-                }
-                using(var getTxResult = await chain_.FetchTransactionAsync(input.PreviousOutput.Hash, false))
-                {
-                    if(getTxResult.ErrorCode == ErrorCode.NotFound)
-                    {
-                        continue;
-                    }
-                    Utils.CheckBitprimApiErrorCode(getTxResult.ErrorCode, "FetchTransactionAsync(" + Binary.ByteArrayToHexString(input.PreviousOutput.Hash) + ") failed, check error log");
-                    Output referencedOutput = getTxResult.Result.Tx.Outputs[input.PreviousOutput.Index];
-                    if(referencedOutput.PaymentAddress(nodeExecutor_.UseTestnetRules).Encoded == address.Encoded)
-                    {
-                        inputSum += referencedOutput.Value;
-                    }
-                }
-            }
-            return inputSum;
-        }
-
         private async Task<List<object>> GetUtxo(string paymentAddress)
         {
             Utils.CheckIfChainIsFresh(chain_, config_.AcceptStaleRequests);
@@ -225,25 +199,12 @@ namespace bitprim.insight.Controllers
                     {
                         Utils.CheckBitprimApiErrorCode(getTxResult.ErrorCode, "FetchTransactionAsync(" + unconfirmedTx.Hash + ") failed, check error log");
                         Transaction tx = getTxResult.Result.Tx;
-                        unconfirmedBalance += (Int64)SumAddressOutputs(tx, paymentAddress);
-                        unconfirmedBalance -=  (Int64)await SumAddressInputs(tx, paymentAddress);
+                        unconfirmedBalance += (Int64)Utils.SumAddressOutputs(tx, paymentAddress, nodeExecutor_.UseTestnetRules);
+                        unconfirmedBalance -=  (Int64)await Utils.SumAddressInputs(tx, paymentAddress, chain_, nodeExecutor_.UseTestnetRules);
                     }
                 }
                 return new Tuple<uint, Int64>(unconfirmedTxs.Count, unconfirmedBalance);
             }
-        }
-
-        private UInt64 SumAddressOutputs(Transaction tx, PaymentAddress address)
-        {
-            UInt64 outputSum = 0;
-            foreach(Output output in tx.Outputs)
-            {
-                if(output.PaymentAddress(nodeExecutor_.UseTestnetRules).Encoded == address.Encoded)
-                {
-                    outputSum += output.Value;
-                }
-            }
-            return outputSum;
         }
 
         private List<object> GetUnconfirmedUtxo(PaymentAddress address)

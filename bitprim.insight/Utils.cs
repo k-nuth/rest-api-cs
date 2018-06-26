@@ -9,6 +9,32 @@ namespace bitprim.insight
 {
     internal static class Utils
     {
+        public static async Task<UInt64> SumAddressInputs(Transaction tx, PaymentAddress address, Chain chain, bool useTestnetRules)
+        {
+            UInt64 inputSum = 0;
+            foreach(Input input in tx.Inputs)
+            {
+                if(input.PreviousOutput == null)
+                {
+                    continue;
+                }
+                using(var getTxResult = await chain.FetchTransactionAsync(input.PreviousOutput.Hash, false))
+                {
+                    if(getTxResult.ErrorCode == ErrorCode.NotFound)
+                    {
+                        continue;
+                    }
+                    CheckBitprimApiErrorCode(getTxResult.ErrorCode, "FetchTransactionAsync(" + Binary.ByteArrayToHexString(input.PreviousOutput.Hash) + ") failed, check error log");
+                    Output referencedOutput = getTxResult.Result.Tx.Outputs[input.PreviousOutput.Index];
+                    if(referencedOutput.PaymentAddress(useTestnetRules).Encoded == address.Encoded)
+                    {
+                        inputSum += referencedOutput.Value;
+                    }
+                }
+            }
+            return inputSum;
+        }
+
         public static string EncodeInBase16(UInt32 number)
         {
             return Convert.ToString(number, 16);
@@ -41,6 +67,19 @@ namespace bitprim.insight
                 --shift;
             }
             return diff;
+        }
+
+        public static UInt64 SumAddressOutputs(Transaction tx, PaymentAddress address, bool useTestnetRules)
+        {
+            UInt64 outputSum = 0;
+            foreach(Output output in tx.Outputs)
+            {
+                if(output.PaymentAddress(useTestnetRules).Encoded == address.Encoded)
+                {
+                    outputSum += output.Value;
+                }
+            }
+            return outputSum;
         }
 
         public static void CheckBitprimApiErrorCode(ErrorCode errorCode, string errorMsg)
