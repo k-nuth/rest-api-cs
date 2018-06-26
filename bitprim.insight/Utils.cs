@@ -60,6 +60,16 @@ namespace bitprim.insight
             return ret;
         }
 
+        public static async Task<Int64> CalculateBalanceDelta(Transaction tx, string address, Chain chain, bool useTestnetRules)
+        {
+            using(var paymentAddress = new PaymentAddress(address))
+            {
+                Int64 inputsSum = (Int64) await SumAddressInputs(tx, paymentAddress, chain, useTestnetRules);
+                Int64 outputsSum = (Int64) SumAddressOutputs(tx, paymentAddress, useTestnetRules);
+                return outputsSum - inputsSum;
+            }
+        }
+
         public static async Task<UInt64> SumAddressInputs(Transaction tx, PaymentAddress address, Chain chain, bool useTestnetRules)
         {
             UInt64 inputSum = 0;

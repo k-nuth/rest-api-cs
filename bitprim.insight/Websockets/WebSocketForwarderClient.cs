@@ -79,20 +79,10 @@ namespace bitprim.insight.Websockets
                                 break;
                             case "tx":
                                 await webSocketHandler_.PublishTransaction(content);
-
-                                var txid = obj["txid"].ToString();
-                                var addreses = ((JArray)obj["addresses"]).ToObject<List<string>>();
-                                
-                                var addresstx = new
-                                {
-                                    eventname = "addresstx",
-                                    txid = txid
-                                };
-                                
-                                await webSocketHandler_.PublishTransactionAddress(JsonConvert.SerializeObject(addresstx),addreses);
-                               
                                 break;
-
+                            case "addresstx":
+                                await webSocketHandler_.PublishTransactionAddress(obj["address"].ToString(), content);
+                                break;
                         }
                     }
                 }

@@ -67,13 +67,20 @@ namespace bitprim.insight
                 var task = webSocketHandler_.PublishTransaction(JsonConvert.SerializeObject(tx));
                 task.Wait();
 
-                var addresstx = new
+                var addressesToPublish = new Dictionary<string, string>();
+                foreach(string addr in addresses)
                 {
-                    eventname = "addresstx",
-                    txid = txid
-                };
+                    var addresstx = new
+                    {
+                        eventname = "addresstx",
+                        txid = txid,
+                        address = addr,
+                        balanceDelta = await Utils.CalculateBalanceDelta(newTransaction, addr, executor_.Chain, executor_.UseTestnetRules)
+                    };
+                    addressesToPublish[addr] = JsonConvert.SerializeObject(addresstx);
+                }
 
-                task = webSocketHandler_.PublishTransactionAddress(JsonConvert.SerializeObject(addresstx),addresses);
+                task = webSocketHandler_.PublishTransactionAddresses(addressesToPublish);
                 task.Wait();
             }
             return true;
