@@ -56,7 +56,7 @@ namespace bitprim.insight.Controllers
             Tuple<uint, Int64> unconfirmedSummary = await GetUnconfirmedSummary(paymentAddress);
             historyJson.unconfirmedBalance = Utils.SatoshisToCoinUnits(unconfirmedSummary.Item2);
             historyJson.unconfirmedBalanceSat = unconfirmedSummary.Item2;
-            historyJson.unconfirmedTxApperances = unconfirmedSummary.Item1;
+            historyJson.unconfirmedTxAppearances = unconfirmedSummary.Item1;
             
             if( noTxList == 0 )
             {
