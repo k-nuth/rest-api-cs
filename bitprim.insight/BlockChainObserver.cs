@@ -60,12 +60,13 @@ namespace bitprim.insight
                 var balanceDeltas = new Dictionary<string, decimal>();
                 foreach(string addr in addresses)
                 {
-                    balanceDeltas[addr] = Utils.SatoshisToCoinUnits(Utils.CalculateBalanceDelta(newTransaction, addr, executor_.Chain, executor_.UseTestnetRules).Result);
+                    var addressBalanceDelta = Utils.SatoshisToCoinUnits(Utils.CalculateBalanceDelta(newTransaction, addr, executor_.Chain, executor_.UseTestnetRules).Result);
+                    balanceDeltas[addr] = addressBalanceDelta;
                     var addresstx = new
                     {
                         eventname = "addresstx",
                         txid = txid,
-                        balanceDelta = balanceDeltas[addr]
+                        balanceDelta = addressBalanceDelta
                     };
                     addressesToPublish[addr] = JsonConvert.SerializeObject(addresstx);
                 }
