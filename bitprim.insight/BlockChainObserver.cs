@@ -56,30 +56,31 @@ namespace bitprim.insight
 
                 List<string> addresses = Utils.GetTransactionAddresses(executor_,newTransaction).GetAwaiter().GetResult();
 
+                var addressesToPublish = new Dictionary<string, string>();
+                var balanceDeltas = new Dictionary<string, Int64>();
+                foreach(string addr in addresses)
+                {
+                    balanceDeltas[addr] = Utils.CalculateBalanceDelta(newTransaction, addr, executor_.Chain, executor_.UseTestnetRules).Result;
+                    var addresstx = new
+                    {
+                        eventname = "addresstx",
+                        txid = txid,
+                        balanceDelta = balanceDeltas[addr]
+                    };
+                    addressesToPublish[addr] = JsonConvert.SerializeObject(addresstx);
+                }
+
                 var tx = new
                 {
                     eventname = "tx",
                     txid = txid,
                     valueOut = Utils.SatoshisToCoinUnits(newTransaction.TotalOutputValue),
-                    addresses = addresses.ToArray()
+                    addresses = addresses.ToArray(),
+                    balanceDeltas = balanceDeltas
                 };
 
                 var task = webSocketHandler_.PublishTransaction(JsonConvert.SerializeObject(tx));
                 task.Wait();
-
-                var addressesToPublish = new Dictionary<string, string>();
-                foreach(string addr in addresses)
-                {
-                    var addresstx = new
-                    {
-                        eventname = "addresstx",
-                        txid = txid,
-                        address = addr,
-                        balanceDelta = Utils.CalculateBalanceDelta(newTransaction, addr, executor_.Chain, executor_.UseTestnetRules).Result
-                    };
-                    addressesToPublish[addr] = JsonConvert.SerializeObject(addresstx);
-                }
-
                 task = webSocketHandler_.PublishTransactionAddresses(addressesToPublish);
                 task.Wait();
             }
