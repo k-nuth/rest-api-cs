@@ -57,10 +57,10 @@ namespace bitprim.insight
                 List<string> addresses = Utils.GetTransactionAddresses(executor_,newTransaction).GetAwaiter().GetResult();
 
                 var addressesToPublish = new Dictionary<string, string>();
-                var balanceDeltas = new Dictionary<string, Int64>();
+                var balanceDeltas = new Dictionary<string, decimal>();
                 foreach(string addr in addresses)
                 {
-                    balanceDeltas[addr] = Utils.CalculateBalanceDelta(newTransaction, addr, executor_.Chain, executor_.UseTestnetRules).Result;
+                    balanceDeltas[addr] = Utils.SatoshisToCoinUnits(Utils.CalculateBalanceDelta(newTransaction, addr, executor_.Chain, executor_.UseTestnetRules).Result);
                     var addresstx = new
                     {
                         eventname = "addresstx",
