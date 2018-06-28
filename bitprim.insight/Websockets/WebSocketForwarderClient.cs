@@ -84,7 +84,7 @@ namespace bitprim.insight.Websockets
                                 var addresses = ((JArray)obj["addresses"]).ToObject<List<string>>();
                                 var balanceDeltas = obj["balanceDeltas"].ToObject<Dictionary<string, Int64>>();
 
-                                var addressesToPublish = new List<Tuple<string, string>>();
+                                var addressesToPublish = new List<Tuple<string, string>>(addresses.Count);
                                 foreach(string addr in addresses)
                                 {
                                     var addresstx = new

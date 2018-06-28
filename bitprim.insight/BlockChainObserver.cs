@@ -57,7 +57,7 @@ namespace bitprim.insight
 
                 HashSet<string> addresses = Utils.GetTransactionAddresses(executor_,newTransaction).GetAwaiter().GetResult();
 
-                var addressesToPublish = new List<Tuple<string, string>>();
+                var addressesToPublish = new List<Tuple<string, string>>(addresses.Count);
                 var balanceDeltas = new Dictionary<string, decimal>();
                 foreach(string addr in addresses)
                 {
