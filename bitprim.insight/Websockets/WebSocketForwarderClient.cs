@@ -84,7 +84,7 @@ namespace bitprim.insight.Websockets
                                 var addresses = ((JArray)obj["addresses"]).ToObject<List<string>>();
                                 var balanceDeltas = obj["balanceDeltas"].ToObject<Dictionary<string, Int64>>();
 
-                                var addressesToPublish = new Dictionary<string, string>();
+                                var addressesToPublish = new List<Tuple<string, string>>();
                                 foreach(string addr in addresses)
                                 {
                                     var addresstx = new
@@ -93,7 +93,7 @@ namespace bitprim.insight.Websockets
                                         txid = txid,
                                         balanceDelta = balanceDeltas[addr]
                                     };
-                                    addressesToPublish[addr] = JsonConvert.SerializeObject(addresstx);
+                                    addressesToPublish.Add(new Tuple<string, string>(addr, JsonConvert.SerializeObject(addresstx)));
                                 }
 
                                 await webSocketHandler_.PublishTransactionAddresses(addressesToPublish);

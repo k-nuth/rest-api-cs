@@ -57,7 +57,7 @@ namespace bitprim.insight
 
                 HashSet<string> addresses = Utils.GetTransactionAddresses(executor_,newTransaction).GetAwaiter().GetResult();
 
-                var addressesToPublish = new Dictionary<string, string>();
+                var addressesToPublish = new List<Tuple<string, string>>();
                 var balanceDeltas = new Dictionary<string, decimal>();
                 foreach(string addr in addresses)
                 {
@@ -69,7 +69,7 @@ namespace bitprim.insight
                         txid = txid,
                         balanceDelta = addressBalanceDelta
                     };
-                    addressesToPublish[addr] = JsonConvert.SerializeObject(addresstx);
+                    addressesToPublish.Add(new Tuple<string, string>(addr, JsonConvert.SerializeObject(addresstx)));
                 }
 
                 var tx = new
