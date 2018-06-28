@@ -9,57 +9,6 @@ namespace bitprim.insight
 {
     internal static class Utils
     {
-        private static async Task<List<string>> GetAddressFromInput(Executor executor, Transaction tx)
-        {
-            var ret = new List<string>();
-
-            if (tx.IsCoinbase)
-                return ret;
-
-            foreach (Input input in tx.Inputs)
-            {
-                OutputPoint previousOutput = input.PreviousOutput;
-
-                using(DisposableApiCallResult<GetTxDataResult> getTxResult = await  executor.Chain.FetchTransactionAsync(previousOutput.Hash, false))
-                {
-                    Utils.CheckBitprimApiErrorCode(getTxResult.ErrorCode, "FetchTransactionAsync(" + Binary.ByteArrayToHexString(previousOutput.Hash) + ") failed, check errog log");
-                
-                    Output output = getTxResult.Result.Tx.Outputs[previousOutput.Index];
-                    
-                    PaymentAddress outputAddress = output.PaymentAddress(executor.UseTestnetRules);
-                    if(outputAddress.IsValid)
-                    {
-                        ret.Add(outputAddress.Encoded);
-                    }
-                }
-            }
-
-            return ret;
-        }
-
-        private static List<string> GetAddressFromOutput(Executor executor, Transaction tx)
-        {
-            var ret = new List<string>();
-            foreach (Output output in tx.Outputs)
-            { 
-                PaymentAddress outputAddress = output.PaymentAddress(executor.UseTestnetRules);
-                if(outputAddress.IsValid)
-                {
-                    ret.Add(outputAddress.Encoded);
-                }
-            }
-
-            return ret;
-        }
-
-        public static async Task<List<string>> GetTransactionAddresses(Executor executor,Transaction tx)
-        {
-            var ret = new List<string>();
-            ret.AddRange(await GetAddressFromInput(executor,tx));
-            ret.AddRange(GetAddressFromOutput(executor,tx));
-            return ret;
-        }
-
         public static async Task<Int64> CalculateBalanceDelta(Transaction tx, string address, Chain chain, bool useTestnetRules)
         {
             using(var paymentAddress = new PaymentAddress(address))
@@ -70,30 +19,12 @@ namespace bitprim.insight
             }
         }
 
-        public static async Task<UInt64> SumAddressInputs(Transaction tx, PaymentAddress address, Chain chain, bool useTestnetRules)
+        public static async Task<HashSet<string>> GetTransactionAddresses(Executor executor,Transaction tx)
         {
-            UInt64 inputSum = 0;
-            foreach(Input input in tx.Inputs)
-            {
-                if(input.PreviousOutput == null)
-                {
-                    continue;
-                }
-                using(var getTxResult = await chain.FetchTransactionAsync(input.PreviousOutput.Hash, false))
-                {
-                    if(getTxResult.ErrorCode == ErrorCode.NotFound)
-                    {
-                        continue;
-                    }
-                    CheckBitprimApiErrorCode(getTxResult.ErrorCode, "FetchTransactionAsync(" + Binary.ByteArrayToHexString(input.PreviousOutput.Hash) + ") failed, check error log");
-                    Output referencedOutput = getTxResult.Result.Tx.Outputs[input.PreviousOutput.Index];
-                    if(referencedOutput.PaymentAddress(useTestnetRules).Encoded == address.Encoded)
-                    {
-                        inputSum += referencedOutput.Value;
-                    }
-                }
-            }
-            return inputSum;
+            var ret = new HashSet<string>();
+            ret.UnionWith(await GetAddressFromInput(executor,tx));
+            ret.UnionWith(GetAddressFromOutput(executor,tx));
+            return ret;
         }
 
         public static decimal SatoshisToCoinUnits(Int64 satoshis)
@@ -130,19 +61,6 @@ namespace bitprim.insight
             return Convert.ToString(number, 16);
         }
 
-        public static UInt64 SumAddressOutputs(Transaction tx, PaymentAddress address, bool useTestnetRules)
-        {
-            UInt64 outputSum = 0;
-            foreach(Output output in tx.Outputs)
-            {
-                if(output.PaymentAddress(useTestnetRules).Encoded == address.Encoded)
-                {
-                    outputSum += output.Value;
-                }
-            }
-            return outputSum;
-        }
-
         public static void CheckBitprimApiErrorCode(ErrorCode errorCode, string errorMsg)
         {
             if(errorCode != ErrorCode.Success)
@@ -157,6 +75,90 @@ namespace bitprim.insight
             {
                 throw new HttpStatusCodeException(HttpStatusCode.InternalServerError,"Node is still synchronizing; API cannot be used yet");
             }
+        }
+
+        private static async Task<HashSet<string>> GetAddressFromInput(Executor executor, Transaction tx)
+        {
+            var ret = new HashSet<string>();
+
+            if (tx.IsCoinbase)
+            {
+                return ret;
+            }
+
+            foreach (Input input in tx.Inputs)
+            {
+                OutputPoint previousOutput = input.PreviousOutput;
+
+                using(DisposableApiCallResult<GetTxDataResult> getTxResult = await executor.Chain.FetchTransactionAsync(previousOutput.Hash, false))
+                {
+                    Utils.CheckBitprimApiErrorCode(getTxResult.ErrorCode, "FetchTransactionAsync(" + Binary.ByteArrayToHexString(previousOutput.Hash) + ") failed, check errog log");
+                
+                    Output output = getTxResult.Result.Tx.Outputs[previousOutput.Index];
+                    
+                    PaymentAddress outputAddress = output.PaymentAddress(executor.UseTestnetRules);
+                    if(outputAddress.IsValid)
+                    {
+                        ret.Add(outputAddress.Encoded);
+                    }
+                }
+            }
+
+            return ret;
+        }
+
+        private static async Task<UInt64> SumAddressInputs(Transaction tx, PaymentAddress address, Chain chain, bool useTestnetRules)
+        {
+            UInt64 inputSum = 0;
+            foreach(Input input in tx.Inputs)
+            {
+                if(input.PreviousOutput == null)
+                {
+                    continue;
+                }
+                using(var getTxResult = await chain.FetchTransactionAsync(input.PreviousOutput.Hash, false))
+                {
+                    if(getTxResult.ErrorCode == ErrorCode.NotFound)
+                    {
+                        continue;
+                    }
+                    CheckBitprimApiErrorCode(getTxResult.ErrorCode, "FetchTransactionAsync(" + Binary.ByteArrayToHexString(input.PreviousOutput.Hash) + ") failed, check error log");
+                    Output referencedOutput = getTxResult.Result.Tx.Outputs[input.PreviousOutput.Index];
+                    if(referencedOutput.PaymentAddress(useTestnetRules).Encoded == address.Encoded)
+                    {
+                        inputSum += referencedOutput.Value;
+                    }
+                }
+            }
+            return inputSum;
+        }
+
+        private static HashSet<string> GetAddressFromOutput(Executor executor, Transaction tx)
+        {
+            var ret = new HashSet<string>();
+            foreach (Output output in tx.Outputs)
+            { 
+                PaymentAddress outputAddress = output.PaymentAddress(executor.UseTestnetRules);
+                if(outputAddress.IsValid)
+                {
+                    ret.Add(outputAddress.Encoded);
+                }
+            }
+
+            return ret;
+        }
+
+        private static UInt64 SumAddressOutputs(Transaction tx, PaymentAddress address, bool useTestnetRules)
+        {
+            UInt64 outputSum = 0;
+            foreach(Output output in tx.Outputs)
+            {
+                if(output.PaymentAddress(useTestnetRules).Encoded == address.Encoded)
+                {
+                    outputSum += output.Value;
+                }
+            }
+            return outputSum;
         }
     
     }

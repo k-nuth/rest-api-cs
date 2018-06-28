@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using bitprim.insight.Websockets;
 using Bitprim;
 using Newtonsoft.Json;
@@ -54,7 +55,7 @@ namespace bitprim.insight
             {
                 var txid = Binary.ByteArrayToHexString(newTransaction.Hash);
 
-                List<string> addresses = Utils.GetTransactionAddresses(executor_,newTransaction).GetAwaiter().GetResult();
+                HashSet<string> addresses = Utils.GetTransactionAddresses(executor_,newTransaction).GetAwaiter().GetResult();
 
                 var addressesToPublish = new Dictionary<string, string>();
                 var balanceDeltas = new Dictionary<string, decimal>();
