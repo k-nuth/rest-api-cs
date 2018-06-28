@@ -81,18 +81,23 @@ namespace bitprim.insight.Websockets
                                 await webSocketHandler_.PublishTransaction(content);
 
                                 var txid = obj["txid"].ToString();
-                                var addreses = ((JArray)obj["addresses"]).ToObject<List<string>>();
-                                
-                                var addresstx = new
-                                {
-                                    eventname = "addresstx",
-                                    txid = txid
-                                };
-                                
-                                await webSocketHandler_.PublishTransactionAddress(JsonConvert.SerializeObject(addresstx),addreses);
-                               
-                                break;
+                                var addresses = ((JArray)obj["addresses"]).ToObject<List<string>>();
+                                var balanceDeltas = obj["balanceDeltas"].ToObject<Dictionary<string, Int64>>();
 
+                                var addressesToPublish = new List<Tuple<string, string>>(addresses.Count);
+                                foreach(string addr in addresses)
+                                {
+                                    var addresstx = new
+                                    {
+                                        eventname = "addresstx",
+                                        txid = txid,
+                                        balanceDelta = balanceDeltas[addr]
+                                    };
+                                    addressesToPublish.Add(new Tuple<string, string>(addr, JsonConvert.SerializeObject(addresstx)));
+                                }
+
+                                await webSocketHandler_.PublishTransactionAddresses(addressesToPublish);
+                                break;
                         }
                     }
                 }
