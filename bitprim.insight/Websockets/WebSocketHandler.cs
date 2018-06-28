@@ -151,16 +151,11 @@ namespace bitprim.insight.Websockets
             await Publish(TXS_CHANNEL_NAME, tx);
         }
 
-        public async Task PublishTransactionAddress(string address, string addressMessage)
-        {
-            await Publish(address, addressMessage);
-        }
-
         public async Task PublishTransactionAddresses(List<Tuple<string, string>> addresses)
         {
             foreach (Tuple<string, string> address in addresses)
             {
-                await PublishTransactionAddress(address.Item1, address.Item2);
+                await Publish(address.Item1, address.Item2);
             }
         }
 
