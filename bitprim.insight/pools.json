@@ -22,8 +22,8 @@
     ]
   },
   {
-    "poolName": "AntMiner",
-    "url": "https://bitmaintech.com/",
+    "poolName": "AntPool",
+    "url": "https://www.antpool.com/",
     "searchStrings": [
       "AntPool"
     ]
@@ -37,8 +37,9 @@
   },
   {
     "poolName": "Bitfury",
-    "url": "http://bitfury.org/",
+    "url": "https://bitfury.com/",
     "searchStrings": [
+      "/Bitfury/",
       "2av0id51pct"
     ]
   },
@@ -72,12 +73,10 @@
     ]
   },
   {
-    "poolName": "Discus Fish",
+    "poolName": "F2Pool",
     "url": "http://f2pool.com/",
     "searchStrings": [
-      "七彩神仙鱼",
-      "Made in China",
-      "Mined by user"
+      "🐟"
     ]
   },
   {
@@ -248,13 +247,6 @@
     ]
   },
   {
-    "poolName": "Bitcoin.com",
-    "url": "https://www.bitcoin.com/",
-    "searchStrings": [
-      "/pool.bitcoin.com/"
-    ]
-  },
-  {
     "poolName": "BTC.com",
     "url": "https://pool.btc.com/",
     "searchStrings": [
@@ -269,11 +261,70 @@
     ]
   },
   {
-    "poolName": "BTC.top",
+    "poolName": "BTC.TOP",
     "url": "http://www.btc.top/",
     "searchStrings": [
       "/E2M & BTC.TOP/",
 	"/BTC.TOP/"
     ]
-  }
+  },
+  {
+    "poolName": "SBI Crypto",
+    "url": "http://www.sbigroup.co.jp",
+    "searchStrings": [
+      "/SBI Crypto/",
+	"SBI Crypto"
+    ]
+  },
+  {
+    "poolName": "Rawpool.com",
+    "url": "https://www.rawpool.com/",
+    "searchStrings": [
+      "/Rawpool.com/",
+	"Rawpool.com"
+    ]
+  }, 
+  {
+    "poolName": "Huobi",
+    "url": "https://www.huobipro.com/",
+    "searchStrings": [
+      "/Huobi/",
+	"Huobi"
+    ]
+  },
+  {
+    "poolName": "Bitcoin.com",
+    "url": "https://www.bitcoin.com/",
+    "searchStrings": [
+      "/pool.bitcoin.com/"
+    ]
+  },
+  {
+    "poolName": "Dpool",
+    "url": "https://aura.dpool.io/",
+    "searchStrings": [
+      "/DPOOL.TOP/"
+    ]
+  },
+  {
+    "poolName": "BW pool",
+    "url": "https://bw.jua.com/pool/i",
+    "searchStrings": [
+      "/BW Pool/"
+    ]
+  },
+  {
+    "poolName": "58coin",
+    "url": "https://www.58coin.com/",
+    "searchStrings": [
+      "/58coin.com/"
+    ]
+  }, 
+   {
+    "poolName": "Canoe",
+    "url": "https://www.canoepool.com/",
+    "searchStrings": [
+      "/canoepool/"
+    ]
+  }  
 ]
