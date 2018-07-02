@@ -28,3 +28,4 @@ bitprim.insight.tests/bin/
 bitprim.insight.tests/obj/
 /tools/*
 !tools/packages.config
+.vscode/

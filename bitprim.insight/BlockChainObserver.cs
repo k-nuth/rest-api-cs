@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using bitprim.insight.Websockets;
 using Bitprim;
 using Newtonsoft.Json;
@@ -54,26 +55,35 @@ namespace bitprim.insight
             {
                 var txid = Binary.ByteArrayToHexString(newTransaction.Hash);
 
-                List<string> addresses = Utils.GetTransactionAddresses(executor_,newTransaction).GetAwaiter().GetResult();
+                HashSet<string> addresses = Utils.GetTransactionAddresses(executor_,newTransaction).GetAwaiter().GetResult();
+
+                var addressesToPublish = new List<Tuple<string, string>>(addresses.Count);
+                var balanceDeltas = new Dictionary<string, decimal>();
+                foreach(string addr in addresses)
+                {
+                    var addressBalanceDelta = Utils.SatoshisToCoinUnits(Utils.CalculateBalanceDelta(newTransaction, addr, executor_.Chain, executor_.UseTestnetRules).Result);
+                    balanceDeltas[addr] = addressBalanceDelta;
+                    var addresstx = new
+                    {
+                        eventname = "addresstx",
+                        txid = txid,
+                        balanceDelta = addressBalanceDelta
+                    };
+                    addressesToPublish.Add(new Tuple<string, string>(addr, JsonConvert.SerializeObject(addresstx)));
+                }
 
                 var tx = new
                 {
                     eventname = "tx",
                     txid = txid,
                     valueOut = Utils.SatoshisToCoinUnits(newTransaction.TotalOutputValue),
-                    addresses = addresses.ToArray()
+                    addresses = addresses.ToArray(),
+                    balanceDeltas = balanceDeltas
                 };
 
                 var task = webSocketHandler_.PublishTransaction(JsonConvert.SerializeObject(tx));
                 task.Wait();
-
-                var addresstx = new
-                {
-                    eventname = "addresstx",
-                    txid = txid
-                };
-
-                task = webSocketHandler_.PublishTransactionAddress(JsonConvert.SerializeObject(addresstx),addresses);
+                task = webSocketHandler_.PublishTransactionAddresses(addressesToPublish);
                 task.Wait();
             }
             return true;
