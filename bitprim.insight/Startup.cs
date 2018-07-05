@@ -61,7 +61,8 @@ namespace bitprim.insight
             // Register the Swagger generator, defining one or more Swagger documents  
             services.AddSwaggerGen(c =>  
             {  
-                c.SwaggerDoc("v1", new Info { Title = "bitprim", Version = "v1" });  
+                c.SwaggerDoc("v1", new Info { Title = "bitprim", Version = "v1" });
+                c.IncludeXmlComments(string.Format(@"{0}/bitprim.insight.xml", System.AppDomain.CurrentDomain.BaseDirectory));
             });
 
             var serviceProvider = services.BuildServiceProvider();
