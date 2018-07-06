@@ -41,10 +41,10 @@ namespace bitprim.insight.Controllers
         /// <param name="from"> Allows selecting a subrange of transaction ids from the full list; starts in zero (0). </param>
         /// <param name="to"> Allows selecting a subrange of transactions from the full list; max value is (txCount - 1). </param>
         /// <returns> Confirmed balance, unconfirmed balance and transaction id list (if requested). </returns>
-        [ResponseCache(CacheProfileName = Constants.Cache.SHORT_CACHE_PROFILE_NAME)]
         [HttpGet("addr/{paymentAddress}")]
+        [ResponseCache(CacheProfileName = Constants.Cache.SHORT_CACHE_PROFILE_NAME)]
         [SwaggerOperation("GetAddressHistory")]
-        [SwaggerResponse(int)HttpStatusCode.OK, typeof(GetAddressHistoryResponse))]
+        [SwaggerResponse((int)System.Net.HttpStatusCode.OK, typeof(GetAddressHistoryResponse))]
         public async Task<ActionResult> GetAddressHistory(string paymentAddress, int noTxList = 0, int? from = null, int? to = null)
         {
             if(!Validations.IsValidPaymentAddress(paymentAddress))
@@ -68,29 +68,15 @@ namespace bitprim.insight.Controllers
             historyJson.unconfirmedBalance = Utils.SatoshisToCoinUnits(unconfirmedSummary.Item2);
             historyJson.unconfirmedBalanceSat = unconfirmedSummary.Item2;
             historyJson.unconfirmedTxAppearances = unconfirmedSummary.Item1;
-            
             if( noTxList == 0 )
             {
-                if (from == null && to == null)
+                Tuple<string[], string> addressTxs = GetAddressTransactions(balance.Transactions, from, to);
+                if(addressTxs.Item1 == null)
                 {
-                    from = 0;
-                    to = balance.Transactions.Count;
+                    return StatusCode((int)System.Net.HttpStatusCode.BadRequest, addressTxs.Item2);
                 }
-                else
-                {
-                    from = Math.Max(from ?? 0, 0); 
-                    to = Math.Min(to ?? balance.Transactions.Count, balance.Transactions.Count);
-                
-                    var validationResult = ValidateParameters(from.Value, to.Value);
-                    if( ! validationResult.Item1 )
-                    {
-                        return StatusCode((int)System.Net.HttpStatusCode.BadRequest, validationResult.Item2);
-                    }
-                }
-                
-                historyJson.transactions = balance.Transactions.GetRange(from.Value, to.Value - from.Value).ToArray();
+                historyJson.transactions = addressTxs.Item1;
             }
-            
             return Json(historyJson);
         }
 
@@ -307,6 +293,26 @@ namespace bitprim.insight.Controllers
             Utils.CheckIfChainIsFresh(chain_, config_.AcceptStaleRequests);
             var balance = await GetBalance(paymentAddress);
             return Json(balance.GetType().GetProperty(propertyName).GetValue(balance, null));
+        }
+
+        private Tuple<string[], string> GetAddressTransactions(OrderedSet<string> transactionIds, int? from = null, int? to = null) {
+            if (from == null && to == null)
+            {
+                from = 0;
+                to = transactionIds.Count;
+            }
+            else
+            {
+                from = Math.Max(from ?? 0, 0); 
+                to = Math.Min(to ?? transactionIds.Count, transactionIds.Count);
+            
+                var validationResult = ValidateParameters(from.Value, to.Value);
+                if( ! validationResult.Item1 )
+                {
+                    return new Tuple<string[], string>(null, validationResult.Item2);
+                }
+            }
+            return new Tuple<string[], string>(transactionIds.GetRange(from.Value, to.Value - from.Value).ToArray(), "");
         }
 
         private Tuple<bool, string> ValidateParameters(int from, int to)
