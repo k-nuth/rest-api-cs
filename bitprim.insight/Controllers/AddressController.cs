@@ -4,6 +4,7 @@ using bitprim.insight.DTOs;
 using Bitprim;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
+using Swashbuckle.AspNetCore.SwaggerGen;
 using System.Dynamic;
 using System.Threading.Tasks;
 
@@ -31,9 +32,19 @@ namespace bitprim.insight.Controllers
             config_ = config.Value;
         }
 
-        // GET: addr/{paymentAddress}
+        /// <summary>
+        /// Given an address, get current confirmed and unconfirmed balance, and optionally, a list of all
+        /// transaction ids involved in the address.
+        /// </summary>
+        /// <param name="paymentAddress"> The address of interest. For BCH, it can be in cashaddr format. </param>
+        /// <param name="noTxList"> If 1, include transaction id list; otherwise, do not include it. </param>
+        /// <param name="from"> Allows selecting a subrange of transaction ids from the full list; starts in zero (0). </param>
+        /// <param name="to"> Allows selecting a subrange of transactions from the full list; max value is (txCount - 1). </param>
+        /// <returns> Confirmed balance, unconfirmed balance and transaction id list (if requested). </returns>
         [ResponseCache(CacheProfileName = Constants.Cache.SHORT_CACHE_PROFILE_NAME)]
         [HttpGet("addr/{paymentAddress}")]
+        [SwaggerOperation("GetAddressHistory")]
+        [SwaggerResponse(int)HttpStatusCode.OK, typeof(GetAddressHistoryResponse))]
         public async Task<ActionResult> GetAddressHistory(string paymentAddress, int noTxList = 0, int? from = null, int? to = null)
         {
             if(!Validations.IsValidPaymentAddress(paymentAddress))
@@ -44,7 +55,7 @@ namespace bitprim.insight.Controllers
             Utils.CheckIfChainIsFresh(chain_, config_.AcceptStaleRequests);
             var balance = await GetBalance(paymentAddress);
             
-            dynamic historyJson = new ExpandoObject();
+            var historyJson = new GetAddressHistoryResponse();
             historyJson.addrStr = paymentAddress;
             historyJson.balance = Utils.SatoshisToCoinUnits(balance.Balance);
             historyJson.balanceSat = balance.Balance;
