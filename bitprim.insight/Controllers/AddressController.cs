@@ -32,9 +32,14 @@ namespace bitprim.insight.Controllers
             config_ = config.Value;
         }
 
-        // GET: addr/{paymentAddress}/balance
-        [ResponseCache(CacheProfileName = Constants.Cache.SHORT_CACHE_PROFILE_NAME)]
+        /// <summary>
+        /// Given an address, get current confirmed balance in coin units.
+        /// </summary>
+        /// <param name="paymentAddress"> The address of interest. For BCH, it can be in cashaddr format. </param>
+        /// <returns> Confirmed balance, in coin units. </returns>
         [HttpGet("addr/{paymentAddress}/balance")]
+        [ResponseCache(CacheProfileName = Constants.Cache.SHORT_CACHE_PROFILE_NAME)]
+        [SwaggerOperation("GetAddressBalance")]
         public async Task<ActionResult> GetAddressBalance(string paymentAddress)
         {
             return await GetBalanceProperty(paymentAddress, "Balance");
@@ -88,36 +93,58 @@ namespace bitprim.insight.Controllers
             return Json(historyJson);
         }
 
-        // GET: addr/{paymentAddress}/totalReceived
-        [ResponseCache(CacheProfileName = Constants.Cache.SHORT_CACHE_PROFILE_NAME)]
+        /// <summary>
+        /// Given an address, get total received amount in coin units.
+        /// </summary>
+        /// <param name="paymentAddress"> The address of interest. For BCH, it can be in cashaddr format. </param>
+        /// <returns> Total received amount, in coin units. </returns>
         [HttpGet("addr/{paymentAddress}/totalReceived")]
+        [ResponseCache(CacheProfileName = Constants.Cache.SHORT_CACHE_PROFILE_NAME)]
+        [SwaggerOperation("GetTotalReceived")]
         public async Task<ActionResult> GetTotalReceived(string paymentAddress)
         {
             return await GetBalanceProperty(paymentAddress, "Received");
         }
 
-        // GET: addr/{paymentAddress}/totalSent
-        [ResponseCache(CacheProfileName = Constants.Cache.SHORT_CACHE_PROFILE_NAME)]
+        /// <summary>
+        /// Given an address, get total sent amount in coin units.
+        /// </summary>
+        /// <param name="paymentAddress"> The address of interest. For BCH, it can be in cashaddr format. </param>
+        /// <returns> Total sent amount, in coin units. </returns>
         [HttpGet("addr/{paymentAddress}/totalSent")]
+        [ResponseCache(CacheProfileName = Constants.Cache.SHORT_CACHE_PROFILE_NAME)]
+        [SwaggerOperation("GetTotalSent")]
         public async Task<ActionResult> GetTotalSent(string paymentAddress)
         {
             return await GetBalanceProperty(paymentAddress, "Sent");
         }
 
-        // GET: addr/{paymentAddress}/unconfirmedBalance
-        [ResponseCache(CacheProfileName = Constants.Cache.SHORT_CACHE_PROFILE_NAME)]
+        /// <summary>
+        /// Given an address, get unconfirmed balance in coin units.
+        /// </summary>
+        /// <param name="paymentAddress"> The address of interest. For BCH, it can be in cashaddr format. </param>
+        /// <returns> Unconfirmed balance, in coin units. </returns>
         [HttpGet("addr/{paymentAddress}/unconfirmedBalance")]
+        [ResponseCache(CacheProfileName = Constants.Cache.SHORT_CACHE_PROFILE_NAME)]
+        [SwaggerOperation("GetUnconfirmedBalance")]
         public async Task<ActionResult> GetUnconfirmedBalance(string paymentAddress)
         {
             Utils.CheckIfChainIsFresh(chain_, config_.AcceptStaleRequests);
-            return Json(0); //We don't handle unconfirmed transactions
+            return Json(0); // TODO Implement (see GetAddressHistory)
         }
 
-        [ResponseCache(CacheProfileName = Constants.Cache.SHORT_CACHE_PROFILE_NAME)]
+        /// <summary>
+        /// Given a list of addresses, get their combined unspent outputs.
+        /// </summary>
+        /// <param name="paymentAddresses"> Comma separated list of addresses. For BCH, cashaddr format is accepted. </param>
+        /// <returns> List of all utxos for address1, followed by all utxos for address2, and so on. </returns>
         [HttpGet("addrs/{paymentAddresses}/utxo")]
+        [ResponseCache(CacheProfileName = Constants.Cache.SHORT_CACHE_PROFILE_NAME)]
+        [SwaggerOperation("GetUtxoForMultipleAddresses")]
+        [SwaggerResponse((int)System.Net.HttpStatusCode.OK, typeof(Utxo[]))]
         public async Task<ActionResult> GetUtxoForMultipleAddresses(string paymentAddresses)
         {
-            var utxo = new List<object>();
+            var utxo = new List<Utxo>();
             foreach(var address in paymentAddresses.Split(","))
             {
                 utxo.AddRange(await GetUtxo(address));
@@ -125,16 +152,29 @@ namespace bitprim.insight.Controllers
             return Json(utxo.ToArray());
         }
 
-        [ResponseCache(CacheProfileName = Constants.Cache.SHORT_CACHE_PROFILE_NAME)]
+        /// <summary>
+        /// Given a list of addresses, get their combined unspent outputs.
+        /// </summary>
+        /// <param name="requestParams"> In params.addrs, a comma separated list of addresses. For BCH, cashaddr format is accepted. </param>
+        /// <returns> List of all utxos for address1, followed by all utxos for address2, and so on. </returns>
         [HttpPost("addrs/utxo")]
+        [ResponseCache(CacheProfileName = Constants.Cache.SHORT_CACHE_PROFILE_NAME)]
+        [SwaggerOperation("GetUtxoForMultipleAddressesPost")]
+        [SwaggerResponse((int)System.Net.HttpStatusCode.OK, typeof(Utxo[]))]
         public async Task<ActionResult> GetUtxoForMultipleAddressesPost([FromBody]GetUtxosForMultipleAddressesRequest requestParams)
         {
             return await GetUtxoForMultipleAddresses(requestParams.addrs);
         }
 
-        // GET: addr/{paymentAddress}/utxo
-        [ResponseCache(CacheProfileName = Constants.Cache.SHORT_CACHE_PROFILE_NAME)]
+        /// <summary>
+        /// Given an address, get all of its currently unspent outputs.
+        /// </summary>
+        /// <param name="paymentAddress"> The address of interest. For BCH, cashaddr format is accepted. </param>
+        /// <returns> A list of all utxos for the given address. </returns>
         [HttpGet("addr/{paymentAddress}/utxo")]
+        [ResponseCache(CacheProfileName = Constants.Cache.SHORT_CACHE_PROFILE_NAME)]
+        [SwaggerOperation("GetUtxoForSingleAddress")]
+        [SwaggerResponse((int)System.Net.HttpStatusCode.OK, typeof(Utxo[]))]
         public async Task<ActionResult> GetUtxoForSingleAddress(string paymentAddress)
         {
             var utxo = await GetUtxo(paymentAddress);
@@ -184,7 +224,7 @@ namespace bitprim.insight.Controllers
             }
         }
 
-        private async Task<List<object>> GetUtxo(string paymentAddress)
+        private async Task<List<Utxo>> GetUtxo(string paymentAddress)
         {
             Utils.CheckIfChainIsFresh(chain_, config_.AcceptStaleRequests);
 
@@ -195,7 +235,7 @@ namespace bitprim.insight.Controllers
                 
                 var history = getAddressHistoryResult.Result;
                 
-                var utxo = new List<dynamic>();
+                var utxo = new List<Utxo>();
                 
                 var getLastHeightResult = await chain_.FetchLastHeightAsync();
                 Utils.CheckBitprimApiErrorCode(getLastHeightResult.ErrorCode, "FetchLastHeightAsync failed, check error log");
@@ -216,7 +256,7 @@ namespace bitprim.insight.Controllers
                                 using(var getTxResult = await chain_.FetchTransactionAsync(compact.Point.Hash, true))
                                 {
                                     Utils.CheckBitprimApiErrorCode(getTxResult.ErrorCode, "FetchTransactionAsync (" + Binary.ByteArrayToHexString(outPoint.Hash)  + ") failed, check error log");
-                                    utxo.Add(UtxoToJSON(address, compact.Point, getTxResult.ErrorCode, getTxResult.Result.Tx, compact, topHeight));
+                                    utxo.Add(new Utxo(address, compact.Point, getTxResult.ErrorCode, getTxResult.Result.Tx, compact, topHeight));
                                 }
                             }
                         }                        
@@ -246,16 +286,16 @@ namespace bitprim.insight.Controllers
             }
         }
 
-        private List<object> GetUnconfirmedUtxo(PaymentAddress address)
+        private List<Utxo> GetUnconfirmedUtxo(PaymentAddress address)
         {
-            var unconfirmedUtxo = new List<object>();
+            var unconfirmedUtxo = new List<Utxo>();
             using(MempoolTransactionList unconfirmedTxs = chain_.GetMempoolTransactions(address, nodeExecutor_.UseTestnetRules))
             {
                 foreach(MempoolTransaction unconfirmedTx in unconfirmedTxs)
                 {
                     var satoshis = Int64.Parse(unconfirmedTx.Satoshis);
 
-                    unconfirmedUtxo.Add(new
+                    unconfirmedUtxo.Add(new Utxo
                     {
                         address = address.Encoded,
                         txid = unconfirmedTx.Hash,
@@ -271,30 +311,8 @@ namespace bitprim.insight.Controllers
             return unconfirmedUtxo;
         }
 
-        private static object UtxoToJSON(PaymentAddress paymentAddress, Point outputPoint, ErrorCode getTxEc, Transaction tx, HistoryCompact compact, UInt64 topHeight)
+        private static Tuple<string[], string> GetAddressTransactions(OrderedSet<string> transactionIds, int? from = null, int? to = null)
         {
-            return new
-            {
-                address = paymentAddress.Encoded,
-                txid = Binary.ByteArrayToHexString(outputPoint.Hash),
-                vout = outputPoint.Index,
-                scriptPubKey = getTxEc == ErrorCode.Success ? GetOutputScript(tx.Outputs[outputPoint.Index]) : null,
-                amount = Utils.SatoshisToCoinUnits(compact.ValueOrChecksum),
-                satoshis = compact.ValueOrChecksum,
-                height = compact.Height,
-                confirmations = topHeight - compact.Height + 1
-            };
-        }
-
-        private static string GetOutputScript(Output output)
-        {
-            var script = output.Script;
-            var scriptData = script.ToData(false);
-            Array.Reverse(scriptData, 0, scriptData.Length);
-            return Binary.ByteArrayToHexString(scriptData);
-        }
-
-        private static Tuple<string[], string> GetAddressTransactions(OrderedSet<string> transactionIds, int? from = null, int? to = null) {
             if (from == null && to == null)
             {
                 from = 0;
