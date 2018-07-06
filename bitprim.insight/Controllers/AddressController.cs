@@ -32,6 +32,14 @@ namespace bitprim.insight.Controllers
             config_ = config.Value;
         }
 
+        // GET: addr/{paymentAddress}/balance
+        [ResponseCache(CacheProfileName = Constants.Cache.SHORT_CACHE_PROFILE_NAME)]
+        [HttpGet("addr/{paymentAddress}/balance")]
+        public async Task<ActionResult> GetAddressBalance(string paymentAddress)
+        {
+            return await GetBalanceProperty(paymentAddress, "Balance");
+        }
+
         /// <summary>
         /// Given an address, get current confirmed and unconfirmed balance, and optionally, a list of all
         /// transaction ids involved in the address.
@@ -80,14 +88,6 @@ namespace bitprim.insight.Controllers
             return Json(historyJson);
         }
 
-        // GET: addr/{paymentAddress}/balance
-        [ResponseCache(CacheProfileName = Constants.Cache.SHORT_CACHE_PROFILE_NAME)]
-        [HttpGet("addr/{paymentAddress}/balance")]
-        public async Task<ActionResult> GetAddressBalance(string paymentAddress)
-        {
-            return await GetBalanceProperty(paymentAddress, "Balance");
-        }
-
         // GET: addr/{paymentAddress}/totalReceived
         [ResponseCache(CacheProfileName = Constants.Cache.SHORT_CACHE_PROFILE_NAME)]
         [HttpGet("addr/{paymentAddress}/totalReceived")]
@@ -107,19 +107,10 @@ namespace bitprim.insight.Controllers
         // GET: addr/{paymentAddress}/unconfirmedBalance
         [ResponseCache(CacheProfileName = Constants.Cache.SHORT_CACHE_PROFILE_NAME)]
         [HttpGet("addr/{paymentAddress}/unconfirmedBalance")]
-        public ActionResult GetUnconfirmedBalance(string paymentAddress)
+        public async Task<ActionResult> GetUnconfirmedBalance(string paymentAddress)
         {
             Utils.CheckIfChainIsFresh(chain_, config_.AcceptStaleRequests);
             return Json(0); //We don't handle unconfirmed transactions
-        }
-
-        // GET: addr/{paymentAddress}/utxo
-        [ResponseCache(CacheProfileName = Constants.Cache.SHORT_CACHE_PROFILE_NAME)]
-        [HttpGet("addr/{paymentAddress}/utxo")]
-        public async Task<ActionResult> GetUtxoForSingleAddress(string paymentAddress)
-        {
-            var utxo = await GetUtxo(paymentAddress);
-            return Json(utxo.ToArray());
         }
 
         [ResponseCache(CacheProfileName = Constants.Cache.SHORT_CACHE_PROFILE_NAME)]
@@ -139,6 +130,58 @@ namespace bitprim.insight.Controllers
         public async Task<ActionResult> GetUtxoForMultipleAddressesPost([FromBody]GetUtxosForMultipleAddressesRequest requestParams)
         {
             return await GetUtxoForMultipleAddresses(requestParams.addrs);
+        }
+
+        // GET: addr/{paymentAddress}/utxo
+        [ResponseCache(CacheProfileName = Constants.Cache.SHORT_CACHE_PROFILE_NAME)]
+        [HttpGet("addr/{paymentAddress}/utxo")]
+        public async Task<ActionResult> GetUtxoForSingleAddress(string paymentAddress)
+        {
+            var utxo = await GetUtxo(paymentAddress);
+            return Json(utxo.ToArray());
+        }
+
+        private async Task<ActionResult> GetBalanceProperty(string paymentAddress, string propertyName)
+        {
+            Utils.CheckIfChainIsFresh(chain_, config_.AcceptStaleRequests);
+            var balance = await GetBalance(paymentAddress);
+            return Json(balance.GetType().GetProperty(propertyName).GetValue(balance, null));
+        }
+
+        private async Task<AddressBalance> GetBalance(string paymentAddress)
+        {
+            using (var address = new PaymentAddress(paymentAddress))
+            using (var getAddressHistoryResult = await chain_.FetchHistoryAsync(address, UInt64.MaxValue, 0))
+            {
+                Utils.CheckBitprimApiErrorCode(getAddressHistoryResult.ErrorCode, "FetchHistoryAsync(" + paymentAddress + ") failed, check error log.");
+                
+                var history = getAddressHistoryResult.Result;
+                
+                UInt64 received = 0;
+                UInt64 addressBalance = 0;
+                var txs = new OrderedSet<string>();
+
+                foreach(HistoryCompact compact in history)
+                {
+                    if(compact.PointKind == PointKind.Output)
+                    {
+                        received += compact.ValueOrChecksum;
+
+                        using (var outPoint = new OutputPoint(compact.Point.Hash, compact.Point.Index))
+                        {
+                            var getSpendResult = await chain_.FetchSpendAsync(outPoint);
+                            if(getSpendResult.ErrorCode == ErrorCode.NotFound)
+                            {
+                                addressBalance += compact.ValueOrChecksum;
+                            }
+                        }
+                    }
+                    txs.Add(Binary.ByteArrayToHexString(compact.Point.Hash));
+                }
+
+                UInt64 totalSent = received - addressBalance;
+                return new AddressBalance{ Balance = addressBalance, Received = received, Sent = totalSent, Transactions = txs };
+            }
         }
 
         private async Task<List<object>> GetUtxo(string paymentAddress)
@@ -251,51 +294,7 @@ namespace bitprim.insight.Controllers
             return Binary.ByteArrayToHexString(scriptData);
         }
 
-
-        private async Task<AddressBalance> GetBalance(string paymentAddress)
-        {
-            using (var address = new PaymentAddress(paymentAddress))
-            using (var getAddressHistoryResult = await chain_.FetchHistoryAsync(address, UInt64.MaxValue, 0))
-            {
-                Utils.CheckBitprimApiErrorCode(getAddressHistoryResult.ErrorCode, "FetchHistoryAsync(" + paymentAddress + ") failed, check error log.");
-                
-                var history = getAddressHistoryResult.Result;
-                
-                UInt64 received = 0;
-                UInt64 addressBalance = 0;
-                var txs = new OrderedSet<string>();
-
-                foreach(HistoryCompact compact in history)
-                {
-                    if(compact.PointKind == PointKind.Output)
-                    {
-                        received += compact.ValueOrChecksum;
-
-                        using (var outPoint = new OutputPoint(compact.Point.Hash, compact.Point.Index))
-                        {
-                            var getSpendResult = await chain_.FetchSpendAsync(outPoint);
-                            if(getSpendResult.ErrorCode == ErrorCode.NotFound)
-                            {
-                                addressBalance += compact.ValueOrChecksum;
-                            }
-                        }
-                    }
-                    txs.Add(Binary.ByteArrayToHexString(compact.Point.Hash));
-                }
-
-                UInt64 totalSent = received - addressBalance;
-                return new AddressBalance{ Balance = addressBalance, Received = received, Sent = totalSent, Transactions = txs };
-            }
-        }
-
-        private async Task<ActionResult> GetBalanceProperty(string paymentAddress, string propertyName)
-        {
-            Utils.CheckIfChainIsFresh(chain_, config_.AcceptStaleRequests);
-            var balance = await GetBalance(paymentAddress);
-            return Json(balance.GetType().GetProperty(propertyName).GetValue(balance, null));
-        }
-
-        private Tuple<string[], string> GetAddressTransactions(OrderedSet<string> transactionIds, int? from = null, int? to = null) {
+        private static Tuple<string[], string> GetAddressTransactions(OrderedSet<string> transactionIds, int? from = null, int? to = null) {
             if (from == null && to == null)
             {
                 from = 0;
@@ -315,7 +314,7 @@ namespace bitprim.insight.Controllers
             return new Tuple<string[], string>(transactionIds.GetRange(from.Value, to.Value - from.Value).ToArray(), "");
         }
 
-        private Tuple<bool, string> ValidateParameters(int from, int to)
+        private static Tuple<bool, string> ValidateParameters(int from, int to)
         {
             if(from >= to)
             {
