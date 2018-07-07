@@ -115,20 +115,6 @@ namespace bitprim.insight.Controllers
             return Json(await DoGetSyncStatus());
         }
 
-        private async Task<ActionResult> GetDifficulty()
-        {
-            using (var getLastBlockResult = await GetLastBlock())
-            {
-                return Json
-                (
-                    new
-                    {
-                        difficulty = Utils.BitsToDifficulty(getLastBlockResult.Result.BlockData.Header.Bits)
-                    }
-                );
-            }
-        }
-
         private async Task<ActionResult> GetBestBlockHash()
         {
             using (var getLastBlockResult = await GetLastBlock())
@@ -143,60 +129,18 @@ namespace bitprim.insight.Controllers
             }
         }
 
-        private async Task<ActionResult> GetLastBlockHash()
+        private async Task<ActionResult> GetDifficulty()
         {
             using (var getLastBlockResult = await GetLastBlock())
             {
-                var hashHexString = Binary.ByteArrayToHexString(getLastBlockResult.Result.BlockData.Hash);
                 return Json
                 (
                     new
                     {
-                        syncTipHash = hashHexString,
-                        lastblockhash = hashHexString
+                        difficulty = Utils.BitsToDifficulty(getLastBlockResult.Result.BlockData.Header.Bits)
                     }
                 );
             }
-        }
-
-        private string GetNetworkType(NetworkType networkType)
-        {
-            switch (networkType)
-            {
-                case NetworkType.Mainnet:
-                    return "livenet";
-                default:
-                    return networkType.ToString().ToLower();
-
-            }
-        }
-
-        private async Task<object> DoGetSyncStatus()
-        {
-            var getLastHeightResult = await chain_.FetchLastHeightAsync();
-            Utils.CheckBitprimApiErrorCode(getLastHeightResult.ErrorCode, "GetLastHeight() failed");
-
-            var currentHeight = getLastHeightResult.Result;
-            UInt64? blockChainHeight = await GetCurrentBlockChainHeight();
-            dynamic syncStatus = new ExpandoObject();
-            if (blockChainHeight.HasValue)
-            {
-                var synced = currentHeight >= blockChainHeight;
-                syncStatus.status = synced ? "finished" : "synchronizing";
-                syncStatus.blockChainHeight = blockChainHeight;
-                syncStatus.syncPercentage = Math.Min((double)currentHeight / (double)blockChainHeight * 100.0, 100).ToString("N2");
-                syncStatus.error = null;
-            }
-            else
-            {
-                syncStatus.status = "unknown";
-                syncStatus.blockChainHeight = "unknown";
-                syncStatus.syncPercentage = "unknown";
-                syncStatus.error = "Could not determine max blockchain height; check log";
-            }
-            syncStatus.height = currentHeight;
-            syncStatus.type = config_.NodeType;
-            return syncStatus;
         }
 
         private async Task<ActionResult> GetInfo()
@@ -223,6 +167,22 @@ namespace bitprim.insight.Controllers
                             network = GetNetworkType(nodeExecutor_.NetworkType),
                             coin = GetCoin()
                         }
+                    }
+                );
+            }
+        }
+
+        private async Task<ActionResult> GetLastBlockHash()
+        {
+            using (var getLastBlockResult = await GetLastBlock())
+            {
+                var hashHexString = Binary.ByteArrayToHexString(getLastBlockResult.Result.BlockData.Hash);
+                return Json
+                (
+                    new
+                    {
+                        syncTipHash = hashHexString,
+                        lastblockhash = hashHexString
                     }
                 );
             }
@@ -262,45 +222,32 @@ namespace bitprim.insight.Controllers
             return price;
         }
 
-        //TODO Avoid consulting external sources; get this information from bitprim network
-        private async Task<UInt64?> GetCurrentBlockChainHeight()
+        private async Task<object> DoGetSyncStatus()
         {
-            try
+            var getLastHeightResult = await chain_.FetchLastHeightAsync();
+            Utils.CheckBitprimApiErrorCode(getLastHeightResult.ErrorCode, "GetLastHeight() failed");
+
+            var currentHeight = getLastHeightResult.Result;
+            UInt64? blockChainHeight = await GetCurrentBlockChainHeight();
+            dynamic syncStatus = new ExpandoObject();
+            if (blockChainHeight.HasValue)
             {
-                UInt64 blockChainHeight = 0;
-                if (memoryCache_.TryGetValue(Constants.Cache.BLOCKCHAIN_HEIGHT_CACHE_KEY, out blockChainHeight))
-                {
-                    return blockChainHeight;
-                };
-                switch (NodeSettings.CurrencyType)
-                {
-                    case CurrencyType.BitcoinCash:
-                        blockChainHeight = await execPolicy_.ExecuteAsync<UInt64>(() => GetBCCBlockchainHeight());
-                        break;
-                    case CurrencyType.Bitcoin:
-                        blockChainHeight = await execPolicy_.ExecuteAsync<UInt64>(() => GetBTCBlockchainHeight());
-                        break;
-                    case CurrencyType.Litecoin:
-                        blockChainHeight = await execPolicy_.ExecuteAsync<UInt64>(() => GetLTCBlockchainHeight());
-                        break;
-                    default:
-                        throw new InvalidOperationException("Only BCH, BTC and LTC support this operation");
-                }
-                memoryCache_.Set
-                (
-                    Constants.Cache.BLOCKCHAIN_HEIGHT_CACHE_KEY, blockChainHeight, new MemoryCacheEntryOptions
-                    {
-                        AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(Constants.Cache.MAX_BLOCKCHAIN_HEIGHT_AGE_IN_SECONDS),
-                        Size = Constants.Cache.BLOCKCHAIN_HEIGHT_CACHE_ENTRY_SIZE
-                    }
-                );
-                return blockChainHeight;
+                var synced = currentHeight >= blockChainHeight;
+                syncStatus.status = synced ? "finished" : "synchronizing";
+                syncStatus.blockChainHeight = blockChainHeight;
+                syncStatus.syncPercentage = Math.Min((double)currentHeight / (double)blockChainHeight * 100.0, 100).ToString("N2");
+                syncStatus.error = null;
             }
-            catch (Exception ex)
+            else
             {
-                logger_.LogWarning(ex, "Failed to retrieve blockchain height from external service");
-                return null;
+                syncStatus.status = "unknown";
+                syncStatus.blockChainHeight = "unknown";
+                syncStatus.syncPercentage = "unknown";
+                syncStatus.error = "Could not determine max blockchain height; check log";
             }
+            syncStatus.height = currentHeight;
+            syncStatus.type = config_.NodeType;
+            return syncStatus;
         }
 
         private async Task<UInt64> GetBCCBlockchainHeight()
@@ -351,6 +298,47 @@ namespace bitprim.insight.Controllers
             }
         }
 
+        //TODO Avoid consulting external sources; get this information from bitprim network
+        private async Task<UInt64?> GetCurrentBlockChainHeight()
+        {
+            try
+            {
+                UInt64 blockChainHeight = 0;
+                if (memoryCache_.TryGetValue(Constants.Cache.BLOCKCHAIN_HEIGHT_CACHE_KEY, out blockChainHeight))
+                {
+                    return blockChainHeight;
+                };
+                switch (NodeSettings.CurrencyType)
+                {
+                    case CurrencyType.BitcoinCash:
+                        blockChainHeight = await execPolicy_.ExecuteAsync<UInt64>(() => GetBCCBlockchainHeight());
+                        break;
+                    case CurrencyType.Bitcoin:
+                        blockChainHeight = await execPolicy_.ExecuteAsync<UInt64>(() => GetBTCBlockchainHeight());
+                        break;
+                    case CurrencyType.Litecoin:
+                        blockChainHeight = await execPolicy_.ExecuteAsync<UInt64>(() => GetLTCBlockchainHeight());
+                        break;
+                    default:
+                        throw new InvalidOperationException("Only BCH, BTC and LTC support this operation");
+                }
+                memoryCache_.Set
+                (
+                    Constants.Cache.BLOCKCHAIN_HEIGHT_CACHE_KEY, blockChainHeight, new MemoryCacheEntryOptions
+                    {
+                        AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(Constants.Cache.MAX_BLOCKCHAIN_HEIGHT_AGE_IN_SECONDS),
+                        Size = Constants.Cache.BLOCKCHAIN_HEIGHT_CACHE_ENTRY_SIZE
+                    }
+                );
+                return blockChainHeight;
+            }
+            catch (Exception ex)
+            {
+                logger_.LogWarning(ex, "Failed to retrieve blockchain height from external service");
+                return null;
+            }
+        }
+
         private string GetCoin()
         {
             switch( NodeSettings.CurrencyType )
@@ -359,6 +347,18 @@ namespace bitprim.insight.Controllers
                 case CurrencyType.BitcoinCash: return nodeExecutor_.UseTestnetRules? "tbch" : "bch";
                 case CurrencyType.Litecoin: return nodeExecutor_.UseTestnetRules? "tltc" : "ltc";
                 default: throw new InvalidOperationException("Invalid coin: " + NodeSettings.CurrencyType);
+            }
+        }
+
+        private string GetNetworkType(NetworkType networkType)
+        {
+            switch (networkType)
+            {
+                case NetworkType.Mainnet:
+                    return "livenet";
+                default:
+                    return networkType.ToString().ToLower();
+
             }
         }
 
