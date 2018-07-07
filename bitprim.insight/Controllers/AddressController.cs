@@ -10,6 +10,9 @@ using System.Threading.Tasks;
 
 namespace bitprim.insight.Controllers
 {
+    /// <summary>
+    /// Address related operations.
+    /// </summary>
     [Route("[controller]")]
     public class AddressController : Controller
     {
