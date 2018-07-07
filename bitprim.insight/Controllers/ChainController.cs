@@ -339,6 +339,17 @@ namespace bitprim.insight.Controllers
             }
         }
 
+        private static string GetNetworkType(NetworkType networkType)
+        {
+            switch (networkType)
+            {
+                case NetworkType.Mainnet:
+                    return "livenet";
+                default:
+                    return networkType.ToString().ToLower();
+            }
+        }
+
         private string GetCoin()
         {
             switch( NodeSettings.CurrencyType )
@@ -347,18 +358,6 @@ namespace bitprim.insight.Controllers
                 case CurrencyType.BitcoinCash: return nodeExecutor_.UseTestnetRules? "tbch" : "bch";
                 case CurrencyType.Litecoin: return nodeExecutor_.UseTestnetRules? "tltc" : "ltc";
                 default: throw new InvalidOperationException("Invalid coin: " + NodeSettings.CurrencyType);
-            }
-        }
-
-        private string GetNetworkType(NetworkType networkType)
-        {
-            switch (networkType)
-            {
-                case NetworkType.Mainnet:
-                    return "livenet";
-                default:
-                    return networkType.ToString().ToLower();
-
             }
         }
 
