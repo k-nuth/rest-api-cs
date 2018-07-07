@@ -40,50 +40,6 @@ namespace bitprim.insight.Controllers
             logger_ = logger;
         }
 
-        [HttpGet("healthcheck")]
-        public async Task<ActionResult> GetHealthCheck(float minimumSync)
-        {
-            dynamic syncStatus = await DoGetSyncStatus();
-            bool isNumeric = Double.TryParse(syncStatus.syncPercentage, out double syncPercentage);
-            bool isHealthy = isNumeric && syncPercentage > minimumSync;
-            return isHealthy? 
-                StatusCode((int)System.Net.HttpStatusCode.OK, "OK"):
-                StatusCode((int)System.Net.HttpStatusCode.PreconditionFailed, "NOK");
-        }
-
-        [ResponseCache(CacheProfileName = Constants.Cache.SHORT_CACHE_PROFILE_NAME)]
-        [HttpGet("sync")]
-        public async Task<ActionResult> GetSyncStatus()
-        {
-            return Json(await DoGetSyncStatus());
-        }
-
-        [ResponseCache(CacheProfileName = Constants.Cache.SHORT_CACHE_PROFILE_NAME)]
-        [HttpGet("status")]
-        public async Task<ActionResult> GetStatus([Bind(Prefix = "q")] string method)
-        {
-            switch (method)
-            {
-                case Constants.GET_DIFFICULTY:
-                    return await GetDifficulty();
-                case Constants.GET_BEST_BLOCK_HASH:
-                    return await GetBestBlockHash();
-                case Constants.GET_LAST_BLOCK_HASH:
-                    return await GetLastBlockHash();
-            }
-
-            return await GetInfo();
-        }
-
-        [HttpGet("utils/estimatefee")]
-        public ActionResult GetEstimateFee([FromQuery] int nbBlocks = 2)
-        {
-            var estimateFee = new ExpandoObject() as IDictionary<string, Object>;
-            //TODO Check which algorithm to use (see bitcoin-abc's median, at src/policy/fees.cpp for an example)
-            estimateFee.Add(nbBlocks.ToString(), config_.EstimateFeeDefault.ToString("N8"));
-            return Json(estimateFee);
-        }
-
         [HttpGet("currency")]
         public async Task<ActionResult> GetCurrency()
         {
@@ -113,6 +69,50 @@ namespace bitprim.insight.Controllers
                     bitstamp = usdPrice
                 }
             });
+        }
+
+        [HttpGet("utils/estimatefee")]
+        public async Task<ActionResult> GetEstimateFee([FromQuery] int nbBlocks = 2)
+        {
+            var estimateFee = new ExpandoObject() as IDictionary<string, Object>;
+            //TODO Check which algorithm to use (see bitcoin-abc's median, at src/policy/fees.cpp for an example)
+            estimateFee.Add(nbBlocks.ToString(), config_.EstimateFeeDefault.ToString("N8"));
+            return Json(estimateFee);
+        }
+
+        [HttpGet("healthcheck")]
+        public async Task<ActionResult> GetHealthCheck(float minimumSync)
+        {
+            dynamic syncStatus = await DoGetSyncStatus();
+            bool isNumeric = Double.TryParse(syncStatus.syncPercentage, out double syncPercentage);
+            bool isHealthy = isNumeric && syncPercentage > minimumSync;
+            return isHealthy? 
+                StatusCode((int)System.Net.HttpStatusCode.OK, "OK"):
+                StatusCode((int)System.Net.HttpStatusCode.PreconditionFailed, "NOK");
+        }
+
+        [ResponseCache(CacheProfileName = Constants.Cache.SHORT_CACHE_PROFILE_NAME)]
+        [HttpGet("status")]
+        public async Task<ActionResult> GetStatus([Bind(Prefix = "q")] string method)
+        {
+            switch (method)
+            {
+                case Constants.GET_DIFFICULTY:
+                    return await GetDifficulty();
+                case Constants.GET_BEST_BLOCK_HASH:
+                    return await GetBestBlockHash();
+                case Constants.GET_LAST_BLOCK_HASH:
+                    return await GetLastBlockHash();
+            }
+
+            return await GetInfo();
+        }
+
+        [ResponseCache(CacheProfileName = Constants.Cache.SHORT_CACHE_PROFILE_NAME)]
+        [HttpGet("sync")]
+        public async Task<ActionResult> GetSyncStatus()
+        {
+            return Json(await DoGetSyncStatus());
         }
 
         private async Task<ActionResult> GetDifficulty()
