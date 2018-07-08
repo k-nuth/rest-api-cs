@@ -11,6 +11,9 @@ using Microsoft.Extensions.Options;
 
 namespace bitprim.insight.Controllers
 {
+    /// <summary>
+    /// Transaction related operations.
+    /// </summary>
     [Route("[controller]")]
     public class TransactionController : Controller
     {
@@ -25,97 +28,6 @@ namespace bitprim.insight.Controllers
             nodeExecutor_ = executor;
             chain_ = executor.Chain;
             logger_ = logger;
-        }
-
-        // GET: tx/{hash}
-        [ResponseCache(CacheProfileName = Constants.Cache.SHORT_CACHE_PROFILE_NAME)]
-        [HttpGet("tx/{hash}")]
-        public async Task<ActionResult> GetTransactionByHash(string hash, int requireConfirmed)
-        {
-            if(!Validations.IsValidHash(hash))
-            {
-                return StatusCode((int)System.Net.HttpStatusCode.BadRequest, hash + " is not a valid transaction hash");
-            }
-
-            Utils.CheckIfChainIsFresh(chain_, config_.AcceptStaleRequests);
-            var binaryHash = Binary.HexStringToByteArray(hash);
-
-            using(var getTxResult = await chain_.FetchTransactionAsync(binaryHash, requireConfirmed == 1))
-            {
-                Utils.CheckBitprimApiErrorCode(getTxResult.ErrorCode, "FetchTransactionAsync(" + hash + ") failed, check error log");
-                bool confirmed = CheckIfTransactionIsConfirmed(getTxResult.Result);
-                return Json(await TxToJSON
-                (
-                    getTxResult.Result.Tx, getTxResult.Result.TxPosition.BlockHeight, confirmed, noAsm: false, noScriptSig: false, noSpend: false)
-                );
-            }
-        }
-
-        // GET: rawtx/{hash}
-        [ResponseCache(CacheProfileName = Constants.Cache.LONG_CACHE_PROFILE_NAME)]
-        [HttpGet("rawtx/{hash}")]
-        public async Task<ActionResult> GetRawTransactionByHash(string hash)
-        {
-            Utils.CheckIfChainIsFresh(chain_, config_.AcceptStaleRequests);
-            var binaryHash = Binary.HexStringToByteArray(hash);
-            
-            using(var getTxResult = await chain_.FetchTransactionAsync(binaryHash, false))
-            {
-                Utils.CheckBitprimApiErrorCode(getTxResult.ErrorCode, "FetchTransactionAsync(" + hash + ") failed, check error log");
-                
-                var tx = getTxResult.Result.Tx;
-                return Json
-                (
-                    new
-                    {
-                        rawtx = Binary.ByteArrayToHexString(tx.ToData(false).Reverse().ToArray())
-                    }
-                );
-            }
-        }
-
-        // GET: txs/?block=HASH
-        [ResponseCache(CacheProfileName = Constants.Cache.SHORT_CACHE_PROFILE_NAME)]
-        [HttpGet("txs")]
-        public async Task<ActionResult> GetTransactions(string block = null, string address = null, uint pageNum = 0)
-        {
-            if(block == null && address == null)
-            {
-                return StatusCode((int)System.Net.HttpStatusCode.BadRequest, "Specify block or address");
-            }
-
-            if(block != null && address != null)
-            {
-                return StatusCode((int)System.Net.HttpStatusCode.BadRequest, "Specify either block or address, but not both");
-            }
-
-            if(block != null)
-            {
-                return await GetTransactionsByBlockHash(block, pageNum);
-            }
-
-            return await GetTransactionsByAddress(address, pageNum);
-        }
-
-        [ResponseCache(CacheProfileName = Constants.Cache.SHORT_CACHE_PROFILE_NAME)]
-        [HttpGet("addrs/{paymentAddresses}/txs")]
-        public async Task<ActionResult> GetTransactionsForMultipleAddresses([FromRoute] string paymentAddresses, [FromQuery] int from = 0, [FromQuery] int to = 10)
-        {
-            return await DoGetTransactionsForMultipleAddresses(paymentAddresses, from, to, false, false, false);
-        }
-
-        [ResponseCache(CacheProfileName = Constants.Cache.SHORT_CACHE_PROFILE_NAME)]
-        [HttpPost("addrs/txs")]
-        public async Task<ActionResult> GetTransactionsForMultipleAddresses([FromBody] GetTxsForMultipleAddressesRequest request)
-        {
-            return await DoGetTransactionsForMultipleAddresses(request.addrs, request.from, request.to, request.noAsm == 1, request.noScriptSig == 1, request.noSpend == 1);
-        }
-
-        [HttpGet("tx/send")]
-        [ApiExplorerSettings(IgnoreApi=true)]
-        public ActionResult GetBroadcastTransaction(RawTxRequest request)
-        {
-            return StatusCode((int)System.Net.HttpStatusCode.BadRequest, "tx/send method only accept POST requests");
         }
 
         [HttpPost("tx/send")]
@@ -165,6 +77,97 @@ namespace bitprim.insight.Controllers
             {
                 tx?.Dispose();
             }
+        }
+
+        [HttpGet("tx/send")]
+        [ApiExplorerSettings(IgnoreApi=true)]
+        public async Task<ActionResult> GetBroadcastTransaction(RawTxRequest request)
+        {
+            return StatusCode((int)System.Net.HttpStatusCode.BadRequest, "tx/send method only accept POST requests");
+        }
+
+        // GET: rawtx/{hash}
+        [ResponseCache(CacheProfileName = Constants.Cache.LONG_CACHE_PROFILE_NAME)]
+        [HttpGet("rawtx/{hash}")]
+        public async Task<ActionResult> GetRawTransactionByHash(string hash)
+        {
+            Utils.CheckIfChainIsFresh(chain_, config_.AcceptStaleRequests);
+            var binaryHash = Binary.HexStringToByteArray(hash);
+            
+            using(var getTxResult = await chain_.FetchTransactionAsync(binaryHash, false))
+            {
+                Utils.CheckBitprimApiErrorCode(getTxResult.ErrorCode, "FetchTransactionAsync(" + hash + ") failed, check error log");
+                
+                var tx = getTxResult.Result.Tx;
+                return Json
+                (
+                    new
+                    {
+                        rawtx = Binary.ByteArrayToHexString(tx.ToData(false).Reverse().ToArray())
+                    }
+                );
+            }
+        }
+
+        // GET: tx/{hash}
+        [ResponseCache(CacheProfileName = Constants.Cache.SHORT_CACHE_PROFILE_NAME)]
+        [HttpGet("tx/{hash}")]
+        public async Task<ActionResult> GetTransactionByHash(string hash, int requireConfirmed)
+        {
+            if(!Validations.IsValidHash(hash))
+            {
+                return StatusCode((int)System.Net.HttpStatusCode.BadRequest, hash + " is not a valid transaction hash");
+            }
+
+            Utils.CheckIfChainIsFresh(chain_, config_.AcceptStaleRequests);
+            var binaryHash = Binary.HexStringToByteArray(hash);
+
+            using(var getTxResult = await chain_.FetchTransactionAsync(binaryHash, requireConfirmed == 1))
+            {
+                Utils.CheckBitprimApiErrorCode(getTxResult.ErrorCode, "FetchTransactionAsync(" + hash + ") failed, check error log");
+                bool confirmed = CheckIfTransactionIsConfirmed(getTxResult.Result);
+                return Json(await TxToJSON
+                (
+                    getTxResult.Result.Tx, getTxResult.Result.TxPosition.BlockHeight, confirmed, noAsm: false, noScriptSig: false, noSpend: false)
+                );
+            }
+        }
+
+        // GET: txs/?block=HASH
+        [ResponseCache(CacheProfileName = Constants.Cache.SHORT_CACHE_PROFILE_NAME)]
+        [HttpGet("txs")]
+        public async Task<ActionResult> GetTransactions(string block = null, string address = null, uint pageNum = 0)
+        {
+            if(block == null && address == null)
+            {
+                return StatusCode((int)System.Net.HttpStatusCode.BadRequest, "Specify block or address");
+            }
+
+            if(block != null && address != null)
+            {
+                return StatusCode((int)System.Net.HttpStatusCode.BadRequest, "Specify either block or address, but not both");
+            }
+
+            if(block != null)
+            {
+                return await GetTransactionsByBlockHash(block, pageNum);
+            }
+
+            return await GetTransactionsByAddress(address, pageNum);
+        }
+
+        [ResponseCache(CacheProfileName = Constants.Cache.SHORT_CACHE_PROFILE_NAME)]
+        [HttpGet("addrs/{paymentAddresses}/txs")]
+        public async Task<ActionResult> GetTransactionsForMultipleAddresses([FromRoute] string paymentAddresses, [FromQuery] int from = 0, [FromQuery] int to = 10)
+        {
+            return await DoGetTransactionsForMultipleAddresses(paymentAddresses, from, to, false, false, false);
+        }
+
+        [ResponseCache(CacheProfileName = Constants.Cache.SHORT_CACHE_PROFILE_NAME)]
+        [HttpPost("addrs/txs")]
+        public async Task<ActionResult> GetTransactionsForMultipleAddresses([FromBody] GetTxsForMultipleAddressesRequest request)
+        {
+            return await DoGetTransactionsForMultipleAddresses(request.addrs, request.from, request.to, request.noAsm == 1, request.noScriptSig == 1, request.noSpend == 1);
         }
 
         private async Task<ActionResult> DoGetTransactionsForMultipleAddresses(string addrs, int from, int to,
