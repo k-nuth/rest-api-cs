@@ -41,6 +41,7 @@ namespace bitprim.insight.Controllers
         [ResponseCache(CacheProfileName = Constants.Cache.SHORT_CACHE_PROFILE_NAME)]
         [SwaggerOperation("GetBlockByHash")]
         [SwaggerResponse((int)System.Net.HttpStatusCode.OK, typeof(GetBlockByHashResponse))]
+        [SwaggerResponse((int)System.Net.HttpStatusCode.BadRequest, typeof(string))]
         public async Task<ActionResult> GetBlockByHash(string hash)
         {
             if(!Validations.IsValidHash(hash))
@@ -129,6 +130,7 @@ namespace bitprim.insight.Controllers
         [ResponseCache(CacheProfileName = Constants.Cache.SHORT_CACHE_PROFILE_NAME)]
         [SwaggerOperation("GetBlocksByDate")]
         [SwaggerResponse((int)System.Net.HttpStatusCode.OK, typeof(GetBlocksByDateResponse))]
+        [SwaggerResponse((int)System.Net.HttpStatusCode.BadRequest, typeof(string))]
         public async Task<ActionResult> GetBlocksByDate(int limit = 200, string blockDate = "")
         {
             //Validate input

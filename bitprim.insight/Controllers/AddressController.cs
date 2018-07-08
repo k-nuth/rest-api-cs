@@ -61,6 +61,7 @@ namespace bitprim.insight.Controllers
         [ResponseCache(CacheProfileName = Constants.Cache.SHORT_CACHE_PROFILE_NAME)]
         [SwaggerOperation("GetAddressHistory")]
         [SwaggerResponse((int)System.Net.HttpStatusCode.OK, typeof(GetAddressHistoryResponse))]
+        [SwaggerResponse((int)System.Net.HttpStatusCode.BadRequest, typeof(string))]
         public async Task<ActionResult> GetAddressHistory(string paymentAddress, int noTxList = 0, int? from = null, int? to = null)
         {
             if(!Validations.IsValidPaymentAddress(paymentAddress))
