@@ -1,3 +1,4 @@
+using bitprim.insight.DTOs;
 using System;
 using System.Collections.Generic;
 using System.Dynamic;
@@ -10,11 +11,15 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Newtonsoft.Json;
 using Polly;
+using Swashbuckle.AspNetCore.SwaggerGen;
 using System.Linq;
 using System.Globalization;
 
 namespace bitprim.insight.Controllers
 {
+    /// <summary>
+    /// Blockchain related operations.
+    /// </summary>
     [Route("[controller]")]
     public class ChainController : Controller
     {
@@ -40,7 +45,34 @@ namespace bitprim.insight.Controllers
             logger_ = logger;
         }
 
+        /// <summary>
+        /// Get best block hash.
+        /// </summary>
+        /// <returns> Best block hash. </returns>
+        [HttpGet("status/bestblockhash")]
+        [SwaggerOperation("GetBestBlockHash")]
+        [SwaggerResponse((int)System.Net.HttpStatusCode.OK, typeof(GetBestBlockHashResponse))]
+        public async Task<ActionResult> GetBestBlockHash()
+        {
+            using (var getLastBlockResult = await GetLastBlock())
+            {
+                return Json
+                (
+                    new GetBestBlockHashResponse
+                    {
+                        bestblockhash = Binary.ByteArrayToHexString(getLastBlockResult.Result.BlockData.Hash)
+                    }
+                );
+            }
+        }
+
+        /// <summary>
+        /// Get current coin price in US dollars.
+        /// </summary>
+        /// <returns> Current coin price in USD. </returns>
         [HttpGet("currency")]
+        [SwaggerOperation("GetCurrency")]
+        [SwaggerResponse((int)System.Net.HttpStatusCode.OK, typeof(GetCurrencyResponse))]
         public async Task<ActionResult> GetCurrency()
         {
             var usdPrice = 1.0f;
@@ -61,17 +93,47 @@ namespace bitprim.insight.Controllers
                     logger_.LogWarning("No cached value available, returning default (1.0)");
                 }
             }
-            return Json(new
+            return Json(new GetCurrencyResponse
             {
                 status = 200,
-                data = new
+                data = new CurrencyData
                 {
                     bitstamp = usdPrice
                 }
             });
         }
 
+        /// <summary>
+        /// Get latest block difficulty.
+        /// </summary>
+        /// <returns> Latest block difficulty. </returns>
+        [HttpGet("status/difficulty")]
+        [SwaggerOperation("GetDifficulty")]
+        [SwaggerResponse((int)System.Net.HttpStatusCode.OK, typeof(GetDifficultyResponse))]
+        public async Task<ActionResult> GetDifficulty()
+        {
+            using (var getLastBlockResult = await GetLastBlock())
+            {
+                return Json
+                (
+                    new GetDifficultyResponse
+                    {
+                        difficulty = Utils.BitsToDifficulty(getLastBlockResult.Result.BlockData.Header.Bits)
+                    }
+                );
+            }
+        }
+
+        /// <summary>
+        /// Get an estimate value for current block fee.
+        /// </summary>
+        /// <param name="nbBlocks"> Number of blocks to consider for estimation; a higher number
+        /// implies higher precision, but will take longer to calculate.
+        /// </param>
+        /// <returns> Current estimation for block fee. </returns>
         [HttpGet("utils/estimatefee")]
+        [SwaggerOperation("GetEstimateFee")]
+        [SwaggerResponse((int)System.Net.HttpStatusCode.OK, typeof(IDictionary<string, string>))]
         public async Task<ActionResult> GetEstimateFee([FromQuery] int nbBlocks = 2)
         {
             var estimateFee = new ExpandoObject() as IDictionary<string, Object>;
@@ -80,78 +142,40 @@ namespace bitprim.insight.Controllers
             return Json(estimateFee);
         }
 
+        /// <summary>
+        /// Check if the underlying bitprim node is running correctly.
+        /// </summary>
+        /// <param name="minimumSync"> Minimum required sync percentage (from 0 to 100) to consider node healthy. </param>
+        /// <returns> "OK" if node healty, "NOK otherwise". </returns>
         [HttpGet("healthcheck")]
+        [SwaggerOperation("GetHealthCheck")]
+        [SwaggerResponse((int)System.Net.HttpStatusCode.OK, typeof(string))]
         public async Task<ActionResult> GetHealthCheck(float minimumSync)
         {
             dynamic syncStatus = await DoGetSyncStatus();
             bool isNumeric = Double.TryParse(syncStatus.syncPercentage, out double syncPercentage);
             bool isHealthy = isNumeric && syncPercentage > minimumSync;
-            return isHealthy? 
+            return isHealthy?
                 StatusCode((int)System.Net.HttpStatusCode.OK, "OK"):
                 StatusCode((int)System.Net.HttpStatusCode.PreconditionFailed, "NOK");
         }
 
-        [ResponseCache(CacheProfileName = Constants.Cache.SHORT_CACHE_PROFILE_NAME)]
-        [HttpGet("status")]
-        public async Task<ActionResult> GetStatus([Bind(Prefix = "q")] string method)
-        {
-            switch (method)
-            {
-                case Constants.GET_DIFFICULTY:
-                    return await GetDifficulty();
-                case Constants.GET_BEST_BLOCK_HASH:
-                    return await GetBestBlockHash();
-                case Constants.GET_LAST_BLOCK_HASH:
-                    return await GetLastBlockHash();
-            }
-
-            return await GetInfo();
-        }
-
-        [ResponseCache(CacheProfileName = Constants.Cache.SHORT_CACHE_PROFILE_NAME)]
-        [HttpGet("sync")]
-        public async Task<ActionResult> GetSyncStatus()
-        {
-            return Json(await DoGetSyncStatus());
-        }
-
-        private async Task<ActionResult> GetBestBlockHash()
+        /// <summary>
+        /// Get underlying node information.
+        /// </summary>
+        /// <returns> See GetInfoResponse DTO. </returns>
+        [HttpGet("status/info")]
+        [SwaggerOperation("GetInfo")]
+        [SwaggerResponse((int)System.Net.HttpStatusCode.OK, typeof(GetInfoResponse))]
+        public async Task<ActionResult> GetInfo()
         {
             using (var getLastBlockResult = await GetLastBlock())
             {
                 return Json
                 (
-                    new
+                    new GetInfoResponse
                     {
-                        bestblockhash = Binary.ByteArrayToHexString(getLastBlockResult.Result.BlockData.Hash)
-                    }
-                );
-            }
-        }
-
-        private async Task<ActionResult> GetDifficulty()
-        {
-            using (var getLastBlockResult = await GetLastBlock())
-            {
-                return Json
-                (
-                    new
-                    {
-                        difficulty = Utils.BitsToDifficulty(getLastBlockResult.Result.BlockData.Header.Bits)
-                    }
-                );
-            }
-        }
-
-        private async Task<ActionResult> GetInfo()
-        {
-            using (var getLastBlockResult = await GetLastBlock())
-            {
-                return Json
-                (
-                    new
-                    {
-                        info = new
+                        info = new GetInfoData
                         {
                             //TODO Some of these values should be retrieved from node-cint
                             version = config_.Version,
@@ -172,20 +196,65 @@ namespace bitprim.insight.Controllers
             }
         }
 
-        private async Task<ActionResult> GetLastBlockHash()
+        /// <summary>
+        /// Get latest block hash.
+        /// </summary>
+        /// <returns> Latest block hash. </returns>
+        [HttpGet("status/lastblockhash")]
+        [SwaggerOperation("GetLastBlockHash")]
+        [SwaggerResponse((int)System.Net.HttpStatusCode.OK, typeof(GetLastBlockHashResponse))]
+        public async Task<ActionResult> GetLastBlockHash()
         {
             using (var getLastBlockResult = await GetLastBlock())
             {
                 var hashHexString = Binary.ByteArrayToHexString(getLastBlockResult.Result.BlockData.Hash);
                 return Json
                 (
-                    new
+                    new GetLastBlockHashResponse
                     {
                         syncTipHash = hashHexString,
                         lastblockhash = hashHexString
                     }
                 );
             }
+        }
+
+        /// <summary>
+        /// Get various node status information.
+        /// (getInfo: see GetInfo method | getDifficulty: see GetDifficulty method | getBestBlockHash: see GetBestBlockHash method |
+        ///  getLastBlockHash: see GetLastBlockHash method)
+        /// </summary>
+        /// <param name="method"> (getInfo | getDifficulty | getBestBlockHash | getLastBlockHash). Default: getInfo. </param>
+        /// <returns> Depends on method; see the referenced API method for each case. </returns>
+        [HttpGet("status")]
+        [ResponseCache(CacheProfileName = Constants.Cache.SHORT_CACHE_PROFILE_NAME)]
+        [SwaggerOperation("GetStatus")]
+        [SwaggerResponse((int)System.Net.HttpStatusCode.OK, typeof(object))]
+        public async Task<ActionResult> GetStatus([Bind(Prefix = "q")] string method)
+        {
+            switch (method)
+            {
+                case Constants.GET_DIFFICULTY:
+                    return await GetDifficulty();
+                case Constants.GET_BEST_BLOCK_HASH:
+                    return await GetBestBlockHash();
+                case Constants.GET_LAST_BLOCK_HASH:
+                    return await GetLastBlockHash();
+            }
+            return await GetInfo();
+        }
+
+        /// <summary>
+        /// Get node synchronization status, as in how up to date it is with the blockchain.
+        /// </summary>
+        /// <returns> See GetSyncStatusResponse DTO. </returns>
+        [HttpGet("sync")]
+        [ResponseCache(CacheProfileName = Constants.Cache.SHORT_CACHE_PROFILE_NAME)]
+        [SwaggerOperation("GetSyncStatus")]
+        [SwaggerResponse((int)System.Net.HttpStatusCode.OK, typeof(GetSyncStatusResponse))]
+        public async Task<ActionResult> GetSyncStatus()
+        {
+            return Json(await DoGetSyncStatus());
         }
 
         private async Task<DisposableApiCallResult<GetBlockDataResult<Block>>> GetLastBlock()

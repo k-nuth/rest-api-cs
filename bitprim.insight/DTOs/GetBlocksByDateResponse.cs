@@ -35,7 +35,7 @@ namespace bitprim.insight.DTOs
 
         /// <summary>
         /// Block hash as 32-character hex string.
-        /// </summaryde>
+        /// </summary>
         public string hash { get; set; }
 
         /// <summary>
