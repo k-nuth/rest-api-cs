@@ -1,6 +1,6 @@
 namespace bitprim.insight
 {
-    public class Constants
+    internal class Constants
     {
         public class Cache
         {

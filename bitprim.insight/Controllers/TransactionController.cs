@@ -23,6 +23,24 @@ namespace bitprim.insight.Controllers
         private readonly ILogger<TransactionController> logger_;
         private readonly NodeConfig config_;
 
+        /// <summary>
+        /// This method exists only to warn clients who call GET instead of POST.
+        /// </summary>
+        /// <param name="request"> See RawTxRequest DTO. </param>
+        /// <returns> Error message advising client to use POST version instead. </returns>
+        [ApiExplorerSettings(IgnoreApi=true)]
+        [HttpGet("tx/send")]
+        public ActionResult GetBroadcastTransaction(RawTxRequest request)
+        {
+            return StatusCode((int)System.Net.HttpStatusCode.BadRequest, "tx/send method only accept POST requests");
+        }
+
+        /// <summary>
+        /// Build this controller.
+        /// </summary>
+        /// <param name="config"> Higher level API configuration. </param>
+        /// <param name="executor"> Node executor from bitprim-cs library. </param>
+        /// <param name="logger"> Abstract logger. </param>
         public TransactionController(IOptions<NodeConfig> config, Executor executor, ILogger<TransactionController> logger)
         {
             config_ = config.Value;
@@ -88,18 +106,6 @@ namespace bitprim.insight.Controllers
         }
 
         /// <summary>
-        /// This method exists only to warn clients who call GET instead of POST.
-        /// </summary>
-        /// <param name="request"> See RawTxRequest DTO. </param>
-        /// <returns> Error message advising client to use POST version instead. </returns>
-        [ApiExplorerSettings(IgnoreApi=true)]
-        [HttpGet("tx/send")]
-        public async Task<ActionResult> GetBroadcastTransaction(RawTxRequest request)
-        {
-            return StatusCode((int)System.Net.HttpStatusCode.BadRequest, "tx/send method only accept POST requests");
-        }
-
-        /// <summary>
         /// Given a transaction hash, retrieve its representation as a hex string.
         /// </summary>
         /// <param name="hash"> 32-character hex string which univocally identifies the transaction in the network. </param>
@@ -129,6 +135,7 @@ namespace bitprim.insight.Controllers
         /// Given a transaction hash, retrieve its representation as a hex string.
         /// </summary>
         /// <param name="hash"> 32-character hex string which univocally identifies the transaction in the network. </param>
+        /// <param name="requireConfirmed"> 1 = only confirmed transactions, otherwise include unconfirmed as well. </param>
         /// <returns> See TransactionSummary DTO. </returns>
         [HttpGet("tx/{hash}")]
         [ResponseCache(CacheProfileName = Constants.Cache.SHORT_CACHE_PROFILE_NAME)]

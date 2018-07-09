@@ -13,6 +13,9 @@ namespace bitprim.insight.DTOs
         public GetInfoData info { get; set; }
     }
 
+    /// <summary>
+    /// Specific status information.
+    /// </summary>
     public class GetInfoData
     {
         /// <summary>

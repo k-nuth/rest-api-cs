@@ -8,7 +8,7 @@ using Microsoft.Extensions.Logging;
 
 namespace bitprim.insight.Middlewares
 {
-    public class HttpStatusCodeExceptionMiddleware
+    internal class HttpStatusCodeExceptionMiddleware
     {
         private readonly RequestDelegate next_;
         private readonly ILogger<HttpStatusCodeExceptionMiddleware> logger_;
@@ -57,7 +57,7 @@ namespace bitprim.insight.Middlewares
     }
 
     // Extension method used to add the middleware to the HTTP request pipeline.
-    public static class HttpStatusCodeExceptionMiddlewareExtensions
+    internal static class HttpStatusCodeExceptionMiddlewareExtensions
     {
         public static IApplicationBuilder UseHttpStatusCodeExceptionMiddleware(this IApplicationBuilder builder)
         {

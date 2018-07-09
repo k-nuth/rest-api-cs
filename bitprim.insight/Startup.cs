@@ -16,7 +16,7 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace bitprim.insight
 {
-    public class Startup
+    internal class Startup
     {
         private BlockChainObserver blockChainObserver_;
         private const string CORS_POLICY_NAME = "BI_CORS_POLICY";

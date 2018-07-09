@@ -35,6 +35,13 @@ namespace bitprim.insight.Controllers
                 (Constants.MAX_RETRIES, TimeSpan.FromMilliseconds(Constants.SEED_DELAY), TimeSpan.FromSeconds(Constants.MAX_DELAY)));
         private readonly Policy execPolicy_;
 
+        /// <summary>
+        /// Build this controller.
+        /// </summary>
+        /// <param name="config"> Higher level API configuration. </param>
+        /// <param name="executor"> Node executor from bitprim-cs library. </param>
+        /// <param name="logger"> Abstract logger. </param>
+        /// <param name="memoryCache"> Abstract memory cache. </param>
         public ChainController(IOptions<NodeConfig> config, Executor executor, ILogger<ChainController> logger, IMemoryCache memoryCache)
         {
             config_ = config.Value;
@@ -43,6 +50,24 @@ namespace bitprim.insight.Controllers
             memoryCache_ = memoryCache;
             execPolicy_ = Policy.WrapAsync(retryPolicy_, breakerPolicy_);
             logger_ = logger;
+        }
+
+        /// <summary>
+        /// Get an estimate value for current block fee.
+        /// </summary>
+        /// <param name="nbBlocks"> Number of blocks to consider for estimation; a higher number
+        /// implies higher precision, but will take longer to calculate.
+        /// </param>
+        /// <returns> Current estimation for block fee. </returns>
+        [HttpGet("utils/estimatefee")]
+        [SwaggerOperation("GetEstimateFee")]
+        [SwaggerResponse((int)System.Net.HttpStatusCode.OK, typeof(IDictionary<string, string>))]
+        public ActionResult GetEstimateFee([FromQuery] int nbBlocks = 2)
+        {
+            var estimateFee = new ExpandoObject() as IDictionary<string, Object>;
+            //TODO Check which algorithm to use (see bitcoin-abc's median, at src/policy/fees.cpp for an example)
+            estimateFee.Add(nbBlocks.ToString(), config_.EstimateFeeDefault.ToString("N8"));
+            return Json(estimateFee);
         }
 
         /// <summary>
@@ -122,24 +147,6 @@ namespace bitprim.insight.Controllers
                     }
                 );
             }
-        }
-
-        /// <summary>
-        /// Get an estimate value for current block fee.
-        /// </summary>
-        /// <param name="nbBlocks"> Number of blocks to consider for estimation; a higher number
-        /// implies higher precision, but will take longer to calculate.
-        /// </param>
-        /// <returns> Current estimation for block fee. </returns>
-        [HttpGet("utils/estimatefee")]
-        [SwaggerOperation("GetEstimateFee")]
-        [SwaggerResponse((int)System.Net.HttpStatusCode.OK, typeof(IDictionary<string, string>))]
-        public async Task<ActionResult> GetEstimateFee([FromQuery] int nbBlocks = 2)
-        {
-            var estimateFee = new ExpandoObject() as IDictionary<string, Object>;
-            //TODO Check which algorithm to use (see bitcoin-abc's median, at src/policy/fees.cpp for an example)
-            estimateFee.Add(nbBlocks.ToString(), config_.EstimateFeeDefault.ToString("N8"));
-            return Json(estimateFee);
         }
 
         /// <summary>

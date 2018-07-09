@@ -6,7 +6,7 @@ using System.Linq;
 namespace bitprim.insight
 {
 
-    public class OrderedSet<T> : ICollection<T>
+    internal class OrderedSet<T> : ICollection<T>
     {
         private readonly IDictionary<T, LinkedListNode<T>> dictionary_;
         private readonly IDictionary<int, LinkedListNode<T>> index_;

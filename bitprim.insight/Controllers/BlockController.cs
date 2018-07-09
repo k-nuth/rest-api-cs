@@ -24,6 +24,13 @@ namespace bitprim.insight.Controllers
         private readonly NodeConfig config_;
         private readonly PoolsInfo poolsInfo_;
 
+        /// <summary>
+        /// Build this controller.
+        /// </summary>
+        /// <param name="config"> Higher level API configuration. </param>
+        /// <param name="chain"> Executor's chain instance from bitprim-cs library. </param>
+        /// <param name="memoryCache"> Abstract. </param>
+        /// <param name="poolsInfo"> For recognizing blocks which come from mining pools. </param>
         public BlockController(IOptions<NodeConfig> config, Chain chain, IMemoryCache memoryCache, PoolsInfo poolsInfo)
         {
             config_ = config.Value;
@@ -98,7 +105,7 @@ namespace bitprim.insight.Controllers
         /// <summary>
         /// Given a block height, retrieve the block hash.
         /// </summary>
-        /// <param name="hash"> Block height. </param>
+        /// <param name="height"> Block height. </param>
         /// <returns> Block hash as 32-character hex string. </returns>
         [HttpGet("block-index/{height}")]
         [ResponseCache(CacheProfileName = Constants.Cache.SHORT_CACHE_PROFILE_NAME)]
@@ -198,7 +205,7 @@ namespace bitprim.insight.Controllers
         /// <summary>
         /// Given a block height, return the block's representation as a hex string.
         /// </summary>
-        /// <param name="hash"> Height which univocally identifies the block in the blockchain. </param>
+        /// <param name="height"> Height which univocally identifies the block in the blockchain. </param>
         /// <returns> Block raw data, as a hex string. </returns>
         [HttpGet("rawblock-index/{height}")]
         [ResponseCache(CacheProfileName = Constants.Cache.SHORT_CACHE_PROFILE_NAME)]

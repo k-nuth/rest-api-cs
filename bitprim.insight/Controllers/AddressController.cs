@@ -28,11 +28,30 @@ namespace bitprim.insight.Controllers
             public UInt64 Sent { get; set; }
         }
 
+        /// <summary>
+        /// Build this controller.
+        /// </summary>
+        /// <param name="config"> Higher level API configuration. </param>
+        /// <param name="executor"> Node executor from bitprim-cs library. </param>
         public AddressController(IOptions<NodeConfig> config, Executor executor)
         {
             nodeExecutor_ = executor;
             chain_ = nodeExecutor_.Chain;
             config_ = config.Value;
+        }
+
+        /// <summary>
+        /// Given an address, get unconfirmed balance in coin units.
+        /// </summary>
+        /// <param name="paymentAddress"> The address of interest. For BCH, it can be in cashaddr format. </param>
+        /// <returns> Unconfirmed balance, in coin units. </returns>
+        [HttpGet("addr/{paymentAddress}/unconfirmedBalance")]
+        [ResponseCache(CacheProfileName = Constants.Cache.SHORT_CACHE_PROFILE_NAME)]
+        [SwaggerOperation("GetUnconfirmedBalance")]
+        public ActionResult GetUnconfirmedBalance(string paymentAddress)
+        {
+            Utils.CheckIfChainIsFresh(chain_, config_.AcceptStaleRequests);
+            return Json(0); // TODO Implement (see GetAddressHistory)
         }
 
         /// <summary>
@@ -121,20 +140,6 @@ namespace bitprim.insight.Controllers
         public async Task<ActionResult> GetTotalSent(string paymentAddress)
         {
             return await GetBalanceProperty(paymentAddress, "Sent");
-        }
-
-        /// <summary>
-        /// Given an address, get unconfirmed balance in coin units.
-        /// </summary>
-        /// <param name="paymentAddress"> The address of interest. For BCH, it can be in cashaddr format. </param>
-        /// <returns> Unconfirmed balance, in coin units. </returns>
-        [HttpGet("addr/{paymentAddress}/unconfirmedBalance")]
-        [ResponseCache(CacheProfileName = Constants.Cache.SHORT_CACHE_PROFILE_NAME)]
-        [SwaggerOperation("GetUnconfirmedBalance")]
-        public async Task<ActionResult> GetUnconfirmedBalance(string paymentAddress)
-        {
-            Utils.CheckIfChainIsFresh(chain_, config_.AcceptStaleRequests);
-            return Json(0); // TODO Implement (see GetAddressHistory)
         }
 
         /// <summary>
