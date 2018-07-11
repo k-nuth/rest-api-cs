@@ -231,7 +231,9 @@ namespace bitprim.insight.Controllers
         /// (getInfo: see GetInfo method | getDifficulty: see GetDifficulty method | getBestBlockHash: see GetBestBlockHash method |
         ///  getLastBlockHash: see GetLastBlockHash method)
         /// </summary>
-        /// <param name="method"> (getInfo | getDifficulty | getBestBlockHash | getLastBlockHash). Default: getInfo. </param>
+        /// <param name="method"> (getInfo | getDifficulty | getBestBlockHash | getLastBlockHash). Default: getInfo.
+        /// Use the name 'q' for this query parameter (it will be mapped to the 'method' parameter).
+        /// </param>
         /// <returns> Depends on method; see the referenced API method for each case. </returns>
         [HttpGet("status")]
         [ResponseCache(CacheProfileName = Constants.Cache.SHORT_CACHE_PROFILE_NAME)]

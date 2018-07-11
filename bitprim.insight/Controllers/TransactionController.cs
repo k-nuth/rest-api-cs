@@ -164,7 +164,7 @@ namespace bitprim.insight.Controllers
         }
 
         /// <summary>
-        /// Returns all transactions from a block, or an adress (only one source at a time).
+        /// Returns all transactions from a block, or an address (only one source at a time).
         /// </summary>
         /// <param name="block"> 32-character hex string which univocally identifies a block. </param>
         /// <param name="address"> Address to get transactions from. When selecting by address, unconfirmed
@@ -200,7 +200,7 @@ namespace bitprim.insight.Controllers
         }
 
         /// <summary>
-        /// Returns all transactions from a set of adresses.
+        /// Returns all transactions from a set of addresses.
         /// </summary>
         /// <param name="paymentAddresses"> Comma-separated list of addresses. For BCH, cashaddr format is accepted. </param>
         /// <param name="from"> Results selection starting point; first item is 0 (zero). Default to said value. </param>
