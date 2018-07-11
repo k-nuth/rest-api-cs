@@ -19,7 +19,7 @@ namespace bitprim.insight.DTOs
     public class GetInfoData
     {
         /// <summary>
-        ///  True iif node is connected to testnet.
+        ///  True if and only if node is connected to testnet.
         /// </summary>
         public bool testnet { get; set; }
 

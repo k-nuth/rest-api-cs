@@ -6,7 +6,7 @@ namespace bitprim.insight.DTOs
     public class GetPeerStatusResponse
     {
         /// <summary>
-        /// True iif the node is connected to the blockchain's P2P network.
+        /// True if and only if the node is connected to the blockchain's P2P network.
         /// </summary>
         public bool connected { get; set; }
 

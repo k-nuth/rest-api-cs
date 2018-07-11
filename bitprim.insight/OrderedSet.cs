@@ -43,7 +43,7 @@ namespace bitprim.insight
         }
 
         /// <summary>
-        /// True iif the collection is read-only.
+        /// True if and only if the collection is read-only.
         /// </summary>
         public virtual bool IsReadOnly
         {

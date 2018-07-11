@@ -6,11 +6,11 @@ namespace bitprim.insight
     public class NodeConfig
     {
         /// <summary>
-        /// Iif true, accept API requests when the node is synchronizing (i.e. not at the top of the chain).
+        /// If and only if true, accept API requests when the node is synchronizing (i.e. not at the top of the chain).
         /// </summary>
         public bool AcceptStaleRequests { get; set; } = true;
         /// <summary>
-        /// Iif true, initialize the node's database. If this is set to true and the node's database is
+        /// If and only if true, initialize the node's database. If this is set to true and the node's database is
         /// already initialized, node startup will fail.
         /// </summary>
         public bool InitializeNode { get; set; } = true;
