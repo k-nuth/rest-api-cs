@@ -65,12 +65,12 @@ namespace bitprim.insight.DTOs
     public class Pagination
     {
         /// <summary>
-        /// True iif the block date to search corresponds to today.
+        /// True if and only if the block date to search corresponds to today.
         /// </summary>
         public bool isToday { get; set; }
 
         /// <summary>
-        /// True iif the paginated results do not contain all the matching blocks.
+        /// True if and only if the paginated results do not contain all the matching blocks.
         /// </summary>
         public bool more { get; set; }
 

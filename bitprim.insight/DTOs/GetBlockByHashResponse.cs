@@ -8,7 +8,7 @@ namespace bitprim.insight.DTOs
     public class GetBlockByHashResponse
     {
         /// <summary>
-        /// True iif this block belongs to the main chain. 
+        /// True if and only if this block belongs to the main chain. 
         /// </summary>
         public bool isMainChain { get; set; }
 
