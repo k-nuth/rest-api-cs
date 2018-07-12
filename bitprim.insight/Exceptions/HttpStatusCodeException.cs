@@ -4,7 +4,7 @@ using Newtonsoft.Json.Linq;
 
 namespace bitprim.insight.Exceptions
 {
-    public class HttpStatusCodeException : Exception
+    internal class HttpStatusCodeException : Exception
     {
         public HttpStatusCode StatusCode { get; set; }
         public string ContentType { get; set; } = @"text/plain";

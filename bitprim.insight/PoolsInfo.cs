@@ -10,16 +10,11 @@ using static System.String;
 
 namespace bitprim.insight
 {
+    /// <summary>
+    /// Miner pools info; this is used to recognize any block mined by a pool.
+    /// </summary>
     public class PoolsInfo
     {
-        public class PoolInfo
-        {
-            public string Name { get; set; }
-            public string Url { get; set; }
-
-            public static PoolInfo Empty = new PoolInfo {Name = "",Url = ""};
-        }
-
         private class RootObject
         {
             public string poolName { get; set; }
@@ -28,15 +23,41 @@ namespace bitprim.insight
         }
 
         private readonly string poolsFile_;
-
         private readonly Dictionary<Regex, PoolInfo> data_ = new Dictionary<Regex, PoolInfo>();
-        
-       
+
+        /// <summary>
+        /// Specific pool info.
+        /// </summary>
+        public class PoolInfo
+        {
+            /// <summary>
+            /// Pool well-known name.
+            /// </summary>
+            public string Name { get; set; }
+
+            /// <summary>
+            /// Pool url.
+            /// </summary>
+            public string Url { get; set; }
+
+            /// <summary>
+            /// Empty pool instance.
+            /// </summary>
+            public static PoolInfo Empty = new PoolInfo {Name = "",Url = ""};
+        }
+
+        /// <summary>
+        /// Only constructor.
+        /// </summary>
+        /// <param name="poolsFile"> Path to the pools .json file. See pools.json file for format. </param>
         public PoolsInfo(string poolsFile)
         {
             poolsFile_ = poolsFile;
         }
 
+        /// <summary>
+        /// Read pools file and load pools information.
+        /// </summary>
         public void Load()
         {
             var serializer = new JsonSerializer();
@@ -59,6 +80,13 @@ namespace bitprim.insight
             }
         }
 
+        /// <summary>
+        /// Given a transaction, get information about the pool which created it.
+        /// </summary>
+        /// <param name="tx"> Transaction of interest. </param>
+        /// <returns> If tx contains pool info and it matches a pool defined in the pools file, return its info;
+        /// otherwise, return the Empty PollInfo instance
+        /// </returns>
         public PoolInfo GetPoolInfo(Transaction tx)
         {
             if (tx == null)

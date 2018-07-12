@@ -1,16 +1,20 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Dynamic;
-using System.Linq;
-using System.Threading.Tasks;
-using bitprim.insight.DTOs;
+﻿using bitprim.insight.DTOs;
 using Bitprim;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Swashbuckle.AspNetCore.SwaggerGen;
+using System;
+using System.Collections.Generic;
+using System.Dynamic;
+using System.Linq;
+using System.Threading.Tasks;
 
 namespace bitprim.insight.Controllers
 {
+    /// <summary>
+    /// Transaction related operations.
+    /// </summary>
     [Route("[controller]")]
     public class TransactionController : Controller
     {
@@ -19,6 +23,24 @@ namespace bitprim.insight.Controllers
         private readonly ILogger<TransactionController> logger_;
         private readonly NodeConfig config_;
 
+        /// <summary>
+        /// This method exists only to warn clients who call GET instead of POST.
+        /// </summary>
+        /// <param name="request"> See RawTxRequest DTO. </param>
+        /// <returns> Error message advising client to use POST version instead. </returns>
+        [ApiExplorerSettings(IgnoreApi=true)]
+        [HttpGet("tx/send")]
+        public ActionResult GetBroadcastTransaction(RawTxRequest request)
+        {
+            return StatusCode((int)System.Net.HttpStatusCode.BadRequest, "tx/send method only accept POST requests");
+        }
+
+        /// <summary>
+        /// Build this controller.
+        /// </summary>
+        /// <param name="config"> Higher level API configuration. </param>
+        /// <param name="executor"> Node executor from bitprim-cs library. </param>
+        /// <param name="logger"> Abstract logger. </param>
         public TransactionController(IOptions<NodeConfig> config, Executor executor, ILogger<TransactionController> logger)
         {
             config_ = config.Value;
@@ -27,98 +49,15 @@ namespace bitprim.insight.Controllers
             logger_ = logger;
         }
 
-        // GET: tx/{hash}
-        [ResponseCache(CacheProfileName = Constants.Cache.SHORT_CACHE_PROFILE_NAME)]
-        [HttpGet("tx/{hash}")]
-        public async Task<ActionResult> GetTransactionByHash(string hash, int requireConfirmed)
-        {
-            if(!Validations.IsValidHash(hash))
-            {
-                return StatusCode((int)System.Net.HttpStatusCode.BadRequest, hash + " is not a valid transaction hash");
-            }
-
-            Utils.CheckIfChainIsFresh(chain_, config_.AcceptStaleRequests);
-            var binaryHash = Binary.HexStringToByteArray(hash);
-
-            using(var getTxResult = await chain_.FetchTransactionAsync(binaryHash, requireConfirmed == 1))
-            {
-                Utils.CheckBitprimApiErrorCode(getTxResult.ErrorCode, "FetchTransactionAsync(" + hash + ") failed, check error log");
-                bool confirmed = CheckIfTransactionIsConfirmed(getTxResult.Result);
-                return Json(await TxToJSON
-                (
-                    getTxResult.Result.Tx, getTxResult.Result.TxPosition.BlockHeight, confirmed, noAsm: false, noScriptSig: false, noSpend: false)
-                );
-            }
-        }
-
-        // GET: rawtx/{hash}
-        [ResponseCache(CacheProfileName = Constants.Cache.LONG_CACHE_PROFILE_NAME)]
-        [HttpGet("rawtx/{hash}")]
-        public async Task<ActionResult> GetRawTransactionByHash(string hash)
-        {
-            Utils.CheckIfChainIsFresh(chain_, config_.AcceptStaleRequests);
-            var binaryHash = Binary.HexStringToByteArray(hash);
-            
-            using(var getTxResult = await chain_.FetchTransactionAsync(binaryHash, false))
-            {
-                Utils.CheckBitprimApiErrorCode(getTxResult.ErrorCode, "FetchTransactionAsync(" + hash + ") failed, check error log");
-                
-                var tx = getTxResult.Result.Tx;
-                return Json
-                (
-                    new
-                    {
-                        rawtx = Binary.ByteArrayToHexString(tx.ToData(false).Reverse().ToArray())
-                    }
-                );
-            }
-        }
-
-        // GET: txs/?block=HASH
-        [ResponseCache(CacheProfileName = Constants.Cache.SHORT_CACHE_PROFILE_NAME)]
-        [HttpGet("txs")]
-        public async Task<ActionResult> GetTransactions(string block = null, string address = null, uint pageNum = 0)
-        {
-            if(block == null && address == null)
-            {
-                return StatusCode((int)System.Net.HttpStatusCode.BadRequest, "Specify block or address");
-            }
-
-            if(block != null && address != null)
-            {
-                return StatusCode((int)System.Net.HttpStatusCode.BadRequest, "Specify either block or address, but not both");
-            }
-
-            if(block != null)
-            {
-                return await GetTransactionsByBlockHash(block, pageNum);
-            }
-
-            return await GetTransactionsByAddress(address, pageNum);
-        }
-
-        [ResponseCache(CacheProfileName = Constants.Cache.SHORT_CACHE_PROFILE_NAME)]
-        [HttpGet("addrs/{paymentAddresses}/txs")]
-        public async Task<ActionResult> GetTransactionsForMultipleAddresses([FromRoute] string paymentAddresses, [FromQuery] int from = 0, [FromQuery] int to = 10)
-        {
-            return await DoGetTransactionsForMultipleAddresses(paymentAddresses, from, to, false, false, false);
-        }
-
-        [ResponseCache(CacheProfileName = Constants.Cache.SHORT_CACHE_PROFILE_NAME)]
-        [HttpPost("addrs/txs")]
-        public async Task<ActionResult> GetTransactionsForMultipleAddresses([FromBody] GetTxsForMultipleAddressesRequest request)
-        {
-            return await DoGetTransactionsForMultipleAddresses(request.addrs, request.from, request.to, request.noAsm == 1, request.noScriptSig == 1, request.noSpend == 1);
-        }
-
-        [HttpGet("tx/send")]
-        [ApiExplorerSettings(IgnoreApi=true)]
-        public ActionResult GetBroadcastTransaction(RawTxRequest request)
-        {
-            return StatusCode((int)System.Net.HttpStatusCode.BadRequest, "tx/send method only accept POST requests");
-        }
-
+        /// <summary>
+        /// Publish a transaction to the P2P network.
+        /// </summary>
+        /// <param name="request"> See RawTxRequest DTO. </param>
+        /// <returns> See BroadcastTransactionResponse DTO. </returns>
         [HttpPost("tx/send")]
+        [SwaggerOperation("BroadcastTransaction")]
+        [SwaggerResponse((int)System.Net.HttpStatusCode.OK, typeof(BroadcastTransactionResponse))]
+        [SwaggerResponse((int)System.Net.HttpStatusCode.BadRequest, typeof(string))]
         public async Task<ActionResult> BroadcastTransaction([FromBody] RawTxRequest request)
         {
             Utils.CheckIfChainIsFresh(chain_, config_.AcceptStaleRequests);
@@ -149,11 +88,10 @@ namespace bitprim.insight.Controllers
                     
                 return Json
                 (
-                    new
+                    new BroadcastTransactionResponse
                     {
-                        txid =
-                            Binary.ByteArrayToHexString(tx
-                                .Hash) //TODO Check if this should be returned by organize call
+                         //TODO Check if this should be returned by organize call
+                        txid = Binary.ByteArrayToHexString(tx.Hash)
                     }
                 );
             }
@@ -165,6 +103,188 @@ namespace bitprim.insight.Controllers
             {
                 tx?.Dispose();
             }
+        }
+
+        /// <summary>
+        /// Given a transaction hash, retrieve its representation as a hex string.
+        /// </summary>
+        /// <param name="hash"> 32-character hex string which univocally identifies the transaction in the network. </param>
+        /// <returns> See GetRawTransactionResponse DTO. </returns>
+        [HttpGet("rawtx/{hash}")]
+        [ResponseCache(CacheProfileName = Constants.Cache.LONG_CACHE_PROFILE_NAME)]
+        [SwaggerOperation("GetRawTransactionByHash")]
+        [SwaggerResponse((int)System.Net.HttpStatusCode.OK, typeof(GetRawTransactionResponse))]
+        public async Task<ActionResult> GetRawTransactionByHash(string hash)
+        {
+            Utils.CheckIfChainIsFresh(chain_, config_.AcceptStaleRequests);
+            var binaryHash = Binary.HexStringToByteArray(hash);
+            
+            using(var getTxResult = await chain_.FetchTransactionAsync(binaryHash, false))
+            {
+                Utils.CheckBitprimApiErrorCode(getTxResult.ErrorCode, "FetchTransactionAsync(" + hash + ") failed, check error log");
+                
+                var tx = getTxResult.Result.Tx;
+                return Json(new GetRawTransactionResponse
+                {
+                    rawtx = Binary.ByteArrayToHexString(tx.ToData(false).Reverse().ToArray())
+                });
+            }
+        }
+
+        /// <summary>
+        /// Given a transaction hash, retrieve its representation as a hex string.
+        /// </summary>
+        /// <param name="hash"> 32-character hex string which univocally identifies the transaction in the network. </param>
+        /// <param name="requireConfirmed"> 1 = only confirmed transactions, otherwise include unconfirmed as well. </param>
+        /// <returns> See TransactionSummary DTO. </returns>
+        [HttpGet("tx/{hash}")]
+        [ResponseCache(CacheProfileName = Constants.Cache.SHORT_CACHE_PROFILE_NAME)]
+        [SwaggerOperation("GetTransactionByHash")]
+        [SwaggerResponse((int)System.Net.HttpStatusCode.OK, typeof(TransactionSummary))]
+        [SwaggerResponse((int)System.Net.HttpStatusCode.BadRequest, typeof(string))]
+        public async Task<ActionResult> GetTransactionByHash(string hash, int requireConfirmed)
+        {
+            if(!Validations.IsValidHash(hash))
+            {
+                return StatusCode((int)System.Net.HttpStatusCode.BadRequest, hash + " is not a valid transaction hash");
+            }
+
+            Utils.CheckIfChainIsFresh(chain_, config_.AcceptStaleRequests);
+            var binaryHash = Binary.HexStringToByteArray(hash);
+
+            using(var getTxResult = await chain_.FetchTransactionAsync(binaryHash, requireConfirmed == 1))
+            {
+                Utils.CheckBitprimApiErrorCode(getTxResult.ErrorCode, "FetchTransactionAsync(" + hash + ") failed, check error log");
+                bool confirmed = CheckIfTransactionIsConfirmed(getTxResult.Result);
+                return Json(await TxToJSON
+                (
+                    getTxResult.Result.Tx, getTxResult.Result.TxPosition.BlockHeight, confirmed, noAsm: false, noScriptSig: false, noSpend: false)
+                );
+            }
+        }
+
+        /// <summary>
+        /// Returns all transactions from a block, or an address (only one source at a time).
+        /// </summary>
+        /// <param name="block"> 32-character hex string which univocally identifies a block. </param>
+        /// <param name="address"> Address to get transactions from. When selecting by address, unconfirmed
+        /// transactions are included.
+        /// </param>
+        /// <param name="pageNum"> Results page number to select; starts in zero. Page size is configurable via
+        /// appsettings.json and command line. By default, page size is 10 transactions. See TransactionsByAddressPageSize key.
+        /// </param>
+        /// <returns> See GetTransactionsResponse DTO. </returns>
+        [HttpGet("txs")]
+        [ResponseCache(CacheProfileName = Constants.Cache.SHORT_CACHE_PROFILE_NAME)]
+        [SwaggerOperation("GetTransactions")]
+        [SwaggerResponse((int)System.Net.HttpStatusCode.OK, typeof(GetTransactionsResponse))]
+        [SwaggerResponse((int)System.Net.HttpStatusCode.BadRequest, typeof(string))]
+        public async Task<ActionResult> GetTransactions(string block = null, string address = null, uint pageNum = 0)
+        {
+            if(block == null && address == null)
+            {
+                return StatusCode((int)System.Net.HttpStatusCode.BadRequest, "Specify block or address");
+            }
+
+            if(block != null && address != null)
+            {
+                return StatusCode((int)System.Net.HttpStatusCode.BadRequest, "Specify either block or address, but not both");
+            }
+
+            if(block != null)
+            {
+                return await GetTransactionsByBlockHash(block, pageNum);
+            }
+
+            return await GetTransactionsByAddress(address, pageNum);
+        }
+
+        /// <summary>
+        /// Returns all transactions from a set of addresses.
+        /// </summary>
+        /// <param name="paymentAddresses"> Comma-separated list of addresses. For BCH, cashaddr format is accepted. </param>
+        /// <param name="from"> Results selection starting point; first item is 0 (zero). Default to said value. </param>
+        /// <param name="to"> Results selection ending point. Default to 10.</param>
+        /// <returns> See GetTransactionsForMultipleAddressesResponse DTO. </returns>
+        [HttpGet("addrs/{paymentAddresses}/txs")]
+        [ResponseCache(CacheProfileName = Constants.Cache.SHORT_CACHE_PROFILE_NAME)]
+        [SwaggerOperation("GetTransactionsForMultipleAddresses")]
+        [SwaggerResponse((int)System.Net.HttpStatusCode.OK, typeof(GetTransactionsForMultipleAddressesResponse))]
+        [SwaggerResponse((int)System.Net.HttpStatusCode.BadRequest, typeof(string))]
+        public async Task<ActionResult> GetTransactionsForMultipleAddresses([FromRoute] string paymentAddresses, [FromQuery] int from = 0, [FromQuery] int to = 10)
+        {
+            return await DoGetTransactionsForMultipleAddresses(paymentAddresses, from, to, false, false, false);
+        }
+
+        /// <summary>
+        /// Returns all transactions from a set of adresses.
+        /// </summary>
+        /// <param name="request"> See GetTxsForMultipleAddressesRequest DTO. </param>
+        /// <returns> See GetTransactionsForMultipleAddressesResponse DTO. </returns>
+        [HttpPost("addrs/txs")]
+        [ResponseCache(CacheProfileName = Constants.Cache.SHORT_CACHE_PROFILE_NAME)]
+        [SwaggerOperation("GetTransactionsForMultipleAddresses_Post")]
+        [SwaggerResponse((int)System.Net.HttpStatusCode.OK, typeof(GetTransactionsForMultipleAddressesResponse))]
+        [SwaggerResponse((int)System.Net.HttpStatusCode.BadRequest, typeof(string))]
+        public async Task<ActionResult> GetTransactionsForMultipleAddresses([FromBody] GetTxsForMultipleAddressesRequest request)
+        {
+            return await DoGetTransactionsForMultipleAddresses
+            (
+                request.addrs, request.from, request.to,
+                request.noAsm == 1, request.noScriptSig == 1, request.noSpend == 1
+            );
+        }
+
+        private async Task SetInputNonCoinbaseFields(TransactionInputSummary jsonInput, Input input, bool noAsm, bool noScriptSig)
+        {
+            var previousOutput = input.PreviousOutput;
+            jsonInput.txid = Binary.ByteArrayToHexString(previousOutput.Hash);
+            jsonInput.vout = previousOutput.Index;
+            if(!noScriptSig)
+            {
+                jsonInput.scriptSig = InputScriptToJSON(input.Script, noAsm);
+            }
+            using(var getTxResult = await chain_.FetchTransactionAsync(previousOutput.Hash, false))
+            {
+                Utils.CheckBitprimApiErrorCode(getTxResult.ErrorCode, "FetchTransactionAsync(" + Binary.ByteArrayToHexString(previousOutput.Hash) + ") failed, check errog log");
+                
+                var output = getTxResult.Result.Tx.Outputs[previousOutput.Index];
+                var outputAddress = output.PaymentAddress(nodeExecutor_.UseTestnetRules);
+                if(outputAddress.IsValid)
+                {
+                    jsonInput.addr =  outputAddress.Encoded;
+                }
+                jsonInput.valueSat = output.Value;
+                jsonInput.value = Utils.SatoshisToCoinUnits(output.Value);
+                jsonInput.doubleSpentTxID = null; //We don't handle double spent transactions
+            }
+        }
+
+        private async Task SetOutputSpendInfo(TransactionOutputSummary jsonOutput, byte[] txHash, UInt32 index)
+        {
+            using (var outPoint = new OutputPoint(txHash, index))
+            {
+                var fetchSpendResult = await chain_.FetchSpendAsync(outPoint);
+                if(fetchSpendResult.ErrorCode == ErrorCode.NotFound)
+                {
+                    jsonOutput.spentTxId = null;
+                    jsonOutput.spentIndex = null;
+                    jsonOutput.spentHeight = null;
+                }
+                else
+                {
+                    Utils.CheckBitprimApiErrorCode(fetchSpendResult.ErrorCode, "FetchSpendAsync failed, check error log");
+                    var spend = fetchSpendResult.Result;
+                    jsonOutput.spentTxId = Binary.ByteArrayToHexString(spend.Hash);
+                    jsonOutput.spentIndex = spend.Index;
+                    using(var getTxResult = await chain_.FetchTransactionAsync(spend.Hash, false))
+                    {
+                        Utils.CheckBitprimApiErrorCode(getTxResult.ErrorCode, "FetchTransactionAsync(" + Binary.ByteArrayToHexString(spend.Hash) + "), check error log");
+                        jsonOutput.spentHeight = getTxResult.Result.TxPosition.BlockHeight;
+                    }
+                }
+            }
+            
         }
 
         private async Task<ActionResult> DoGetTransactionsForMultipleAddresses(string addrs, int from, int to,
@@ -180,23 +300,29 @@ namespace bitprim.insight.Controllers
                 return StatusCode((int)System.Net.HttpStatusCode.BadRequest, "'from' must be lower than 'to'");
             }
             
-            var txs = new List<dynamic>();
+            var txs = new List<TransactionSummary>();
             foreach(string address in System.Web.HttpUtility.UrlDecode(addrs).Split(","))
             {
                 var txList = await GetTransactionsBySingleAddress(address, false, 0, noAsm, noScriptSig, noSpend);
-                txs.AddRange(txList.Item1);
+                txs.AddRange(txList.txs);
             }
             //Sort by descending blocktime
             txs.Sort((tx1, tx2) => tx2.blocktime.CompareTo(tx1.blocktime) );
             
             to = Math.Min(to, txs.Count);
 
-            return Json(new{
+            return Json(new GetTransactionsForMultipleAddressesResponse
+            {
                 totalItems = txs.Count,
                 from = from,
                 to = to,
                 items = txs.GetRange(from, to-from).ToArray()
             });   
+        }
+
+        private async Task<ActionResult> GetTransactionsByAddress(string address, uint pageNum)
+        {
+            return Json(await GetTransactionsBySingleAddress(address, true, pageNum, false, false, false));
         }
 
         private async Task<ActionResult> GetTransactionsByBlockHash(string blockHash, UInt64 pageNum)
@@ -219,14 +345,14 @@ namespace bitprim.insight.Controllers
                     );
                 }
                 
-                var txs = new List<object>();
+                var txs = new List<TransactionSummary>();
                 for(UInt64 i=0; i<pageSize && pageNum * pageSize + i < fullBlock.TransactionCount; i++)
                 {
                     var tx = fullBlock.GetNthTransaction(pageNum * pageSize + i);
                     txs.Add(await TxToJSON(tx, blockHeight, confirmed: true, noAsm: false, noScriptSig: false, noSpend: false));
                 }
                 
-                return Json(new
+                return Json(new GetTransactionsResponse
                 {
                     pagesTotal = pageCount,
                     txs = txs.ToArray()
@@ -234,17 +360,7 @@ namespace bitprim.insight.Controllers
             }
         }
 
-        private async Task<ActionResult> GetTransactionsByAddress(string address, uint pageNum)
-        {
-            var txsByAddress = await GetTransactionsBySingleAddress(address, true, pageNum, false, false, false);
-            
-            return Json(new{
-                pagesTotal = txsByAddress.Item2,
-                txs = txsByAddress.Item1.ToArray()
-            });
-        }
-
-        private async Task<Tuple<List<object>, UInt64>> GetTransactionsBySingleAddress(string paymentAddress, bool pageResults, uint pageNum,bool noAsm, bool noScriptSig, bool noSpend)
+        private async Task<GetTransactionsResponse> GetTransactionsBySingleAddress(string paymentAddress, bool pageResults, uint pageNum,bool noAsm, bool noScriptSig, bool noSpend)
         {
             Utils.CheckIfChainIsFresh(chain_, config_.AcceptStaleRequests);
 
@@ -252,11 +368,11 @@ namespace bitprim.insight.Controllers
             using (var getTransactionResult = await chain_.FetchConfirmedTransactionsAsync(address, UInt64.MaxValue, 0))
             {
                 Utils.CheckBitprimApiErrorCode(getTransactionResult.ErrorCode, "FetchTransactionAsync(" + paymentAddress + ") failed, check error log.");
-                
+
                 var txIds = getTransactionResult.Result;
-                var txs = new List<object>();
+                var txs = new List<TransactionSummary>();
                 var pageSize = pageResults ? (uint) config_.TransactionsByAddressPageSize : txIds.Count;
-                
+
                 for(uint i=0; i<pageSize && (pageNum * pageSize + i < txIds.Count); i++)
                 {
                     var txHash = txIds[(pageNum * pageSize + i)];
@@ -268,13 +384,80 @@ namespace bitprim.insight.Controllers
                     }
                 }
                 UInt64 pageCount = (UInt64) Math.Ceiling((double)txIds.Count/(double)pageSize);
-                List<object> unconfirmedTxs = await GetUnconfirmedTransactions(address, noAsm, noScriptSig, noSpend);
+                List<TransactionSummary> unconfirmedTxs = await GetUnconfirmedTransactions(address, noAsm, noScriptSig, noSpend);
                 txs = unconfirmedTxs.Concat(txs).ToList(); //Unconfirmed txs go first
-                return new Tuple<List<object>, UInt64>(txs, pageCount);
+                return new GetTransactionsResponse{ pagesTotal = pageCount, txs = txs.ToArray() };
             }
         }
 
-        private async Task<object> TxToJSON(Transaction tx, UInt64 blockHeight, bool confirmed, bool noAsm, bool noScriptSig, bool noSpend)
+        private async Task<List<TransactionSummary>> GetUnconfirmedTransactions(PaymentAddress address, bool noAsm, bool noScriptSig, bool noSpend)
+        {
+            var unconfirmedTxsJson = new List<TransactionSummary>();
+            using(MempoolTransactionList unconfirmedTxs = chain_.GetMempoolTransactions(address, nodeExecutor_.UseTestnetRules))
+            {
+                foreach(MempoolTransaction unconfirmedTx in unconfirmedTxs)
+                {
+                    using(var getTxResult = await chain_.FetchTransactionAsync(Binary.HexStringToByteArray(unconfirmedTx.Hash), requireConfirmed: false))
+                    {
+                        Utils.CheckBitprimApiErrorCode(getTxResult.ErrorCode, "FetchTransactionAsync(" + unconfirmedTx.Hash + ") failed, check error log");
+                        unconfirmedTxsJson.Add
+                        (
+                            await TxToJSON(getTxResult.Result.Tx, 0, confirmed: false, noAsm: noAsm, noScriptSig: noScriptSig, noSpend: noSpend)
+                        );
+                    }
+                }
+                return unconfirmedTxsJson;
+            }
+        }
+
+        private async Task<TransactionInputSummary[]> TxInputsToJSON(Transaction tx, bool noAsm, bool noScriptSig)
+        {
+            var inputs = tx.Inputs;
+            var jsonInputs = new List<TransactionInputSummary>();
+            for(uint i=0; i<inputs.Count; i++)
+            {
+                var input = inputs[i];
+                
+                dynamic jsonInput = new TransactionInputSummary();
+                if(tx.IsCoinbase)
+                {
+                    byte[] scriptData = input.Script.ToData(false);
+                    Array.Reverse(scriptData, 0, scriptData.Length);
+                    jsonInput.coinbase = Binary.ByteArrayToHexString(scriptData);
+                }
+                else
+                {
+                    await SetInputNonCoinbaseFields(jsonInput, input, noAsm, noScriptSig);
+                }
+                jsonInput.sequence = input.Sequence;
+                jsonInput.n = i;
+                jsonInputs.Add(jsonInput);
+            }
+            return jsonInputs.ToArray();
+        }
+
+        private async Task<TransactionOutputSummary[]> TxOutputsToJSON(Transaction tx, bool noAsm, bool noSpend)
+        {
+            var outputs = tx.Outputs;
+            var jsonOutputs = new List<TransactionOutputSummary>();
+            for(uint i=0; i<outputs.Count; i++)
+            {
+                var output = outputs[i];
+                dynamic jsonOutput = new TransactionOutputSummary();
+                jsonOutput.value = Utils.SatoshisToCoinUnits(output.Value);
+                jsonOutput.n = i;
+                jsonOutput.scriptPubKey = OutputScriptToJSON(output, noAsm);
+                if(!noSpend)
+                {
+                    await SetOutputSpendInfo(jsonOutput, tx.Hash, (UInt32)i);
+                }
+                jsonOutputs.Add(jsonOutput);
+            }
+            return jsonOutputs.ToArray();
+        }
+
+        private async Task<TransactionSummary> TxToJSON(Transaction tx, UInt64 blockHeight, bool confirmed,
+                                                        bool noAsm, bool noScriptSig, bool noSpend)
         {
             UInt32 blockTimestamp = 0;
             string blockHash = "";
@@ -291,7 +474,7 @@ namespace bitprim.insight.Controllers
             ApiCallResult<UInt64> getLastHeightResult = await chain_.FetchLastHeightAsync();
             Utils.CheckBitprimApiErrorCode(getLastHeightResult.ErrorCode, "FetchLastHeightAsync failed, check error log");
             
-            dynamic txJson = new ExpandoObject();
+            dynamic txJson = new TransactionSummary();
             txJson.txid = Binary.ByteArrayToHexString(tx.Hash);
             txJson.version = tx.Version;
             txJson.locktime = tx.Locktime;
@@ -322,124 +505,6 @@ namespace bitprim.insight.Controllers
             return txJson;
         }
 
-        private async Task<object> TxInputsToJSON(Transaction tx, bool noAsm, bool noScriptSig)
-        {
-            var inputs = tx.Inputs;
-            var jsonInputs = new List<object>();
-            for(uint i=0; i<inputs.Count; i++)
-            {
-                var input = inputs[i];
-                
-                dynamic jsonInput = new ExpandoObject();
-                if(tx.IsCoinbase)
-                {
-                    byte[] scriptData = input.Script.ToData(false);
-                    Array.Reverse(scriptData, 0, scriptData.Length);
-                    jsonInput.coinbase = Binary.ByteArrayToHexString(scriptData);
-                }
-                else
-                {
-                    await SetInputNonCoinbaseFields(jsonInput, input, noAsm, noScriptSig);
-                }
-                jsonInput.sequence = input.Sequence;
-                jsonInput.n = i;
-                jsonInputs.Add(jsonInput);
-            }
-            return jsonInputs.ToArray();
-        }
-
-        private async Task SetInputNonCoinbaseFields(dynamic jsonInput, Input input, bool noAsm, bool noScriptSig)
-        {
-            var previousOutput = input.PreviousOutput;
-            jsonInput.txid = Binary.ByteArrayToHexString(previousOutput.Hash);
-            jsonInput.vout = previousOutput.Index;
-            if(!noScriptSig)
-            {
-                jsonInput.scriptSig = InputScriptToJSON(input.Script, noAsm);
-            }
-            using(var getTxResult = await chain_.FetchTransactionAsync(previousOutput.Hash, false))
-            {
-                Utils.CheckBitprimApiErrorCode(getTxResult.ErrorCode, "FetchTransactionAsync(" + Binary.ByteArrayToHexString(previousOutput.Hash) + ") failed, check errog log");
-                
-                var output = getTxResult.Result.Tx.Outputs[previousOutput.Index];
-                var outputAddress = output.PaymentAddress(nodeExecutor_.UseTestnetRules);
-                if(outputAddress.IsValid)
-                {
-                    jsonInput.addr =  outputAddress.Encoded;
-                }
-                jsonInput.valueSat = output.Value;
-                jsonInput.value = Utils.SatoshisToCoinUnits(output.Value);
-                jsonInput.doubleSpentTxID = null; //We don't handle double spent transactions
-            }
-        }
-
-        private async Task<List<object>> GetUnconfirmedTransactions(PaymentAddress address, bool noAsm, bool noScriptSig, bool noSpend)
-        {
-            var unconfirmedTxsJson = new List<object>();
-            using(MempoolTransactionList unconfirmedTxs = chain_.GetMempoolTransactions(address, nodeExecutor_.UseTestnetRules))
-            {
-                foreach(MempoolTransaction unconfirmedTx in unconfirmedTxs)
-                {
-                    using(var getTxResult = await chain_.FetchTransactionAsync(Binary.HexStringToByteArray(unconfirmedTx.Hash), requireConfirmed: false))
-                    {
-                        Utils.CheckBitprimApiErrorCode(getTxResult.ErrorCode, "FetchTransactionAsync(" + unconfirmedTx.Hash + ") failed, check error log");
-                        unconfirmedTxsJson.Add
-                        (
-                            await TxToJSON(getTxResult.Result.Tx, 0, confirmed: false, noAsm: noAsm, noScriptSig: noScriptSig, noSpend: noSpend)
-                        );
-                    }
-                }
-                return unconfirmedTxsJson;
-            }
-        }
-
-        private async Task<object> TxOutputsToJSON(Transaction tx, bool noAsm, bool noSpend)
-        {
-            var outputs = tx.Outputs;
-            var jsonOutputs = new List<object>();
-            for(uint i=0; i<outputs.Count; i++)
-            {
-                var output = outputs[i];
-                dynamic jsonOutput = new ExpandoObject();
-                jsonOutput.value = Utils.SatoshisToCoinUnits(output.Value);
-                jsonOutput.n = i;
-                jsonOutput.scriptPubKey = OutputScriptToJSON(output, noAsm);
-                if(!noSpend)
-                {
-                    await SetOutputSpendInfo(jsonOutput, tx.Hash, (UInt32)i);
-                }
-                jsonOutputs.Add(jsonOutput);
-            }
-            return jsonOutputs.ToArray();
-        }
-
-        private async Task SetOutputSpendInfo(dynamic jsonOutput, byte[] txHash, UInt32 index)
-        {
-            using (var outPoint = new OutputPoint(txHash, index))
-            {
-                var fetchSpendResult = await chain_.FetchSpendAsync(outPoint);
-                if(fetchSpendResult.ErrorCode == ErrorCode.NotFound)
-                {
-                    jsonOutput.spentTxId = null;
-                    jsonOutput.spentIndex = null;
-                    jsonOutput.spentHeight = null;
-                }
-                else
-                {
-                    Utils.CheckBitprimApiErrorCode(fetchSpendResult.ErrorCode, "FetchSpendAsync failed, check error log");
-                    var spend = fetchSpendResult.Result;
-                    jsonOutput.spentTxId = Binary.ByteArrayToHexString(spend.Hash);
-                    jsonOutput.spentIndex = spend.Index;
-                    using(var getTxResult = await chain_.FetchTransactionAsync(spend.Hash, false))
-                    {
-                        Utils.CheckBitprimApiErrorCode(getTxResult.ErrorCode, "FetchTransactionAsync(" + Binary.ByteArrayToHexString(spend.Hash) + "), check error log");
-                        jsonOutput.spentHeight = getTxResult.Result.TxPosition.BlockHeight;
-                    }
-                }
-            }
-            
-        }
-
         private async Task<UInt64> ManuallyCalculateInputsTotal(Transaction tx)
         {
             UInt64 inputs_total = 0;
@@ -457,35 +522,12 @@ namespace bitprim.insight.Controllers
             return inputs_total;
         }
 
-        //TODO Move this logic to node-cint and expose via a property (Transaction.Confirmed)
-        private bool CheckIfTransactionIsConfirmed(GetTxDataResult txResult)
-        {
-            switch( NodeSettings.CurrencyType )
-            {
-                case CurrencyType.BitcoinCash: return txResult.TxPosition.Index != UInt32.MaxValue;
-                default: return txResult.TxPosition.Index != UInt16.MaxValue;
-            }
-        }
-
-        private object InputScriptToJSON(Script inputScript, bool noAsm)
-        {
-            byte[] scriptData = inputScript.ToData(false);
-            Array.Reverse(scriptData, 0, scriptData.Length);
-            dynamic result = new ExpandoObject();
-            if(!noAsm)
-            {
-                result.asm = inputScript.ToString(0);
-            }
-            result.hex = Binary.ByteArrayToHexString(scriptData);
-            return result;
-        }
-
-        private object OutputScriptToJSON(Output output, bool noAsm)
+        private OutputScriptSummary OutputScriptToJSON(Output output, bool noAsm)
         {
             var script = output.Script;
             var scriptData = script.ToData(false);
             Array.Reverse(scriptData, 0, scriptData.Length);
-            dynamic result = new ExpandoObject();
+            dynamic result = new OutputScriptSummary();
             if(!noAsm)
             {
                 result.asm = script.ToString(0);
@@ -494,20 +536,45 @@ namespace bitprim.insight.Controllers
             var outputAddress = output.PaymentAddress(nodeExecutor_.UseTestnetRules);
             if(outputAddress.IsValid)
             {
-                result.addresses = new List<object> {outputAddress.Encoded}.ToArray();
+                result.addresses = new string[] { outputAddress.Encoded };
             }
             result.type = GetScriptType(script.Type);
             return result;
         }
 
-        private string GetScriptType(string type)
+        //TODO Move this logic to node-cint and expose via a property (Transaction.Confirmed)
+        private static bool CheckIfTransactionIsConfirmed(GetTxDataResult txResult)
+        {
+            switch( NodeSettings.CurrencyType )
+            {
+                case CurrencyType.BitcoinCash: return txResult.TxPosition.Index != UInt32.MaxValue;
+                default: return txResult.TxPosition.Index != UInt16.MaxValue;
+            }
+        }
+
+        private static InputScriptSummary InputScriptToJSON(Script inputScript, bool noAsm)
+        {
+            byte[] scriptData = inputScript.ToData(false);
+            Array.Reverse(scriptData, 0, scriptData.Length);
+            dynamic result = new InputScriptSummary();
+            result.hex = Binary.ByteArrayToHexString(scriptData);
+            if(!noAsm)
+            {
+                result.asm = inputScript.ToString(0);
+            }
+            return result;
+        }
+        
+        private static string GetScriptType(string type)
         {
             if (type == "pay_key_hash")
+            {
                 return "pubkeyhash";
-
+            }
             if (type == "pay_script_hash")
+            {
                 return "scripthash";
-
+            }
             return type;
         }
 

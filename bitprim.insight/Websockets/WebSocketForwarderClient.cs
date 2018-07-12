@@ -12,7 +12,7 @@ using Polly;
 
 namespace bitprim.insight.Websockets
 {
-    public sealed class WebSocketForwarderClient : IDisposable
+    internal sealed class WebSocketForwarderClient : IDisposable
     {
         private readonly IOptions<NodeConfig> config_;
         private readonly ILogger<WebSocketForwarderClient> logger_;

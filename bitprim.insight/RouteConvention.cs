@@ -5,7 +5,7 @@ using Microsoft.AspNetCore.Mvc.Routing;
 
 namespace bitprim.insight
 {
-    public class RouteConvention : IApplicationModelConvention
+    internal class RouteConvention : IApplicationModelConvention
     {
         private readonly AttributeRouteModel centralPrefix_;
  
