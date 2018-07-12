@@ -7,7 +7,7 @@ using Serilog;
 
 namespace bitprim.insight
 {
-    public class Program
+    internal class Program
     {
         private const int DEFAULT_PORT = 1549;
 

@@ -16,7 +16,7 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace bitprim.insight
 {
-    public class Startup
+    internal class Startup
     {
         private BlockChainObserver blockChainObserver_;
         private const string CORS_POLICY_NAME = "BI_CORS_POLICY";
@@ -59,9 +59,10 @@ namespace bitprim.insight
 
             ConfigureCors(services);
             // Register the Swagger generator, defining one or more Swagger documents  
-            services.AddSwaggerGen(c =>
-            {
+            services.AddSwaggerGen(c =>  
+            {  
                 c.SwaggerDoc("v1", new Info { Title = "bitprim", Version = "v1" });
+                c.IncludeXmlComments(string.Format(@"{0}/bitprim.insight.xml", System.AppDomain.CurrentDomain.BaseDirectory));
             });
 
             var serviceProvider = services.BuildServiceProvider();

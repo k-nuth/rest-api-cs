@@ -7,7 +7,7 @@ using Newtonsoft.Json;
 
 namespace bitprim.insight
 {
-    public class BlockChainObserver
+    internal class BlockChainObserver
     {
         private readonly Executor.BlockHandler blockHandler_;
         private readonly Executor.TransactionHandler txHandler_;

@@ -10,7 +10,7 @@ using Serilog.Context;
 
 namespace bitprim.insight.Middlewares
 {
-    public class RequestLoggerMiddleware
+    internal class RequestLoggerMiddleware
     {
         private static class LogPropertyNames
         {
@@ -103,7 +103,7 @@ namespace bitprim.insight.Middlewares
     }
 
     // Extension method used to add the middleware to the HTTP request pipeline.
-    public static class RequestLoggerMiddlewareExtensions
+    internal static class RequestLoggerMiddlewareExtensions
     {
         public static IApplicationBuilder UseRequestLoggerMiddleware(this IApplicationBuilder builder)
         {
