@@ -70,7 +70,7 @@ namespace bitprim.insight
         }
 
         /// <summary>
-        /// Remove a specific item from the set. Returns 
+        /// Remove a specific item from the set.
         /// </summary>
         /// <param name="item"> Item to remove. </param>
         /// <returns> True if and only if the element was found and removed. </returns>
@@ -157,7 +157,7 @@ namespace bitprim.insight
         /// Copy a range of the set ordered elements to a list.
         /// </summary>
         /// <param name="index"> Range starting index, zero-based. </param>
-        /// <param name="count"> Range starting index, zero-based. </param>
+        /// <param name="count"> Amount of elements to select. </param>
         /// <returns> A newly instantiated list with a copy of the set range, respecting order. </returns>
         public List<T> GetRange(int index, int count)
         {
