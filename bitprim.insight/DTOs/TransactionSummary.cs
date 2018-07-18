@@ -23,6 +23,11 @@ namespace bitprim.insight.DTOs
         public TransactionInputSummary[] vin { get; set; }
 
         /// <summary>
+        /// Transaction outputs.
+        /// </summary>
+        public TransactionOutputSummary[] vout { get; set; }
+
+        /// <summary>
         /// Transaction locktime, expressed as the blockchain height at which the transaction will be considered confirmed.
         /// </summary>
         public UInt32 locktime { get; set; }
