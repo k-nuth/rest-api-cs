@@ -12,7 +12,7 @@ namespace bitprim.tutorials
             int i = 0;
             foreach(string post in posts)
             {
-                Console.WriteLine((i+1) + ": " + post);
+                Console.WriteLine((++i) + ": " + post);
             }
             Console.WriteLine("Done! Press any key to finish");
             Console.ReadKey();
