@@ -57,7 +57,6 @@ namespace bitprim.insight.DTOs
         /// </summary>
         public UInt32 blocktime { get; set; }
 
-        /// <summary>
         /// Transaction locktime, expressed as the blockchain height at which the transaction will be considered confirmed.
         /// </summary>
         public UInt32 locktime { get; set; }

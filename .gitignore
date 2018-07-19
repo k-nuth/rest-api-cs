@@ -18,6 +18,10 @@ bitprim.insight/wwwroot/package-lock.json
 bitprim.insight/Properties/launchSettings.json
 bitprim.insight/appsettings.json
 bitprim.insight/log-*.txt
+bitprim.insight.tutorials/bin/
+bitprim.insight.tutorials/obj/
+bitprim.insight.tutorials.tests/bin/
+bitprim.insight.tutorials.tests/obj/
 archive/
 *.cfg
 curl_format.txt
