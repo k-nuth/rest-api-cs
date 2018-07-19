@@ -475,7 +475,7 @@ namespace bitprim.insight.Controllers
             ApiCallResult<UInt64> getLastHeightResult = await chain_.FetchLastHeightAsync();
             Utils.CheckBitprimApiErrorCode(getLastHeightResult.ErrorCode, "FetchLastHeightAsync failed, check error log");
             
-            dynamic txJson = new TransactionSummary();
+            var txJson = new TransactionSummary();
             txJson.txid = Binary.ByteArrayToHexString(tx.Hash);
             txJson.version = tx.Version;
             txJson.locktime = tx.Locktime;
@@ -492,12 +492,12 @@ namespace bitprim.insight.Controllers
                 txJson.blockhash = blockHash;
                 txJson.time = blockTimestamp;
                 txJson.blocktime = blockTimestamp;
-                txJson.blockheight = blockHeight;
+                txJson.blockheight = (Int64) blockHeight;
             }
             else
             {
                 txJson.blockheight = -1;
-                txJson.time = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+                txJson.time = (UInt32) DateTimeOffset.UtcNow.ToUnixTimeSeconds();
             }
             if ( !tx.IsCoinbase )
             {
