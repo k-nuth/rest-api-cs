@@ -16,6 +16,7 @@ namespace bitprim.insight.Controllers
     /// Transaction related operations.
     /// </summary>
     [Route("[controller]")]
+    [ApiController]
     public class TransactionController : Controller
     {
         private readonly Chain chain_;

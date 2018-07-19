@@ -14,6 +14,7 @@ namespace bitprim.insight.Controllers
     /// Address related operations.
     /// </summary>
     [Route("[controller]")]
+    [ApiController]
     public class AddressController : Controller
     {
         private readonly Chain chain_;

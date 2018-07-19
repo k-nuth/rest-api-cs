@@ -17,6 +17,7 @@ namespace bitprim.insight.Controllers
     /// Block related operations.
     /// </summary>
     [Route("[controller]")]
+    [ApiController]
     public class BlockController : Controller
     {
         private readonly Chain chain_;

@@ -21,6 +21,7 @@ namespace bitprim.insight.Controllers
     /// Blockchain related operations.
     /// </summary>
     [Route("[controller]")]
+    [ApiController]
     public class ChainController : Controller
     {
         private readonly Chain chain_;
