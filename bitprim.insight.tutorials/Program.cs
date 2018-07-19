@@ -8,7 +8,7 @@ namespace bitprim.tutorials
         {
             var memoService = new MemoService(new BitprimInsightAPI());
             Console.WriteLine("Scraping...");
-            var posts = memoService.GetLatestPosts(5);
+            var posts = memoService.GetLatestPosts(5, OnScrapingProgressReport);
             int i = 0;
             foreach(string post in posts)
             {
@@ -16,6 +16,11 @@ namespace bitprim.tutorials
             }
             Console.WriteLine("Done! Press any key to finish");
             Console.ReadKey();
+        }
+
+        static void OnScrapingProgressReport(string report)
+        {
+            Console.WriteLine(report);
         }
     }
 }

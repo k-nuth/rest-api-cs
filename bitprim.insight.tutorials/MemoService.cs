@@ -14,7 +14,7 @@ namespace bitprim.tutorials
         public MemoService(IBitprimInsightAPI bitprimApi)
         {
             bitprimApi_ = bitprimApi;
-            memoRegex_ = new Regex("^return " + Regex.Escape("[") + "6d[0-1][1-e]" + Regex.Escape("]"));
+            memoRegex_ = new Regex("^return " + Regex.Escape("[") + "6d[0-1][1-e]" + Regex.Escape("]"), RegexOptions.Compiled);
         }
 
         public bool TransactionIsMemo(string txHash)
@@ -48,19 +48,19 @@ namespace bitprim.tutorials
             return "";
         }
 
-        public List<string> GetLatestPosts(int nPosts)
+        public List<string> GetLatestPosts(int nPosts, Action<string> progressReportCallback)
         {
             UInt64 blockchainHeight = bitprimApi_.GetCurrentBlockchainHeight();
             int postsFound = 0;
             var posts = new List<string>();
             while(postsFound < nPosts && blockchainHeight > 1)
             {
-                Console.WriteLine("Searching block " + blockchainHeight + "...");
+                progressReportCallback("Searching block " + blockchainHeight + "...");
                 string blockHash = bitprimApi_.GetBlockHash(blockchainHeight);
                 GetTransactionsResponse txs = bitprimApi_.GetBlockTransactions(blockHash, 0);
                 for(int iPage=0; iPage<(int)txs.pagesTotal; ++iPage)
                 {
-                    Console.WriteLine("\tSearching tx page " + iPage + "...");
+                    progressReportCallback("\tSearching tx page " + (iPage+1) + "/" + txs.pagesTotal + "...");
                     txs = bitprimApi_.GetBlockTransactions(blockHash, iPage);
                     foreach(TransactionSummary tx in txs.txs)
                     {
@@ -68,7 +68,7 @@ namespace bitprim.tutorials
                         {
                             posts.Add(GetPost(tx.txid));
                             ++postsFound;
-                            Console.WriteLine("\t\tFound post " + postsFound + " of " + nPosts + " in tx " + tx.txid + "!");
+                            progressReportCallback("\t\tFound post " + postsFound + " of " + nPosts + " in tx " + tx.txid + "!");
                             if(postsFound == nPosts)
                             {
                                 break;
