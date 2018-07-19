@@ -13,7 +13,7 @@ using Polly;
 
 namespace bitprim.insight.Websockets
 {
-    public class WebSocketHandler
+    internal class WebSocketHandler
     {
         private readonly AsyncProducerConsumerQueue<BitprimWebSocketMessage> messageQueue_;
         private readonly ConcurrentDictionary<WebSocket, ConcurrentDictionary<string, byte>> subscriptions_;

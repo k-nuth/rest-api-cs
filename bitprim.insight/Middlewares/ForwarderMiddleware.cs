@@ -11,7 +11,7 @@ using Polly;
 
 namespace bitprim.insight.Middlewares
 {
-    public class ForwarderMiddleware
+    internal class ForwarderMiddleware
     {
         private readonly RequestDelegate next_;
         private readonly ILogger<ForwarderMiddleware> logger_;
@@ -63,7 +63,7 @@ namespace bitprim.insight.Middlewares
 
     }
 
-    public static class ForwarderMiddlewareExtensions
+    internal static class ForwarderMiddlewareExtensions
     {
         public static IApplicationBuilder UseForwarderMiddleware(this IApplicationBuilder builder)
         {

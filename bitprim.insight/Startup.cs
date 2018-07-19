@@ -16,7 +16,7 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace bitprim.insight
 {
-    public class Startup
+    internal class Startup
     {
         private BlockChainObserver blockChainObserver_;
         private const string CORS_POLICY_NAME = "BI_CORS_POLICY";
@@ -48,7 +48,7 @@ namespace bitprim.insight
         // This method gets called by the runtime. Use this method to add services to the container.
         public void ConfigureServices(IServiceCollection services)
         {
-            Log.Information("Current Dir: " + Environment.CurrentDirectory); 
+            Log.Information("Current Dir: " + Environment.CurrentDirectory);
 
             // Add functionality to inject IOptions<T>
             services.AddOptions();
@@ -56,12 +56,13 @@ namespace bitprim.insight
             services.Configure<NodeConfig>(configuration_);
             // Add framework services.
             ConfigureFrameworkServices(services);
-           
+
             ConfigureCors(services);
             // Register the Swagger generator, defining one or more Swagger documents  
             services.AddSwaggerGen(c =>  
             {  
-                c.SwaggerDoc("v1", new Info { Title = "bitprim", Version = "v1" });  
+                c.SwaggerDoc("v1", new Info { Title = "bitprim", Version = "v1" });
+                c.IncludeXmlComments(string.Format(@"{0}/bitprim.insight.xml", System.AppDomain.CurrentDomain.BaseDirectory));
             });
 
             var serviceProvider = services.BuildServiceProvider();
@@ -90,20 +91,20 @@ namespace bitprim.insight
             // Enable middleware to serve generated Swagger as a JSON endpoint.
             app.UseSwagger();
             // Enable middleware to serve swagger-ui (HTML, JS, CSS, etc.), specifying the Swagger JSON endpoint.  
-            app.UseSwaggerUI(c =>  
-            {  
+            app.UseSwaggerUI(c =>
+            {
                 c.SwaggerEndpoint("/swagger/v1/swagger.json", "bitprim V1");
             });
             // Register shutdown handler
             applicationLifetime.ApplicationStopping.Register(OnShutdown);
             app.UseCors(CORS_POLICY_NAME);
             app.UseStaticFiles(); //TODO For testing web sockets
-            
+
             if (!nodeConfig_.InitializeNode)
             {
                 app.UseForwarderMiddleware();
             }
-            
+
             app.UseMvc();
         }
 
@@ -122,16 +123,18 @@ namespace bitprim.insight
                             Duration = nodeConfig_.LongResponseCacheDurationInSeconds
                         });
                     opt.RespectBrowserAcceptHeader = true;
-                    opt.Conventions.Insert(0, new RouteConvention(new  RouteAttribute(nodeConfig_.ApiPrefix) ));
+                    opt.Conventions.Insert(0, new RouteConvention(new RouteAttribute(nodeConfig_.ApiPrefix)));
                 })
+            .SetCompatibilityVersion(CompatibilityVersion.Version_2_1)
             .AddApiExplorer()
             .AddFormatterMappings()
             .AddJsonFormatters()
             .AddCors();
-            services.AddMemoryCache( opt =>
-                {
-                    opt.SizeLimit = nodeConfig_.MaxCacheSize;
-                }
+
+            services.AddMemoryCache(opt =>
+               {
+                   opt.SizeLimit = nodeConfig_.MaxCacheSize;
+               }
             );
         }
 
@@ -185,11 +188,11 @@ namespace bitprim.insight
 
                 Log.Information("Initializing forwarder mode");
                 Log.Information("Forward Url " + nodeConfig_.ForwardUrl);
-                
+
                 webSocketForwarderClient_ = new WebSocketForwarderClient(
                     serviceProvider.GetService<IOptions<NodeConfig>>(),
                     serviceProvider.GetService<ILogger<WebSocketForwarderClient>>(), webSocketHandler_);
-               _ = webSocketForwarderClient_.Init();
+                _ = webSocketForwarderClient_.Init();
             }
         }
 
@@ -197,7 +200,7 @@ namespace bitprim.insight
         {
             Log.Information("Node Config File: " + nodeConfig_.NodeConfigFile);
             if (!string.IsNullOrWhiteSpace(nodeConfig_.NodeConfigFile))
-                Log.Information("FullPath Node Config File: " + Path.GetFullPath(nodeConfig_.NodeConfigFile) );
+                Log.Information("FullPath Node Config File: " + Path.GetFullPath(nodeConfig_.NodeConfigFile));
 
             // Initialize and register chain service
             exec_ = new Executor(nodeConfig_.NodeConfigFile);
@@ -212,7 +215,7 @@ namespace bitprim.insight
             {
                 throw new ApplicationException("Executor::InitAndRunAsync failed; error code: " + result);
             }
-                
+
             blockChainObserver_ = new BlockChainObserver(exec_, webSocketHandler_);
             services.AddSingleton<Executor>(exec_);
             services.AddSingleton<Chain>(exec_.Chain);
@@ -232,9 +235,9 @@ namespace bitprim.insight
                 Log.Information("Websocket forwarder shutdown ok");
             }
 
-            if (exec_ == null) 
+            if (exec_ == null)
                 return;
-            
+
             Log.Information("Stopping node...");
             exec_.Stop();
             Log.Information("Waiting for node to stop...");

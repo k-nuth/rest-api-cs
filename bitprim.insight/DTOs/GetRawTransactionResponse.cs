@@ -1,12 +1,12 @@
 namespace bitprim.insight.DTOs
 {
     /// <summary>
-    /// RawTxRequest data structure.
+    /// GetRawTransactionResponse data structure.
     /// </summary>
-    public class RawTxRequest
+    public class GetRawTransactionResponse
     {
         /// <summary>
-        /// Hex string representing the raw transaction to try and broadcast.
+        /// Transaction representation as a hex string.
         /// </summary>
         public string rawtx { get; set; }
     }
