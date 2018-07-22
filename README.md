@@ -28,7 +28,8 @@ The *Bitprim* libraries can be installed using conan (see below) on Linux, macOS
 
 1. Build 
 
-In the project folder run:
+In the project folder (`bitprim-insight/bitprim.insight`) run:
+
 
 For Bitcoin Cash
 
