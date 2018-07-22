@@ -45,7 +45,7 @@ dotnet build /p:BTC=true -c Release -v normal
 2. Run
 
 ```
-dotnet bin/Release/netcoreapp2.0/bitprim.insight.dll --server.port=3000 --server.address=0.0.0.0
+dotnet bin/Release/netcoreapp2.1/bitprim.insight.dll --server.port=3000 --server.address=0.0.0.0
 ```
 
 or you can publish the app and run over the published folder 
@@ -55,7 +55,7 @@ dotnet publish /p:BTC=true -c Release -v normal -o published
 ```
 
 ```
-dotnet bin/Release/netcoreapp2.0/published/bitprim.insight.dll --server.port=3000 --server.address=0.0.0.0
+dotnet bin/Release/netcoreapp2.1/published/bitprim.insight.dll --server.port=3000 --server.address=0.0.0.0
 ```
 
 ### Command line arguments
