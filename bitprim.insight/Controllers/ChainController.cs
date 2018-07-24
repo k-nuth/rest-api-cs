@@ -10,6 +10,7 @@ using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using Polly;
 using Swashbuckle.AspNetCore.SwaggerGen;
 using System.Linq;
@@ -329,54 +330,6 @@ namespace bitprim.insight.Controllers
             return syncStatus;
         }
 
-        private async Task<UInt64> GetBCCBlockchainHeight()
-        {
-            if (nodeExecutor_.UseTestnetRules)
-            {
-                var syncDataString = await httpClient_.GetStringAsync(Constants.BLOCKTRAIL_TBCC_URL);
-                dynamic syncData = JsonConvert.DeserializeObject<dynamic>(syncDataString);
-                return syncData.last_blocks[0].height;
-            }
-            else
-            {
-                var syncDataString = await httpClient_.GetStringAsync(Constants.BLOCKCHAIR_BCC_URL);
-                dynamic syncData = JsonConvert.DeserializeObject<dynamic>(syncDataString);
-                return ((IEnumerable<dynamic>)syncData.data).Where(r => r.e == "blocks").First().c - 1;
-            }
-        }
-
-        private async Task<UInt64> GetBTCBlockchainHeight()
-        {
-            if (nodeExecutor_.UseTestnetRules)
-            {
-                var syncDataString = await httpClient_.GetStringAsync(Constants.SOCHAIN_TBTC_URL);
-                dynamic syncData = JsonConvert.DeserializeObject<dynamic>(syncDataString);
-                return syncData.data.blocks;
-            }
-            else
-            {
-                var syncDataString = await httpClient_.GetStringAsync(Constants.BLOCKCHAIR_BTC_URL);
-                dynamic syncData = JsonConvert.DeserializeObject<dynamic>(syncDataString);
-                return ((IEnumerable<dynamic>)syncData.data).First(r => r.e == "blocks").c;
-            }
-        }
-
-        private async Task<UInt64> GetLTCBlockchainHeight()
-        {
-            if (nodeExecutor_.UseTestnetRules)
-            {
-                var syncDataString = await httpClient_.GetStringAsync(Constants.SOCHAIN_TLTC_URL);
-                dynamic syncData = JsonConvert.DeserializeObject<dynamic>(syncDataString);
-                return syncData.data.blocks;
-            }
-            else
-            {
-                var syncDataString = await httpClient_.GetStringAsync(Constants.SOCHAIN_LTC_URL);
-                dynamic syncData = JsonConvert.DeserializeObject<dynamic>(syncDataString);
-                return syncData.data.blocks;
-            }
-        }
-
         //TODO Avoid consulting external sources; get this information from bitprim network
         private async Task<UInt64?> GetCurrentBlockChainHeight()
         {
@@ -387,20 +340,22 @@ namespace bitprim.insight.Controllers
                 {
                     return blockChainHeight;
                 };
-                switch (NodeSettings.CurrencyType)
+                var syncDataString = await httpClient_.GetStringAsync(config_.BlockchainHeightServiceUrl);
+                JObject syncData = JsonConvert.DeserializeObject<JObject>(syncDataString);
+                dynamic[] parsingExpression = JsonConvert.DeserializeObject<dynamic[]>(config_.BlockchainHeightParsingExpression);
+                dynamic result = syncData;
+                foreach(dynamic property in parsingExpression)
                 {
-                    case CurrencyType.BitcoinCash:
-                        blockChainHeight = await execPolicy_.ExecuteAsync<UInt64>(() => GetBCCBlockchainHeight());
-                        break;
-                    case CurrencyType.Bitcoin:
-                        blockChainHeight = await execPolicy_.ExecuteAsync<UInt64>(() => GetBTCBlockchainHeight());
-                        break;
-                    case CurrencyType.Litecoin:
-                        blockChainHeight = await execPolicy_.ExecuteAsync<UInt64>(() => GetLTCBlockchainHeight());
-                        break;
-                    default:
-                        throw new InvalidOperationException("Only BCH, BTC and LTC support this operation");
+                    if(property is String)
+                    {
+                        result = result[property];
+                    }
+                    else
+                    {
+                        result = result[(Int32)property];
+                    }
                 }
+                blockChainHeight = Convert.ToUInt64(result);
                 memoryCache_.Set
                 (
                     Constants.Cache.BLOCKCHAIN_HEIGHT_CACHE_KEY, blockChainHeight, new MemoryCacheEntryOptions

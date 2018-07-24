@@ -70,9 +70,32 @@ namespace bitprim.insight
         ///</summary>
         public string AllowedOrigins { get; set; } = "*";
         ///<summary>
-        /// Added between domain and api method name + parameters. 
+        /// Added between domain and api method name + parameters.
         ///</summary>
         public string ApiPrefix { get; set; } = "api";
+        ///<summary>
+        /// External service url for consulting blockchain height.
+        /// Some examples:
+        /// BCH: "https://www.blocktrail.com/BCC/json/blockchain/homeStats"
+        /// TBCH: "https://www.blocktrail.com/tBCC/json/blockchain/homeStats"
+        /// BTC: "https://chain.so/api/v2/get_info/BTC"
+        /// TBTC: "https://chain.so/api/v2/get_info/BTCTEST"
+        /// LTC: "https://chain.so/api/v2/get_info/LTC"
+        /// TLTC: "https://chain.so/api/v2/get_info/LTCTEST" 
+        ///</summary>
+        public string BlockchainHeightServiceUrl { get; set; } = "https://api.blockchair.com/bitcoin-cash";
+        ///<summary>
+        /// String representing an array of JSON property names (or indexes) to navigate to get to external
+        /// service blockchain height. String elements must be between escaped double quotes.
+        /// Some examples: (url ---> expression)
+        /// BCH: "https://www.blocktrail.com/BCC/json/blockchain/homeStats" ---> "[\"last_blocks\", 0, \"height\"]"
+        /// TBCH: "https://www.blocktrail.com/tBCC/json/blockchain/homeStats" ---> "[\"last_blocks\", 0, \"height\"]"
+        /// BTC: "https://chain.so/api/v2/get_info/BTC" ---> "[\"data\", \"blocks\"]"
+        /// TBTC: "https://chain.so/api/v2/get_info/BTCTEST" --->  "[\"data\", \"blocks\"]"
+        /// LTC: "https://chain.so/api/v2/get_info/LTC" ---> "[\"data\", \"blocks\"]"
+        /// TLTC: "https://chain.so/api/v2/get_info/LTCTEST" ---> "[\"data\", \"blocks\"]"
+        ///</summary>
+        public string BlockchainHeightParsingExpression { get; set; } = "[\"data\", \"blocks\"]";
         ///<summary>
         /// Used for searching blocks by date.
         ///</summary>
