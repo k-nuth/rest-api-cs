@@ -83,7 +83,7 @@ namespace bitprim.insight
         /// LTC: "https://chain.so/api/v2/get_info/LTC"
         /// TLTC: "https://chain.so/api/v2/get_info/LTCTEST" 
         ///</summary>
-        public string BlockchainHeightServiceUrl { get; set; } = "https://api.blockchair.com/bitcoin-cash";
+        public string BlockchainHeightServiceUrl { get; set; } = "https://www.blocktrail.com/BCC/json/blockchain/homeStats";
         ///<summary>
         /// String representing an array of JSON property names (or indexes) to navigate to get to external
         /// service blockchain height. String elements must be between escaped double quotes.
@@ -95,7 +95,7 @@ namespace bitprim.insight
         /// LTC: "https://chain.so/api/v2/get_info/LTC" ---> "[\"data\", \"blocks\"]"
         /// TLTC: "https://chain.so/api/v2/get_info/LTCTEST" ---> "[\"data\", \"blocks\"]"
         ///</summary>
-        public string BlockchainHeightParsingExpression { get; set; } = "[\"data\", \"blocks\"]";
+        public string BlockchainHeightParsingExpression { get; set; } = "[\"last_blocks\", 0, \"height\"]";
         ///<summary>
         /// Used for searching blocks by date.
         ///</summary>

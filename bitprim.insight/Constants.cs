@@ -9,7 +9,7 @@ namespace bitprim.insight
             public const int BLOCK_CACHE_ENTRY_SIZE = 10;
             public const int BLOCK_CACHE_SUMMARY_SIZE = 5;
             public const int CURRENT_PRICE_CACHE_ENTRY_SIZE = 1;
-            public const int MAX_BLOCKCHAIN_HEIGHT_AGE_IN_SECONDS = 60;
+            public const int MAX_BLOCKCHAIN_HEIGHT_AGE_IN_SECONDS = 300; //5 Minutos
             public const string BLOCKCHAIN_HEIGHT_CACHE_KEY = "blockchain_height";
             public const string CURRENT_PRICE_CACHE_KEY = "current_price";
             public const string LONG_CACHE_PROFILE_NAME = "Long";
