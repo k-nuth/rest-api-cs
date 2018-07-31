@@ -1,3 +1,5 @@
+using System;
+
 namespace bitprim.insight
 {
     /// <summary>
@@ -136,5 +138,11 @@ namespace bitprim.insight
         /// bitprim-insight API version.
         ///</summary>
         public string Version { get; set; } = "";
+
+        ///<summary>
+        /// If the last block's timestamp is older than this value in seconds,
+        /// the blockchain will be considered stale.
+        ///</summary>
+        public UInt32 BlockchainStalenessThreshold { get; set; } = 43200;
     }
 }

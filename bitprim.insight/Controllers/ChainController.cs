@@ -306,71 +306,32 @@ namespace bitprim.insight.Controllers
         {
             var getLastHeightResult = await chain_.FetchLastHeightAsync();
             Utils.CheckBitprimApiErrorCode(getLastHeightResult.ErrorCode, "GetLastHeight() failed");
-
             var currentHeight = getLastHeightResult.Result;
-            UInt64? blockChainHeight = await GetCurrentBlockChainHeight();
+            UInt32 lastBlockTimestamp = 0;
+            using(var getLastBlockResult = await chain_.FetchBlockByHeightAsync(currentHeight))
+            {
+                Utils.CheckBitprimApiErrorCode(getLastBlockResult.ErrorCode, "FetchBlockByHeightAsync(" + currentHeight + ") failed, check error log");
+                lastBlockTimestamp = getLastBlockResult.Result.BlockData.Header.Timestamp;
+            }
+            UInt32 firstBlockTimestamp = 0;
+            using(var getFirstBlockResult = await chain_.FetchBlockByHeightAsync(0))
+            {
+                Utils.CheckBitprimApiErrorCode(getFirstBlockResult.ErrorCode, "FetchBlockByHeightAsync(0) failed, check error log");
+                firstBlockTimestamp = getFirstBlockResult.Result.BlockData.Header.Timestamp;
+            }
+            var nowTimestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+            var lastBlockAge = nowTimestamp - lastBlockTimestamp;
+            bool synced = lastBlockAge < config_.BlockchainStalenessThreshold;
             dynamic syncStatus = new ExpandoObject();
-            if (blockChainHeight.HasValue)
-            {
-                var synced = currentHeight >= blockChainHeight;
-                syncStatus.status = synced ? "finished" : "synchronizing";
-                syncStatus.blockChainHeight = blockChainHeight;
-                syncStatus.syncPercentage = Math.Min((double)currentHeight / (double)blockChainHeight * 100.0, 100).ToString("N2");
-                syncStatus.error = null;
-            }
-            else
-            {
-                syncStatus.status = "unknown";
-                syncStatus.blockChainHeight = "unknown";
-                syncStatus.syncPercentage = "unknown";
-                syncStatus.error = "Could not determine max blockchain height; check log";
-            }
+            syncStatus.status = synced ? "finished" : "synchronizing";
+            syncStatus.blockChainHeight = currentHeight;
+            syncStatus.syncPercentage = synced?
+                "100" :
+                 Math.Min((double)(lastBlockTimestamp - firstBlockTimestamp) / (double)(nowTimestamp - firstBlockTimestamp) * 100.0, 100).ToString("N2");
+            syncStatus.error = null;
             syncStatus.height = currentHeight;
             syncStatus.type = config_.NodeType;
             return syncStatus;
-        }
-
-        //TODO Avoid consulting external sources; get this information from bitprim network
-        private async Task<UInt64?> GetCurrentBlockChainHeight()
-        {
-            try
-            {
-                UInt64 blockChainHeight = 0;
-                if (memoryCache_.TryGetValue(Constants.Cache.BLOCKCHAIN_HEIGHT_CACHE_KEY, out blockChainHeight))
-                {
-                    return blockChainHeight;
-                };
-                var syncDataString = await httpClient_.GetStringAsync(config_.BlockchainHeightServiceUrl);
-                JObject syncData = JsonConvert.DeserializeObject<JObject>(syncDataString);
-                dynamic[] parsingExpression = JsonConvert.DeserializeObject<dynamic[]>(config_.BlockchainHeightParsingExpression);
-                dynamic result = syncData;
-                foreach(dynamic property in parsingExpression)
-                {
-                    if(property is String)
-                    {
-                        result = result[property];
-                    }
-                    else
-                    {
-                        result = result[(Int32)property];
-                    }
-                }
-                blockChainHeight = Convert.ToUInt64(result);
-                memoryCache_.Set
-                (
-                    Constants.Cache.BLOCKCHAIN_HEIGHT_CACHE_KEY, blockChainHeight, new MemoryCacheEntryOptions
-                    {
-                        AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(Constants.Cache.MAX_BLOCKCHAIN_HEIGHT_AGE_IN_SECONDS),
-                        Size = Constants.Cache.BLOCKCHAIN_HEIGHT_CACHE_ENTRY_SIZE
-                    }
-                );
-                return blockChainHeight;
-            }
-            catch (Exception ex)
-            {
-                logger_.LogWarning(ex, "Failed to retrieve blockchain height from external service");
-                return null;
-            }
         }
 
         private static string GetNetworkType(NetworkType networkType)
