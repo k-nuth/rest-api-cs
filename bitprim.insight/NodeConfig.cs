@@ -22,6 +22,19 @@ namespace bitprim.insight
         /// </summary>
         public int Connections { get; set; } = 8;
         /// <summary>
+        /// If first forwarding attempt via Http fails, wait this amount of time before retrying for the first time.
+        /// </summary>
+        public int ForwarderFirstRetryDelayInMillis { get; set; } = 500;
+        /// <summary>
+        /// Used in forwarder mode, when trying to send from forwarder to full node via Http.
+        /// </summary>
+        public int ForwarderMaxRetries { get; set; } = 3;
+        /// <summary>
+        /// Used in forwarder mode, when trying to send from forwarder to full node via Http.
+        /// Retry delay cannot exceed this value.
+        /// </summary>
+        public int ForwarderMaxRetryDelayInSeconds { get; set; } = 10;
+        /// <summary>
         /// For http response caching.
         /// </summary>
         public int LongResponseCacheDurationInSeconds { get; set; } = 86400;
@@ -29,7 +42,6 @@ namespace bitprim.insight
         /// This size is measured in block count.
         /// </summary>
         public int MaxBlockSummarySize { get; set; } = 500;
-
         ///<summary>
         /// This size is adimensional; we arbitrarily assign a block a size of BLOCK_CACHE_ENTRY_SIZE, and the blockchain height
         /// a size of BLOCKCHAIN_HEIGHT_CACHE_ENTRY_SIZE. The added size of cached blocks and the blockchain height will not exceed this value.
