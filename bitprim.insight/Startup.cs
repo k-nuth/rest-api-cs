@@ -125,7 +125,6 @@ namespace bitprim.insight
                     opt.RespectBrowserAcceptHeader = true;
                     opt.Conventions.Insert(0, new RouteConvention(new RouteAttribute(nodeConfig_.ApiPrefix)));
                 })
-            .SetCompatibilityVersion(CompatibilityVersion.Version_2_1)
             .AddApiExplorer()
             .AddFormatterMappings()
             .AddJsonFormatters()
