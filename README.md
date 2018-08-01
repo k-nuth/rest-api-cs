@@ -2,7 +2,7 @@
 
 > Multi-Cryptocurrency _Rest_ API.
 
-*Bitprim Insight* is a Rest API written in _C#_ with .NET Core 2.1 which exposes methods matching the insight API interface
+*Bitprim Insight* is a Rest API written in _C#_ with .NET Core 2.0 which exposes methods matching the insight API interface
 
 Bitprim Insight supports the following cryptocurrencies:
   * [Bitcoin Cash](https://www.bitcoincash.org/)
@@ -13,7 +13,7 @@ Bitprim Insight supports the following cryptocurrencies:
 
 - 64-bit machine.
 - [Conan](https://www.conan.io/) package manager, version 1.1.0 or newer. See [Conan Installation](http://docs.conan.io/en/latest/installation.html#install-with-pip-recommended).
-- [.NET Core 2.1 SDK](https://www.microsoft.com/net/download/)
+- [.NET Core 2.0 SDK](https://www.microsoft.com/net/download/dotnet-core/2.0)
 
 
 In case there are no pre-built binaries for your platform, conan will automatically try to build from source code. In such a scenario, the following requirements must be added to the previous ones:
@@ -46,7 +46,7 @@ dotnet build /p:BTC=true -c Release -v normal
 2. Run
 
 ```
-dotnet bin/Release/netcoreapp2.1/bitprim.insight.dll --server.port=3000 --server.address=0.0.0.0
+dotnet bin/Release/netcoreapp2.0/bitprim.insight.dll --server.port=3000 --server.address=0.0.0.0
 ```
 
 or you can publish the app and run over the published folder 
@@ -56,7 +56,7 @@ dotnet publish /p:BTC=true -c Release -v normal -o published
 ```
 
 ```
-dotnet bin/Release/netcoreapp2.1/published/bitprim.insight.dll --server.port=3000 --server.address=0.0.0.0
+dotnet bin/Release/netcoreapp2.0/published/bitprim.insight.dll --server.port=3000 --server.address=0.0.0.0
 ```
 
 ### Command line arguments

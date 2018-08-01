@@ -7,7 +7,6 @@ namespace bitprim.insight.Controllers
     /// Message related operations.
     /// </summary>
     [Route("[controller]")]
-    [ApiController]
     public class MessageController : Controller
     {
         /// <summary>
