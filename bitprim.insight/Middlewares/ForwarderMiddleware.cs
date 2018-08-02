@@ -16,21 +16,23 @@ namespace bitprim.insight.Middlewares
         private readonly RequestDelegate next_;
         private readonly ILogger<ForwarderMiddleware> logger_;
         private static readonly HttpClient client = new HttpClient();
-
-        private const int MAX_RETRIES = 3;
-        private const int SEED_DELAY = 100;
-        private const int MAX_DELAY = 2;
-
-        private readonly Policy retryPolicy_ = Policy
-            .Handle<Exception>()
-            .WaitAndRetryAsync(RetryUtils.DecorrelatedJitter(MAX_RETRIES, TimeSpan.FromMilliseconds(SEED_DELAY), TimeSpan.FromSeconds(MAX_DELAY)));
+        private readonly Policy retryPolicy_;
 
         public ForwarderMiddleware(RequestDelegate next, ILogger<ForwarderMiddleware> logger, IOptions<NodeConfig> config)
         {
             next_ = next ?? throw new ArgumentNullException(nameof(next));
             logger_ = logger;
+            NodeConfig nodeConfig = config.Value;
             client.BaseAddress = new Uri(config.Value.ForwardUrl);
-            client.Timeout = TimeSpan.FromSeconds(config.Value.HttpClientTimeoutInSeconds);
+            client.Timeout = TimeSpan.FromSeconds(nodeConfig.HttpClientTimeoutInSeconds);
+            retryPolicy_ = Policy
+                .Handle<Exception>()
+                .WaitAndRetryAsync(RetryUtils.DecorrelatedJitter
+                (
+                    nodeConfig.ForwarderMaxRetries,
+                    TimeSpan.FromMilliseconds(nodeConfig.ForwarderFirstRetryDelayInMillis),
+                    TimeSpan.FromSeconds(nodeConfig.ForwarderMaxRetryDelayInSeconds)
+                ));
         }
 
         public async Task Invoke(HttpContext context)
