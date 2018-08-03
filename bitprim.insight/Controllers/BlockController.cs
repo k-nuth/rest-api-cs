@@ -140,6 +140,7 @@ namespace bitprim.insight.Controllers
         [SwaggerResponse((int)System.Net.HttpStatusCode.BadRequest, typeof(string))]
         public async Task<ActionResult> GetBlocksByDate(int limit = 200, string blockDate = "")
         {
+            Utils.CheckIfChainIsFresh(chain_, config_.AcceptStaleRequests);
             //Validate input
             var validateInputResult = ValidateGetBlocksByDateInput(limit, blockDate);
             if(!validateInputResult.Item1)
@@ -153,8 +154,6 @@ namespace bitprim.insight.Controllers
             var lte =  gte + 86400;
 
             //Find blocks starting point
-            Utils.CheckIfChainIsFresh(chain_, config_.AcceptStaleRequests);
-            
             var getLastHeightResult = await chain_.FetchLastHeightAsync();
             Utils.CheckBitprimApiErrorCode(getLastHeightResult.ErrorCode, "FetchLastHeightAsync failed, check error log");
             
