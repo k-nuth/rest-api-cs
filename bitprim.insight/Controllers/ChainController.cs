@@ -306,18 +306,12 @@ namespace bitprim.insight.Controllers
             var getLastHeightResult = await chain_.FetchLastHeightAsync();
             Utils.CheckBitprimApiErrorCode(getLastHeightResult.ErrorCode, "GetLastHeight() failed");
             var currentHeight = getLastHeightResult.Result;
-            UInt32 lastBlockTimestamp = 0;
-            using(var getLastBlockResult = await chain_.FetchBlockByHeightAsync(currentHeight))
-            {
-                Utils.CheckBitprimApiErrorCode(getLastBlockResult.ErrorCode, "FetchBlockByHeightAsync(" + currentHeight + ") failed, check error log");
-                lastBlockTimestamp = getLastBlockResult.Result.BlockData.Header.Timestamp;
-            }
-            UInt32 firstBlockTimestamp = 0;
-            using(var getFirstBlockResult = await chain_.FetchBlockByHeightAsync(0))
-            {
-                Utils.CheckBitprimApiErrorCode(getFirstBlockResult.ErrorCode, "FetchBlockByHeightAsync(0) failed, check error log");
-                firstBlockTimestamp = getFirstBlockResult.Result.BlockData.Header.Timestamp;
-            }
+            var getLastBlockResult = await chain_.FetchBlockByHeightHashTimestampAsync(currentHeight);
+            Utils.CheckBitprimApiErrorCode(getLastBlockResult.ErrorCode, "FetchBlockByHeightAsync(" + currentHeight + ") failed, check error log");
+            var lastBlockTimestamp = new DateTimeOffset(getLastBlockResult.Result.BlockTimestamp).ToUnixTimeSeconds();
+            var getFirstBlockResult = await chain_.FetchBlockByHeightHashTimestampAsync(0);
+            Utils.CheckBitprimApiErrorCode(getFirstBlockResult.ErrorCode, "FetchBlockByHeightHashTimestampAsync(0) failed, check error log");
+            var firstBlockTimestamp = new DateTimeOffset(getFirstBlockResult.Result.BlockTimestamp).ToUnixTimeSeconds();
             var nowTimestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
             var lastBlockAge = nowTimestamp - lastBlockTimestamp;
             bool synced = lastBlockAge < config_.BlockchainStalenessThreshold;
