@@ -306,12 +306,32 @@ namespace bitprim.insight.Controllers
             var getLastHeightResult = await chain_.FetchLastHeightAsync();
             Utils.CheckBitprimApiErrorCode(getLastHeightResult.ErrorCode, "GetLastHeight() failed");
             var currentHeight = getLastHeightResult.Result;
-            var getLastBlockResult = await chain_.FetchBlockByHeightHashTimestampAsync(currentHeight);
-            Utils.CheckBitprimApiErrorCode(getLastBlockResult.ErrorCode, "FetchBlockByHeightAsync(" + currentHeight + ") failed, check error log");
-            var lastBlockTimestamp = new DateTimeOffset(getLastBlockResult.Result.BlockTimestamp).ToUnixTimeSeconds();
-            var getFirstBlockResult = await chain_.FetchBlockByHeightHashTimestampAsync(0);
-            Utils.CheckBitprimApiErrorCode(getFirstBlockResult.ErrorCode, "FetchBlockByHeightHashTimestampAsync(0) failed, check error log");
-            var firstBlockTimestamp = new DateTimeOffset(getFirstBlockResult.Result.BlockTimestamp).ToUnixTimeSeconds();
+
+            long lastBlockTimestamp = 0;
+            if( !memoryCache_.TryGetValue(Constants.Cache.LAST_BLOCK_TIMESTAMP, out lastBlockTimestamp) )
+            {
+                var getLastBlockResult = await chain_.FetchBlockByHeightHashTimestampAsync(currentHeight);
+                Utils.CheckBitprimApiErrorCode(getLastBlockResult.ErrorCode, "FetchBlockByHeightAsync(" + currentHeight + ") failed, check error log");
+                lastBlockTimestamp = new DateTimeOffset(getLastBlockResult.Result.BlockTimestamp).ToUnixTimeSeconds();
+                memoryCache_.Set(Constants.Cache.LAST_BLOCK_TIMESTAMP, lastBlockTimestamp,
+                    new MemoryCacheEntryOptions
+                    {
+                        AbsoluteExpirationRelativeToNow = Constants.Cache.BLOCK_TIMESTAMP_MAX_AGE,
+                        Size = Constants.Cache.TIMESTAMP_ENTRY_SIZE
+                    });
+            }
+            long firstBlockTimestamp = 0;
+            if( !memoryCache_.TryGetValue(Constants.Cache.FIRST_BLOCK_TIMESTAMP, out firstBlockTimestamp) )
+            {
+                var getFirstBlockResult = await chain_.FetchBlockByHeightHashTimestampAsync(0);
+                Utils.CheckBitprimApiErrorCode(getFirstBlockResult.ErrorCode, "FetchBlockByHeightHashTimestampAsync(0) failed, check error log");
+                firstBlockTimestamp = new DateTimeOffset(getFirstBlockResult.Result.BlockTimestamp).ToUnixTimeSeconds();
+                memoryCache_.Set(Constants.Cache.FIRST_BLOCK_TIMESTAMP, firstBlockTimestamp,
+                    new MemoryCacheEntryOptions
+                    {
+                        Size = Constants.Cache.TIMESTAMP_ENTRY_SIZE
+                    });
+            }
             var nowTimestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
             var lastBlockAge = nowTimestamp - lastBlockTimestamp;
             bool synced = lastBlockAge < config_.BlockchainStalenessThreshold;
