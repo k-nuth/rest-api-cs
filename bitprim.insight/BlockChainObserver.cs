@@ -9,6 +9,7 @@ namespace bitprim.insight
 {
     internal class BlockChainObserver
     {
+        private IChain chain_;
         private readonly Executor.BlockHandler blockHandler_;
         private readonly Executor.TransactionHandler txHandler_;
         private readonly Executor executor_;
@@ -17,6 +18,7 @@ namespace bitprim.insight
         public BlockChainObserver(Executor executor, WebSocketHandler webSocketHandler)
         {
             executor_ = executor;
+            chain_ = null;
             webSocketHandler_ = webSocketHandler;
             blockHandler_ = new Executor.BlockHandler(OnBlockReceived);
             txHandler_ = new Executor.TransactionHandler(OnTransactionReceived);
@@ -53,6 +55,11 @@ namespace bitprim.insight
         {
             if(error == ErrorCode.Success && newTransaction != null)
             {
+                if(chain_ == null)
+                {
+                    chain_ = new BitprimChain(executor_.Chain);
+                }
+
                 var txid = Binary.ByteArrayToHexString(newTransaction.Hash);
 
                 HashSet<string> addresses = Utils.GetTransactionAddresses(executor_,newTransaction).GetAwaiter().GetResult();
@@ -61,7 +68,7 @@ namespace bitprim.insight
                 var balanceDeltas = new Dictionary<string, decimal>();
                 foreach(string addr in addresses)
                 {
-                    var addressBalanceDelta = Utils.SatoshisToCoinUnits(Utils.CalculateBalanceDelta(newTransaction, addr, executor_.Chain, executor_.UseTestnetRules).Result);
+                    var addressBalanceDelta = Utils.SatoshisToCoinUnits(Utils.CalculateBalanceDelta(newTransaction, addr, chain_, executor_.UseTestnetRules).Result);
                     balanceDeltas[addr] = addressBalanceDelta;
                     var addresstx = new
                     {

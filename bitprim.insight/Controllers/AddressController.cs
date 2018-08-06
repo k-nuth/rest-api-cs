@@ -16,8 +16,8 @@ namespace bitprim.insight.Controllers
     [Route("[controller]")]
     public class AddressController : Controller
     {
-        private readonly Chain chain_;
         private readonly Executor nodeExecutor_;
+        private readonly IChain chain_;
         private readonly NodeConfig config_;
 
         private struct AddressBalance
@@ -36,7 +36,7 @@ namespace bitprim.insight.Controllers
         public AddressController(IOptions<NodeConfig> config, Executor executor)
         {
             nodeExecutor_ = executor;
-            chain_ = nodeExecutor_.Chain;
+            chain_ = new BitprimChain(nodeExecutor_.Chain);
             config_ = config.Value;
         }
 
