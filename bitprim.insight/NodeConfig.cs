@@ -48,6 +48,10 @@ namespace bitprim.insight
         ///</summary>
         public int MaxCacheSize { get; set; } = 50000;
         ///<summary>
+        /// When last read coin price is older than this value, it will be retrieved again.
+        ///</summary>
+        public int MaxCoinPriceAgeInSeconds { get; set; } = 300;
+        ///<summary>
         /// This value applies to transaction, block and wallet subscriptions; if the client cannot be reached for these after this amount of
         /// tries, the server (i.e. the bitprim-insight API node) will give up and remove the client from its list of subscribers.
         ///</summary>

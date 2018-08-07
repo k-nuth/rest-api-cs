@@ -102,21 +102,24 @@ namespace bitprim.insight.Controllers
         public async Task<ActionResult> GetCurrency()
         {
             var usdPrice = 1.0f;
-            try
+            if( !memoryCache_.TryGetValue(Constants.Cache.CURRENT_PRICE_CACHE_KEY, out usdPrice))
             {
-                usdPrice = await execPolicy_.ExecuteAsync<float>(() => GetCurrentCoinPriceInUsd());
-                memoryCache_.Set
-                (
-                    Constants.Cache.CURRENT_PRICE_CACHE_KEY, usdPrice,
-                    new MemoryCacheEntryOptions { Size = Constants.Cache.CURRENT_PRICE_CACHE_ENTRY_SIZE }
-                );
-            }
-            catch (Exception ex)
-            {
-                logger_.LogWarning(ex, "Failed to get latest currency price from external service; returning last read value");
-                if (!memoryCache_.TryGetValue(Constants.Cache.CURRENT_PRICE_CACHE_KEY, out usdPrice))
+                try
                 {
-                    logger_.LogWarning("No cached value available, returning default (1.0)");
+                    usdPrice = await execPolicy_.ExecuteAsync<float>(() => GetCurrentCoinPriceInUsd());
+                    memoryCache_.Set
+                    (
+                        Constants.Cache.CURRENT_PRICE_CACHE_KEY, usdPrice,
+                        new MemoryCacheEntryOptions
+                        {
+                            AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(config_.MaxCoinPriceAgeInSeconds),
+                            Size = Constants.Cache.CURRENT_PRICE_CACHE_ENTRY_SIZE
+                        }
+                    );
+                }
+                catch (Exception ex)
+                {
+                    logger_.LogWarning(ex, "Failed to get latest currency price from cache or external service; returning default value");
                 }
             }
             return Json(new GetCurrencyResponse
