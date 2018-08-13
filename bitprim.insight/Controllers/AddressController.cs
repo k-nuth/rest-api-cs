@@ -193,6 +193,10 @@ namespace bitprim.insight.Controllers
         private async Task<ActionResult> GetBalanceProperty(string paymentAddress, string propertyName)
         {
             Utils.CheckIfChainIsFresh(chain_, config_.AcceptStaleRequests);
+            if(!Validations.IsValidPaymentAddress(paymentAddress))
+            {
+                return StatusCode((int)System.Net.HttpStatusCode.BadRequest, "Invalid address: " + paymentAddress);
+            }
             var balance = await GetBalance(paymentAddress);
             return Json(balance.GetType().GetProperty(propertyName).GetValue(balance, null));
         }
