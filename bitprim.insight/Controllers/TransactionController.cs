@@ -229,6 +229,15 @@ namespace bitprim.insight.Controllers
         [SwaggerResponse((int)System.Net.HttpStatusCode.BadRequest, typeof(string))]
         public async Task<ActionResult> GetTransactionsForMultipleAddresses([FromBody] GetTxsForMultipleAddressesRequest request)
         {
+            if(request == null || string.IsNullOrWhiteSpace(request.addrs))
+            {
+                //TODO Point user to documentation once docs include DTOs
+                return StatusCode
+                (
+                    (int)System.Net.HttpStatusCode.BadRequest,
+                    "Invalid request format. Expected JSON format: \n{\n\t\"addrs\": \"addr1,addr2,addrN\",\n \t\"from\": 0,\n\t\"to\": M,\n\t\"noAsm\": 1, \n\t\"noScriptSig\": 1, \n\t\"noSpend\": 1\n}"
+                );
+            }
             return await DoGetTransactionsForMultipleAddresses
             (
                 request.addrs, request.from, request.to,
