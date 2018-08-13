@@ -231,7 +231,7 @@ namespace bitprim.insight.Controllers
         {
             if(request == null || string.IsNullOrWhiteSpace(request.addrs))
             {
-                //TODO Point user to documentation once docs include DTOs
+                //TODO Point user to documentation once docs include DTOs (RA-176)
                 return StatusCode
                 (
                     (int)System.Net.HttpStatusCode.BadRequest,
