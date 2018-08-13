@@ -202,7 +202,8 @@ namespace bitprim.insight.Controllers
         /// <summary>
         /// Returns all transactions from a set of addresses.
         /// </summary>
-        /// <param name="paymentAddresses"> Comma-separated list of addresses. For BCH, cashaddr format is accepted. </param>
+        /// <param name="paymentAddresses"> Comma-separated list of addresses. For BCH, cashaddr format is accepted.
+        /// The maximum amount of addresses is determined by the MaxAddressesPerQuery configuration key. </param>
         /// <param name="from"> Results selection starting point; first item is 0 (zero). Default to said value. </param>
         /// <param name="to"> Results selection ending point. Default to 10.</param>
         /// <returns> See GetTransactionsForMultipleAddressesResponse DTO. </returns>
