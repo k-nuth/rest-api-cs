@@ -7,6 +7,7 @@ namespace bitprim.insight.DTOs
     {
         /// <summary>
         /// Comma-separated list of addresses; for BCH, cashaddr format is accepted.
+        /// The maximum amount of addresses is determined by the MaxAddressesPerQuery configuration key.
         /// </summary>
         public string addrs { get; set; }
 
