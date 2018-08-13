@@ -39,6 +39,10 @@ namespace bitprim.insight
         /// </summary>
         public int LongResponseCacheDurationInSeconds { get; set; } = 86400;
         /// <summary>
+        /// When querying multiple addresses, limit them to this value per query.
+        /// </summary>
+        public int MaxAddressesPerQuery { get; set; } = 10;
+        /// <summary>
         /// This size is measured in block count.
         /// </summary>
         public int MaxBlockSummarySize { get; set; } = 500;

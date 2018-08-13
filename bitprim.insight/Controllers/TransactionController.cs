@@ -301,7 +301,12 @@ namespace bitprim.insight.Controllers
             }
             
             var txs = new List<TransactionSummary>();
-            foreach(string address in System.Web.HttpUtility.UrlDecode(addrs).Split(","))
+            var addresses = System.Web.HttpUtility.UrlDecode(addrs).Split(",");
+            if(addresses.Length > config_.MaxAddressesPerQuery)
+            {
+                return StatusCode((int)System.Net.HttpStatusCode.BadRequest, "Max addresses per query: " + config_.MaxAddressesPerQuery + " (" + addresses.Length + " requested)");
+            }
+            foreach(string address in addresses)
             {
                 var txList = await GetTransactionsBySingleAddress(address, false, 0, noAsm, noScriptSig, noSpend);
                 txs.AddRange(txList.txs);
