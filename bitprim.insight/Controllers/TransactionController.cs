@@ -116,6 +116,10 @@ namespace bitprim.insight.Controllers
         [SwaggerResponse((int)System.Net.HttpStatusCode.OK, typeof(GetRawTransactionResponse))]
         public async Task<ActionResult> GetRawTransactionByHash(string hash)
         {
+            if(!Validations.IsValidHash(hash))
+            {
+                return StatusCode((int)System.Net.HttpStatusCode.BadRequest, hash + " is not a valid transaction hash");
+            }
             Utils.CheckIfChainIsFresh(chain_, config_.AcceptStaleRequests);
             var binaryHash = Binary.HexStringToByteArray(hash);
             
@@ -144,11 +148,10 @@ namespace bitprim.insight.Controllers
         [SwaggerResponse((int)System.Net.HttpStatusCode.BadRequest, typeof(string))]
         public async Task<ActionResult> GetTransactionByHash(string hash, int requireConfirmed)
         {
-            if(!Validations.IsValidHash(hash))
+            if( !Validations.IsValidHash(hash) )
             {
                 return StatusCode((int)System.Net.HttpStatusCode.BadRequest, hash + " is not a valid transaction hash");
             }
-
             Utils.CheckIfChainIsFresh(chain_, config_.AcceptStaleRequests);
             var binaryHash = Binary.HexStringToByteArray(hash);
 
@@ -193,9 +196,16 @@ namespace bitprim.insight.Controllers
 
             if(block != null)
             {
+                if( !Validations.IsValidHash(block) )
+                {
+                    return StatusCode((int)System.Net.HttpStatusCode.BadRequest, block + " is not a valid block hash");
+                }
                 return await GetTransactionsByBlockHash(block, pageNum);
             }
-
+            if( !Validations.IsValidPaymentAddress(address) )
+            {
+                return StatusCode((int)System.Net.HttpStatusCode.BadRequest, address + " is not a valid address");
+            }
             return await GetTransactionsByAddress(address, pageNum);
         }
 
@@ -237,6 +247,13 @@ namespace bitprim.insight.Controllers
                     (int)System.Net.HttpStatusCode.BadRequest,
                     "Invalid request format. Expected JSON format: \n{\n\t\"addrs\": \"addr1,addr2,addrN\",\n \t\"from\": 0,\n\t\"to\": M,\n\t\"noAsm\": 1, \n\t\"noScriptSig\": 1, \n\t\"noSpend\": 1\n}"
                 );
+            }
+            foreach(var address in request.addrs.Split(""))
+            {
+                if( !Validations.IsValidPaymentAddress(address) )
+                {
+                    return StatusCode((int)System.Net.HttpStatusCode.BadRequest, address + " is not a valid address");
+                }
             }
             return await DoGetTransactionsForMultipleAddresses
             (
