@@ -248,7 +248,7 @@ namespace bitprim.insight.Controllers
                     "Invalid request format. Expected JSON format: \n{\n\t\"addrs\": \"addr1,addr2,addrN\",\n \t\"from\": 0,\n\t\"to\": M,\n\t\"noAsm\": 1, \n\t\"noScriptSig\": 1, \n\t\"noSpend\": 1\n}"
                 );
             }
-            foreach(var address in request.addrs.Split(""))
+            foreach(var address in request.addrs.Split(","))
             {
                 if( !Validations.IsValidPaymentAddress(address) )
                 {
