@@ -83,9 +83,9 @@ namespace bitprim.insight.Controllers
         [SwaggerResponse((int)System.Net.HttpStatusCode.BadRequest, typeof(string))]
         public async Task<ActionResult> GetAddressHistory(string paymentAddress, int noTxList = 0, int? from = null, int? to = null)
         {
-            if(!Validations.IsValidPaymentAddress(paymentAddress))
+            if( !Validations.IsValidPaymentAddress(paymentAddress) )
             {
-                return StatusCode((int)System.Net.HttpStatusCode.BadRequest, paymentAddress + " is not a valid Base58 address");
+                return StatusCode((int)System.Net.HttpStatusCode.BadRequest, paymentAddress + " is not a valid address");
             }
 
             Utils.CheckIfChainIsFresh(chain_, config_.AcceptStaleRequests);
@@ -154,7 +154,15 @@ namespace bitprim.insight.Controllers
         public async Task<ActionResult> GetUtxoForMultipleAddresses(string paymentAddresses)
         {
             var utxo = new List<Utxo>();
-            foreach(var address in paymentAddresses.Split(","))
+            var addresses = paymentAddresses.Split(",");
+            foreach(var address in addresses)
+            {
+                if( !Validations.IsValidPaymentAddress(address) )
+                {
+                    return StatusCode((int)System.Net.HttpStatusCode.BadRequest, address + " is not a valid address");
+                }
+            }
+            foreach(var address in addresses)
             {
                 utxo.AddRange(await GetUtxo(address));
             }
@@ -172,6 +180,13 @@ namespace bitprim.insight.Controllers
         [SwaggerResponse((int)System.Net.HttpStatusCode.OK, typeof(Utxo[]))]
         public async Task<ActionResult> GetUtxoForMultipleAddressesPost([FromBody]GetUtxosForMultipleAddressesRequest requestParams)
         {
+            foreach(var address in requestParams.addrs.Split(","))
+            {
+                if( !Validations.IsValidPaymentAddress(address) )
+                {
+                    return StatusCode((int)System.Net.HttpStatusCode.BadRequest, address + " is not a valid address");
+                }
+            }
             return await GetUtxoForMultipleAddresses(requestParams.addrs);
         }
 
@@ -186,6 +201,10 @@ namespace bitprim.insight.Controllers
         [SwaggerResponse((int)System.Net.HttpStatusCode.OK, typeof(Utxo[]))]
         public async Task<ActionResult> GetUtxoForSingleAddress(string paymentAddress)
         {
+            if( !Validations.IsValidPaymentAddress(paymentAddress) )
+            {
+                return StatusCode((int)System.Net.HttpStatusCode.BadRequest, paymentAddress + " is not a valid address");
+            }
             var utxo = await GetUtxo(paymentAddress);
             return Json(utxo.ToArray());
         }
