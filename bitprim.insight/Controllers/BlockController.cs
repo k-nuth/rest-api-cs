@@ -191,6 +191,10 @@ namespace bitprim.insight.Controllers
         [SwaggerResponse((int)System.Net.HttpStatusCode.OK, typeof(GetRawBlockResponse))]
         public async Task<ActionResult> GetRawBlockByHash(string hash)
         {
+            if(!Validations.IsValidHash(hash))
+            {
+                return StatusCode((int)System.Net.HttpStatusCode.BadRequest, hash + " is not a valid block hash");
+            }
             Utils.CheckIfChainIsFresh(chain_, config_.AcceptStaleRequests);
             var binaryHash = Binary.HexStringToByteArray(hash);
             using(var getBlockResult = await chain_.FetchBlockByHashAsync(binaryHash))
