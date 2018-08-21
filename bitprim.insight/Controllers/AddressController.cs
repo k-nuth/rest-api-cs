@@ -14,7 +14,6 @@ namespace bitprim.insight.Controllers
     /// Address related operations.
     /// </summary>
     [Route("[controller]")]
-    [ApiController]
     public class AddressController : Controller
     {
         private readonly Chain chain_;
@@ -49,10 +48,15 @@ namespace bitprim.insight.Controllers
         [HttpGet("addr/{paymentAddress}/unconfirmedBalance")]
         [ResponseCache(CacheProfileName = Constants.Cache.SHORT_CACHE_PROFILE_NAME)]
         [SwaggerOperation("GetUnconfirmedBalance")]
-        public ActionResult GetUnconfirmedBalance(string paymentAddress)
+        public async Task<ActionResult> GetUnconfirmedBalance(string paymentAddress)
         {
             Utils.CheckIfChainIsFresh(chain_, config_.AcceptStaleRequests);
-            return Json(0); // TODO Implement (see GetAddressHistory)
+            if( !Validations.IsValidPaymentAddress(paymentAddress) )
+            {
+                return StatusCode((int)System.Net.HttpStatusCode.BadRequest, paymentAddress + " is not a valid address");
+            }
+            var result = await GetUnconfirmedSummary(paymentAddress);
+            return Json(new { unconfirmedBalanceSat = result.Item2 });
         }
 
         /// <summary>
@@ -84,9 +88,9 @@ namespace bitprim.insight.Controllers
         [SwaggerResponse((int)System.Net.HttpStatusCode.BadRequest, typeof(string))]
         public async Task<ActionResult> GetAddressHistory(string paymentAddress, int noTxList = 0, int? from = null, int? to = null)
         {
-            if(!Validations.IsValidPaymentAddress(paymentAddress))
+            if( !Validations.IsValidPaymentAddress(paymentAddress) )
             {
-                return StatusCode((int)System.Net.HttpStatusCode.BadRequest, paymentAddress + " is not a valid Base58 address");
+                return StatusCode((int)System.Net.HttpStatusCode.BadRequest, paymentAddress + " is not a valid address");
             }
 
             Utils.CheckIfChainIsFresh(chain_, config_.AcceptStaleRequests);
@@ -155,7 +159,15 @@ namespace bitprim.insight.Controllers
         public async Task<ActionResult> GetUtxoForMultipleAddresses(string paymentAddresses)
         {
             var utxo = new List<Utxo>();
-            foreach(var address in paymentAddresses.Split(","))
+            var addresses = paymentAddresses.Split(",");
+            foreach(var address in addresses)
+            {
+                if( !Validations.IsValidPaymentAddress(address) )
+                {
+                    return StatusCode((int)System.Net.HttpStatusCode.BadRequest, address + " is not a valid address");
+                }
+            }
+            foreach(var address in addresses)
             {
                 utxo.AddRange(await GetUtxo(address));
             }
@@ -173,6 +185,13 @@ namespace bitprim.insight.Controllers
         [SwaggerResponse((int)System.Net.HttpStatusCode.OK, typeof(Utxo[]))]
         public async Task<ActionResult> GetUtxoForMultipleAddressesPost([FromBody]GetUtxosForMultipleAddressesRequest requestParams)
         {
+            foreach(var address in requestParams.addrs.Split(","))
+            {
+                if( !Validations.IsValidPaymentAddress(address) )
+                {
+                    return StatusCode((int)System.Net.HttpStatusCode.BadRequest, address + " is not a valid address");
+                }
+            }
             return await GetUtxoForMultipleAddresses(requestParams.addrs);
         }
 
@@ -187,6 +206,10 @@ namespace bitprim.insight.Controllers
         [SwaggerResponse((int)System.Net.HttpStatusCode.OK, typeof(Utxo[]))]
         public async Task<ActionResult> GetUtxoForSingleAddress(string paymentAddress)
         {
+            if( !Validations.IsValidPaymentAddress(paymentAddress) )
+            {
+                return StatusCode((int)System.Net.HttpStatusCode.BadRequest, paymentAddress + " is not a valid address");
+            }
             var utxo = await GetUtxo(paymentAddress);
             return Json(utxo.ToArray());
         }
@@ -194,6 +217,10 @@ namespace bitprim.insight.Controllers
         private async Task<ActionResult> GetBalanceProperty(string paymentAddress, string propertyName)
         {
             Utils.CheckIfChainIsFresh(chain_, config_.AcceptStaleRequests);
+            if(!Validations.IsValidPaymentAddress(paymentAddress))
+            {
+                return StatusCode((int)System.Net.HttpStatusCode.BadRequest, "Invalid address: " + paymentAddress);
+            }
             var balance = await GetBalance(paymentAddress);
             return Json(balance.GetType().GetProperty(propertyName).GetValue(balance, null));
         }

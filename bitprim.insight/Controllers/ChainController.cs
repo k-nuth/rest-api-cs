@@ -10,6 +10,7 @@ using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using Polly;
 using Swashbuckle.AspNetCore.SwaggerGen;
 using System.Linq;
@@ -21,7 +22,6 @@ namespace bitprim.insight.Controllers
     /// Blockchain related operations.
     /// </summary>
     [Route("[controller]")]
-    [ApiController]
     public class ChainController : Controller
     {
         private readonly Chain chain_;
@@ -102,21 +102,24 @@ namespace bitprim.insight.Controllers
         public async Task<ActionResult> GetCurrency()
         {
             var usdPrice = 1.0f;
-            try
+            if( !memoryCache_.TryGetValue(Constants.Cache.CURRENT_PRICE_CACHE_KEY, out usdPrice))
             {
-                usdPrice = await execPolicy_.ExecuteAsync<float>(() => GetCurrentCoinPriceInUsd());
-                memoryCache_.Set
-                (
-                    Constants.Cache.CURRENT_PRICE_CACHE_KEY, usdPrice,
-                    new MemoryCacheEntryOptions { Size = Constants.Cache.CURRENT_PRICE_CACHE_ENTRY_SIZE }
-                );
-            }
-            catch (Exception ex)
-            {
-                logger_.LogWarning(ex, "Failed to get latest currency price from external service; returning last read value");
-                if (!memoryCache_.TryGetValue(Constants.Cache.CURRENT_PRICE_CACHE_KEY, out usdPrice))
+                try
                 {
-                    logger_.LogWarning("No cached value available, returning default (1.0)");
+                    usdPrice = await execPolicy_.ExecuteAsync<float>(() => GetCurrentCoinPriceInUsd());
+                    memoryCache_.Set
+                    (
+                        Constants.Cache.CURRENT_PRICE_CACHE_KEY, usdPrice,
+                        new MemoryCacheEntryOptions
+                        {
+                            AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(config_.MaxCoinPriceAgeInSeconds),
+                            Size = Constants.Cache.CURRENT_PRICE_CACHE_ENTRY_SIZE
+                        }
+                    );
+                }
+                catch (Exception ex)
+                {
+                    logger_.LogWarning(ex, "Failed to get latest currency price from cache or external service; returning default value");
                 }
             }
             return Json(new GetCurrencyResponse
@@ -305,117 +308,46 @@ namespace bitprim.insight.Controllers
         {
             var getLastHeightResult = await chain_.FetchLastHeightAsync();
             Utils.CheckBitprimApiErrorCode(getLastHeightResult.ErrorCode, "GetLastHeight() failed");
-
             var currentHeight = getLastHeightResult.Result;
-            UInt64? blockChainHeight = await GetCurrentBlockChainHeight();
+
+            long lastBlockTimestamp = 0;
+            if( !memoryCache_.TryGetValue(Constants.Cache.LAST_BLOCK_TIMESTAMP, out lastBlockTimestamp) )
+            {
+                var getLastBlockResult = await chain_.FetchBlockByHeightHashTimestampAsync(currentHeight);
+                Utils.CheckBitprimApiErrorCode(getLastBlockResult.ErrorCode, "FetchBlockByHeightAsync(" + currentHeight + ") failed, check error log");
+                lastBlockTimestamp = new DateTimeOffset(getLastBlockResult.Result.BlockTimestamp).ToUnixTimeSeconds();
+                memoryCache_.Set(Constants.Cache.LAST_BLOCK_TIMESTAMP, lastBlockTimestamp,
+                    new MemoryCacheEntryOptions
+                    {
+                        AbsoluteExpirationRelativeToNow = Constants.Cache.BLOCK_TIMESTAMP_MAX_AGE,
+                        Size = Constants.Cache.TIMESTAMP_ENTRY_SIZE
+                    });
+            }
+            long firstBlockTimestamp = 0;
+            if( !memoryCache_.TryGetValue(Constants.Cache.FIRST_BLOCK_TIMESTAMP, out firstBlockTimestamp) )
+            {
+                var getFirstBlockResult = await chain_.FetchBlockByHeightHashTimestampAsync(0);
+                Utils.CheckBitprimApiErrorCode(getFirstBlockResult.ErrorCode, "FetchBlockByHeightHashTimestampAsync(0) failed, check error log");
+                firstBlockTimestamp = new DateTimeOffset(getFirstBlockResult.Result.BlockTimestamp).ToUnixTimeSeconds();
+                memoryCache_.Set(Constants.Cache.FIRST_BLOCK_TIMESTAMP, firstBlockTimestamp,
+                    new MemoryCacheEntryOptions
+                    {
+                        Size = Constants.Cache.TIMESTAMP_ENTRY_SIZE
+                    });
+            }
+            var nowTimestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+            var lastBlockAge = nowTimestamp - lastBlockTimestamp;
+            bool synced = lastBlockAge < config_.BlockchainStalenessThreshold;
             dynamic syncStatus = new ExpandoObject();
-            if (blockChainHeight.HasValue)
-            {
-                var synced = currentHeight >= blockChainHeight;
-                syncStatus.status = synced ? "finished" : "synchronizing";
-                syncStatus.blockChainHeight = blockChainHeight;
-                syncStatus.syncPercentage = Math.Min((double)currentHeight / (double)blockChainHeight * 100.0, 100).ToString("N2");
-                syncStatus.error = null;
-            }
-            else
-            {
-                syncStatus.status = "unknown";
-                syncStatus.blockChainHeight = "unknown";
-                syncStatus.syncPercentage = "unknown";
-                syncStatus.error = "Could not determine max blockchain height; check log";
-            }
+            syncStatus.status = synced ? "finished" : "synchronizing";
+            syncStatus.blockChainHeight = currentHeight;
+            syncStatus.syncPercentage = synced?
+                "100" :
+                 Math.Min((double)(lastBlockTimestamp - firstBlockTimestamp) / (double)(nowTimestamp - firstBlockTimestamp) * 100.0, 100).ToString("N2");
+            syncStatus.error = null;
             syncStatus.height = currentHeight;
             syncStatus.type = config_.NodeType;
             return syncStatus;
-        }
-
-        private async Task<UInt64> GetBCCBlockchainHeight()
-        {
-            if (nodeExecutor_.UseTestnetRules)
-            {
-                var syncDataString = await httpClient_.GetStringAsync(Constants.BLOCKTRAIL_TBCC_URL);
-                dynamic syncData = JsonConvert.DeserializeObject<dynamic>(syncDataString);
-                return syncData.last_blocks[0].height;
-            }
-            else
-            {
-                var syncDataString = await httpClient_.GetStringAsync(Constants.BLOCKCHAIR_BCC_URL);
-                dynamic syncData = JsonConvert.DeserializeObject<dynamic>(syncDataString);
-                return ((IEnumerable<dynamic>)syncData.data).Where(r => r.e == "blocks").First().c - 1;
-            }
-        }
-
-        private async Task<UInt64> GetBTCBlockchainHeight()
-        {
-            if (nodeExecutor_.UseTestnetRules)
-            {
-                var syncDataString = await httpClient_.GetStringAsync(Constants.SOCHAIN_TBTC_URL);
-                dynamic syncData = JsonConvert.DeserializeObject<dynamic>(syncDataString);
-                return syncData.data.blocks;
-            }
-            else
-            {
-                var syncDataString = await httpClient_.GetStringAsync(Constants.BLOCKCHAIR_BTC_URL);
-                dynamic syncData = JsonConvert.DeserializeObject<dynamic>(syncDataString);
-                return ((IEnumerable<dynamic>)syncData.data).First(r => r.e == "blocks").c;
-            }
-        }
-
-        private async Task<UInt64> GetLTCBlockchainHeight()
-        {
-            if (nodeExecutor_.UseTestnetRules)
-            {
-                var syncDataString = await httpClient_.GetStringAsync(Constants.SOCHAIN_TLTC_URL);
-                dynamic syncData = JsonConvert.DeserializeObject<dynamic>(syncDataString);
-                return syncData.data.blocks;
-            }
-            else
-            {
-                var syncDataString = await httpClient_.GetStringAsync(Constants.SOCHAIN_LTC_URL);
-                dynamic syncData = JsonConvert.DeserializeObject<dynamic>(syncDataString);
-                return syncData.data.blocks;
-            }
-        }
-
-        //TODO Avoid consulting external sources; get this information from bitprim network
-        private async Task<UInt64?> GetCurrentBlockChainHeight()
-        {
-            try
-            {
-                UInt64 blockChainHeight = 0;
-                if (memoryCache_.TryGetValue(Constants.Cache.BLOCKCHAIN_HEIGHT_CACHE_KEY, out blockChainHeight))
-                {
-                    return blockChainHeight;
-                };
-                switch (NodeSettings.CurrencyType)
-                {
-                    case CurrencyType.BitcoinCash:
-                        blockChainHeight = await execPolicy_.ExecuteAsync<UInt64>(() => GetBCCBlockchainHeight());
-                        break;
-                    case CurrencyType.Bitcoin:
-                        blockChainHeight = await execPolicy_.ExecuteAsync<UInt64>(() => GetBTCBlockchainHeight());
-                        break;
-                    case CurrencyType.Litecoin:
-                        blockChainHeight = await execPolicy_.ExecuteAsync<UInt64>(() => GetLTCBlockchainHeight());
-                        break;
-                    default:
-                        throw new InvalidOperationException("Only BCH, BTC and LTC support this operation");
-                }
-                memoryCache_.Set
-                (
-                    Constants.Cache.BLOCKCHAIN_HEIGHT_CACHE_KEY, blockChainHeight, new MemoryCacheEntryOptions
-                    {
-                        AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(Constants.Cache.MAX_BLOCKCHAIN_HEIGHT_AGE_IN_SECONDS),
-                        Size = Constants.Cache.BLOCKCHAIN_HEIGHT_CACHE_ENTRY_SIZE
-                    }
-                );
-                return blockChainHeight;
-            }
-            catch (Exception ex)
-            {
-                logger_.LogWarning(ex, "Failed to retrieve blockchain height from external service");
-                return null;
-            }
         }
 
         private static string GetNetworkType(NetworkType networkType)

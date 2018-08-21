@@ -2,7 +2,7 @@
 
 > Multi-Cryptocurrency _Rest_ API.
 
-*Bitprim Insight* is a Rest API written in _C#_ with .NET Core 2.1 which exposes methods matching the insight API interface
+*Bitprim Insight* is a Rest API written in _C#_ with .NET Core 2.0 which exposes methods matching the insight API interface
 
 Bitprim Insight supports the following cryptocurrencies:
   * [Bitcoin Cash](https://www.bitcoincash.org/)
@@ -13,7 +13,7 @@ Bitprim Insight supports the following cryptocurrencies:
 
 - 64-bit machine.
 - [Conan](https://www.conan.io/) package manager, version 1.1.0 or newer. See [Conan Installation](http://docs.conan.io/en/latest/installation.html#install-with-pip-recommended).
-- [.NET Core 2.1 SDK](https://www.microsoft.com/net/download/)
+- [.NET Core 2.0 SDK](https://www.microsoft.com/net/download/dotnet-core/2.0)
 
 
 In case there are no pre-built binaries for your platform, conan will automatically try to build from source code. In such a scenario, the following requirements must be added to the previous ones:
@@ -28,7 +28,8 @@ The *Bitprim* libraries can be installed using conan (see below) on Linux, macOS
 
 1. Build 
 
-In the project folder run:
+In the project folder (`bitprim-insight/bitprim.insight`) run:
+
 
 For Bitcoin Cash
 

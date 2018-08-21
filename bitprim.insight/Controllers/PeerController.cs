@@ -9,7 +9,6 @@ namespace bitprim.insight.Controllers
     /// Peer/Bitprim node related operations.
     /// </summary>
     [Route("[controller]")]
-    [ApiController]
     public class PeerController : Controller
     {
         /// <summary>

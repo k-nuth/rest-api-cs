@@ -16,7 +16,6 @@ namespace bitprim.insight.Controllers
     /// Transaction related operations.
     /// </summary>
     [Route("[controller]")]
-    [ApiController]
     public class TransactionController : Controller
     {
         private readonly Chain chain_;
@@ -117,6 +116,10 @@ namespace bitprim.insight.Controllers
         [SwaggerResponse((int)System.Net.HttpStatusCode.OK, typeof(GetRawTransactionResponse))]
         public async Task<ActionResult> GetRawTransactionByHash(string hash)
         {
+            if(!Validations.IsValidHash(hash))
+            {
+                return StatusCode((int)System.Net.HttpStatusCode.BadRequest, hash + " is not a valid transaction hash");
+            }
             Utils.CheckIfChainIsFresh(chain_, config_.AcceptStaleRequests);
             var binaryHash = Binary.HexStringToByteArray(hash);
             
@@ -145,11 +148,10 @@ namespace bitprim.insight.Controllers
         [SwaggerResponse((int)System.Net.HttpStatusCode.BadRequest, typeof(string))]
         public async Task<ActionResult> GetTransactionByHash(string hash, int requireConfirmed)
         {
-            if(!Validations.IsValidHash(hash))
+            if( !Validations.IsValidHash(hash) )
             {
                 return StatusCode((int)System.Net.HttpStatusCode.BadRequest, hash + " is not a valid transaction hash");
             }
-
             Utils.CheckIfChainIsFresh(chain_, config_.AcceptStaleRequests);
             var binaryHash = Binary.HexStringToByteArray(hash);
 
@@ -194,16 +196,24 @@ namespace bitprim.insight.Controllers
 
             if(block != null)
             {
+                if( !Validations.IsValidHash(block) )
+                {
+                    return StatusCode((int)System.Net.HttpStatusCode.BadRequest, block + " is not a valid block hash");
+                }
                 return await GetTransactionsByBlockHash(block, pageNum);
             }
-
+            if( !Validations.IsValidPaymentAddress(address) )
+            {
+                return StatusCode((int)System.Net.HttpStatusCode.BadRequest, address + " is not a valid address");
+            }
             return await GetTransactionsByAddress(address, pageNum);
         }
 
         /// <summary>
         /// Returns all transactions from a set of addresses.
         /// </summary>
-        /// <param name="paymentAddresses"> Comma-separated list of addresses. For BCH, cashaddr format is accepted. </param>
+        /// <param name="paymentAddresses"> Comma-separated list of addresses. For BCH, cashaddr format is accepted.
+        /// The maximum amount of addresses is determined by the MaxAddressesPerQuery configuration key. </param>
         /// <param name="from"> Results selection starting point; first item is 0 (zero). Default to said value. </param>
         /// <param name="to"> Results selection ending point. Default to 10.</param>
         /// <returns> See GetTransactionsForMultipleAddressesResponse DTO. </returns>
@@ -229,6 +239,22 @@ namespace bitprim.insight.Controllers
         [SwaggerResponse((int)System.Net.HttpStatusCode.BadRequest, typeof(string))]
         public async Task<ActionResult> GetTransactionsForMultipleAddresses([FromBody] GetTxsForMultipleAddressesRequest request)
         {
+            if(request == null || string.IsNullOrWhiteSpace(request.addrs))
+            {
+                //TODO Point user to documentation once docs include DTOs (RA-176)
+                return StatusCode
+                (
+                    (int)System.Net.HttpStatusCode.BadRequest,
+                    "Invalid request format. Expected JSON format: \n{\n\t\"addrs\": \"addr1,addr2,addrN\",\n \t\"from\": 0,\n\t\"to\": M,\n\t\"noAsm\": 1, \n\t\"noScriptSig\": 1, \n\t\"noSpend\": 1\n}"
+                );
+            }
+            foreach(var address in request.addrs.Split(","))
+            {
+                if( !Validations.IsValidPaymentAddress(address) )
+                {
+                    return StatusCode((int)System.Net.HttpStatusCode.BadRequest, address + " is not a valid address");
+                }
+            }
             return await DoGetTransactionsForMultipleAddresses
             (
                 request.addrs, request.from, request.to,
@@ -302,7 +328,12 @@ namespace bitprim.insight.Controllers
             }
             
             var txs = new List<TransactionSummary>();
-            foreach(string address in System.Web.HttpUtility.UrlDecode(addrs).Split(","))
+            var addresses = System.Web.HttpUtility.UrlDecode(addrs).Split(",");
+            if(addresses.Length > config_.MaxAddressesPerQuery)
+            {
+                return StatusCode((int)System.Net.HttpStatusCode.BadRequest, "Max addresses per query: " + config_.MaxAddressesPerQuery + " (" + addresses.Length + " requested)");
+            }
+            foreach(string address in addresses)
             {
                 var txList = await GetTransactionsBySingleAddress(address, false, 0, noAsm, noScriptSig, noSpend);
                 txs.AddRange(txList.txs);

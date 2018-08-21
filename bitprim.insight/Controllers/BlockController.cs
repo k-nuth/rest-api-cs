@@ -17,7 +17,6 @@ namespace bitprim.insight.Controllers
     /// Block related operations.
     /// </summary>
     [Route("[controller]")]
-    [ApiController]
     public class BlockController : Controller
     {
         private readonly Chain chain_;
@@ -141,25 +140,30 @@ namespace bitprim.insight.Controllers
         [SwaggerResponse((int)System.Net.HttpStatusCode.BadRequest, typeof(string))]
         public async Task<ActionResult> GetBlocksByDate(int limit = 200, string blockDate = "")
         {
+            Utils.CheckIfChainIsFresh(chain_, config_.AcceptStaleRequests);
             //Validate input
             var validateInputResult = ValidateGetBlocksByDateInput(limit, blockDate);
             if(!validateInputResult.Item1)
             {
                 return StatusCode((int)System.Net.HttpStatusCode.BadRequest, validateInputResult.Item2);
             }
-            
             var blockDateToSearch = validateInputResult.Item3;
-            //These define the search interval (lte, gte)
-            var gte = new DateTimeOffset(blockDateToSearch).ToUnixTimeSeconds();
-            var lte =  gte + 86400;
 
-            //Find blocks starting point
-            Utils.CheckIfChainIsFresh(chain_, config_.AcceptStaleRequests);
-            
+            //If date is today, no need to search
             var getLastHeightResult = await chain_.FetchLastHeightAsync();
             Utils.CheckBitprimApiErrorCode(getLastHeightResult.ErrorCode, "FetchLastHeightAsync failed, check error log");
-            
+            //These define the date interval (lte, gte)
+            var gte = new DateTimeOffset(blockDateToSearch).ToUnixTimeSeconds();
+            var lte =  gte + 86400;
             var topHeight = getLastHeightResult.Result;
+            if(blockDateToSearch.Date == DateTime.Today.Date)
+            {
+                var latestBlocks = await GetPreviousBlocks(topHeight, (UInt64)limit, blockDateToSearch, topHeight);
+                var moreBlocksToday = await CheckIfMoreBlocks(topHeight, (UInt64)limit, blockDateToSearch, lte);
+                return Json(BlocksByDateToJSON(latestBlocks, blockDateToSearch, moreBlocksToday.Item1, moreBlocksToday.Item2, lte));   
+            }
+
+            //Find blocks starting point
             var low = await FindFirstBlockFromNextDay(blockDateToSearch, topHeight);
             if(low == 0) //No blocks
             {
@@ -172,7 +176,7 @@ namespace bitprim.insight.Controllers
             var blocks = await GetPreviousBlocks(startingHeight, (UInt64)limit, blockDateToSearch, topHeight);
 
             //Check if there are more blocks: grab one more earlier block
-            var moreBlocks = await CheckIfMoreBlocks(startingHeight, (UInt64)limit, blockDateToSearch,lte);
+            var moreBlocks = await CheckIfMoreBlocks(startingHeight, (UInt64)limit, blockDateToSearch, lte);
             return Json(BlocksByDateToJSON(blocks, blockDateToSearch, moreBlocks.Item1, moreBlocks.Item2, lte));   
         }
 
@@ -187,6 +191,10 @@ namespace bitprim.insight.Controllers
         [SwaggerResponse((int)System.Net.HttpStatusCode.OK, typeof(GetRawBlockResponse))]
         public async Task<ActionResult> GetRawBlockByHash(string hash)
         {
+            if(!Validations.IsValidHash(hash))
+            {
+                return StatusCode((int)System.Net.HttpStatusCode.BadRequest, hash + " is not a valid block hash");
+            }
             Utils.CheckIfChainIsFresh(chain_, config_.AcceptStaleRequests);
             var binaryHash = Binary.HexStringToByteArray(hash);
             using(var getBlockResult = await chain_.FetchBlockByHashAsync(binaryHash))
