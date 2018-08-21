@@ -48,10 +48,15 @@ namespace bitprim.insight.Controllers
         [HttpGet("addr/{paymentAddress}/unconfirmedBalance")]
         [ResponseCache(CacheProfileName = Constants.Cache.SHORT_CACHE_PROFILE_NAME)]
         [SwaggerOperation("GetUnconfirmedBalance")]
-        public ActionResult GetUnconfirmedBalance(string paymentAddress)
+        public async Task<ActionResult> GetUnconfirmedBalance(string paymentAddress)
         {
             Utils.CheckIfChainIsFresh(chain_, config_.AcceptStaleRequests);
-            return Json(0); // TODO Implement (see GetAddressHistory)
+            if( !Validations.IsValidPaymentAddress(paymentAddress) )
+            {
+                return StatusCode((int)System.Net.HttpStatusCode.BadRequest, paymentAddress + " is not a valid address");
+            }
+            var result = await GetUnconfirmedSummary(paymentAddress);
+            return Json(new { unconfirmedBalanceSat = result.Item2 });
         }
 
         /// <summary>
