@@ -34,7 +34,7 @@ namespace bitprim.insight.DTOs
         public PoolInfo poolInfo { get; set; }
 
         /// <summary>
-        /// Block hash as 32-character hex string.
+        /// Block hash as 64-character (32 bytes) hex string.
         /// </summary>
         public string hash { get; set; }
 

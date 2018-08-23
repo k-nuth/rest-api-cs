@@ -53,7 +53,7 @@ namespace bitprim.insight.Controllers
             Utils.CheckIfChainIsFresh(chain_, config_.AcceptStaleRequests);
             if( !Validations.IsValidPaymentAddress(paymentAddress) )
             {
-                return StatusCode((int)System.Net.HttpStatusCode.BadRequest, paymentAddress + " is not a valid address");
+                return BadRequest(paymentAddress + " is not a valid address");
             }
             var result = await GetUnconfirmedSummary(paymentAddress);
             return Json(new { unconfirmedBalanceSat = result.Item2 });
@@ -90,7 +90,7 @@ namespace bitprim.insight.Controllers
         {
             if( !Validations.IsValidPaymentAddress(paymentAddress) )
             {
-                return StatusCode((int)System.Net.HttpStatusCode.BadRequest, paymentAddress + " is not a valid address");
+                return BadRequest(paymentAddress + " is not a valid address");
             }
 
             Utils.CheckIfChainIsFresh(chain_, config_.AcceptStaleRequests);
@@ -114,7 +114,7 @@ namespace bitprim.insight.Controllers
                 Tuple<string[], string> addressTxs = GetAddressTransactions(balance.Transactions, from, to);
                 if(addressTxs.Item1 == null)
                 {
-                    return StatusCode((int)System.Net.HttpStatusCode.BadRequest, addressTxs.Item2);
+                    return BadRequest(addressTxs.Item2);
                 }
                 historyJson.transactions = addressTxs.Item1;
             }
@@ -160,11 +160,15 @@ namespace bitprim.insight.Controllers
         {
             var utxo = new List<Utxo>();
             var addresses = paymentAddresses.Split(",");
+            if( addresses.Length > config_.MaxAddressesPerQuery )
+            {
+                return BadRequest("Max addresses per query: " + config_.MaxAddressesPerQuery + " (" + addresses.Length + " requested)");
+            }
             foreach(var address in addresses)
             {
                 if( !Validations.IsValidPaymentAddress(address) )
                 {
-                    return StatusCode((int)System.Net.HttpStatusCode.BadRequest, address + " is not a valid address");
+                    return BadRequest(address + " is not a valid address");
                 }
             }
             foreach(var address in addresses)
@@ -185,11 +189,20 @@ namespace bitprim.insight.Controllers
         [SwaggerResponse((int)System.Net.HttpStatusCode.OK, typeof(Utxo[]))]
         public async Task<ActionResult> GetUtxoForMultipleAddressesPost([FromBody]GetUtxosForMultipleAddressesRequest requestParams)
         {
-            foreach(var address in requestParams.addrs.Split(","))
+            if( requestParams == null || string.IsNullOrWhiteSpace(requestParams.addrs) )
+            {
+                return BadRequest("Invalid POST body; incorrect format, or payload too large.");
+            }
+            var addresses = requestParams.addrs.Split(",");
+            if( addresses.Length > config_.MaxAddressesPerQuery )
+            {
+                return BadRequest("Max addresses per query: " + config_.MaxAddressesPerQuery + " (" + addresses.Length + " requested)");
+            }
+            foreach(var address in addresses)
             {
                 if( !Validations.IsValidPaymentAddress(address) )
                 {
-                    return StatusCode((int)System.Net.HttpStatusCode.BadRequest, address + " is not a valid address");
+                    return BadRequest(address + " is not a valid address");
                 }
             }
             return await GetUtxoForMultipleAddresses(requestParams.addrs);
@@ -208,7 +221,7 @@ namespace bitprim.insight.Controllers
         {
             if( !Validations.IsValidPaymentAddress(paymentAddress) )
             {
-                return StatusCode((int)System.Net.HttpStatusCode.BadRequest, paymentAddress + " is not a valid address");
+                return BadRequest(paymentAddress + " is not a valid address");
             }
             var utxo = await GetUtxo(paymentAddress);
             return Json(utxo.ToArray());
@@ -219,7 +232,7 @@ namespace bitprim.insight.Controllers
             Utils.CheckIfChainIsFresh(chain_, config_.AcceptStaleRequests);
             if(!Validations.IsValidPaymentAddress(paymentAddress))
             {
-                return StatusCode((int)System.Net.HttpStatusCode.BadRequest, "Invalid address: " + paymentAddress);
+                return BadRequest("Invalid address: " + paymentAddress);
             }
             var balance = await GetBalance(paymentAddress);
             return Json(balance.GetType().GetProperty(propertyName).GetValue(balance, null));
