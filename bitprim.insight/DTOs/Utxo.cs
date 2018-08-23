@@ -61,7 +61,7 @@ namespace bitprim.insight.DTOs
         public string scriptPubKey { get; set; }
 
         /// <summary>
-        /// Transaction hash as 32-character hex string.
+        /// Transaction hash as 64-character (32 bytes) hex string.
         /// </summary>
         public string txid { get; set; }
 
