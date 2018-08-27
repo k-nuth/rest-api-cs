@@ -118,7 +118,15 @@ namespace bitprim.insight.Controllers
                 return BadRequest("Block height must be a non-negative number");
             }
             Utils.CheckIfChainIsFresh(chain_, config_.AcceptStaleRequests);
-            
+
+            var lastHeightResult = await chain_.FetchLastHeightAsync();
+            Utils.CheckBitprimApiErrorCode(lastHeightResult.ErrorCode, "FetchLastHeightAsync() failed, check error log");
+
+            if( height > lastHeightResult.Result )
+            {
+                return NotFound("Requesting beyond current height (" + lastHeightResult.Result + "); if you are polling for new blocks, please consider using our web socket API: https://bitprim.github.io/docfx/content/developer_guide/restapi/websockets.html");
+            }
+
             var result = await chain_.FetchBlockByHeightHashTimestampAsync(height);
             Utils.CheckBitprimApiErrorCode(result.ErrorCode, "FetchBlockByHeightHashTimestampAsync(" + height + ") failed, error log");
             
