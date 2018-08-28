@@ -421,15 +421,11 @@ namespace bitprim.insight.Controllers
                 var pageSize = pageResults ? (uint) config_.TransactionsByAddressPageSize : txIds.Count;
 
                 //Unconfirmed first
-                List<Transaction> unconfirmedTxs = await GetUnconfirmedTransactions(address, pageSize, noAsm, noScriptSig, noSpend);
+                List<Transaction> unconfirmedTxs = await GetUnconfirmedTransactions(address, noAsm, noScriptSig, noSpend);
                 var txs = new List<Tuple<Transaction, Int64>>();
                 for(int i=0; i<pageSize; i++)
                 {
                     txs.Add( new Tuple<Transaction, Int64>(unconfirmedTxs[i], -1) );
-                }
-                if(txs.Count >= pageSize)
-                {
-                    return txs;
                 }
 
                 //Confirmed
@@ -448,14 +444,13 @@ namespace bitprim.insight.Controllers
             }
         }
 
-        private async Task<List<Transaction>> GetUnconfirmedTransactions(PaymentAddress address, uint maxTxs, bool noAsm, bool noScriptSig, bool noSpend)
+        private async Task<List<Transaction>> GetUnconfirmedTransactions(PaymentAddress address, bool noAsm, bool noScriptSig, bool noSpend)
         {
             var unconfirmedTxsJson = new List<Transaction>();
             using(MempoolTransactionList unconfirmedTxIds = chain_.GetMempoolTransactions(address, nodeExecutor_.UseTestnetRules))
             {
-                for(uint i=0; i<unconfirmedTxIds.Count && i<maxTxs; i++)
+                foreach(MempoolTransaction unconfirmedTxId in unconfirmedTxIds)
                 {
-                    var unconfirmedTxId = unconfirmedTxIds[i];
                     using(var getTxResult = await chain_.FetchTransactionAsync(Binary.HexStringToByteArray(unconfirmedTxId.Hash), requireConfirmed: false))
                     {
                         Utils.CheckBitprimApiErrorCode(getTxResult.ErrorCode, "FetchTransactionAsync(" + unconfirmedTxId.Hash + ") failed, check error log");
