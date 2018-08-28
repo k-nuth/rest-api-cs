@@ -327,7 +327,7 @@ namespace bitprim.insight.Controllers
                 return StatusCode((int)System.Net.HttpStatusCode.BadRequest, "'from' must be lower than 'to'");
             }
             
-            var txs = new List<TransactionSummary>();
+            var txs = new List<Tuple<Transaction, Int64>>();
             var addresses = System.Web.HttpUtility.UrlDecode(addrs).Split(",");
             if(addresses.Length > config_.MaxAddressesPerQuery)
             {
@@ -336,25 +336,41 @@ namespace bitprim.insight.Controllers
             foreach(string address in addresses)
             {
                 var txList = await GetTransactionsBySingleAddress(address, false, 0, noAsm, noScriptSig, noSpend);
-                txs.AddRange(txList.txs);
+                txs.AddRange(txList);
             }
-            //Sort by descending blocktime
-            txs.Sort((tx1, tx2) => tx2.blocktime.CompareTo(tx1.blocktime) );
+            //Sort by descending block height
+            txs.Sort((tx1, tx2) => tx2.Item2.CompareTo(tx1.Item2) );
             
             to = Math.Min(to, txs.Count);
+
+            //Convert selected range to JSON
+            var txsDigest = new List<TransactionSummary>();
+            foreach(var tx in txs.GetRange(from, to-from))
+            {
+                txsDigest.Add( await TxToJSON(tx.Item1, (UInt64) tx.Item2, tx.Item2 > 0, noAsm, noScriptSig, noSpend) );
+            }
 
             return Json(new GetTransactionsForMultipleAddressesResponse
             {
                 totalItems = txs.Count,
                 from = from,
                 to = to,
-                items = txs.GetRange(from, to-from).ToArray()
+                items = txsDigest.ToArray()
             });   
         }
 
         private async Task<ActionResult> GetTransactionsByAddress(string address, uint pageNum)
         {
-            return Json(await GetTransactionsBySingleAddress(address, true, pageNum, false, false, false));
+            List<Tuple<Transaction, Int64>> txs = await GetTransactionsBySingleAddress(address, true, pageNum, false, false, false);
+            UInt64 pageCount = (UInt64) Math.Ceiling((double)txs.Count/(double)config_.TransactionsByAddressPageSize);
+            var txsDigest = new List<TransactionSummary>();
+            for(int i=0; i<config_.TransactionsByAddressPageSize; i++)
+            {
+                Transaction tx = txs[i].Item1;
+                Int64 blockHeight = txs[i].Item2;
+                txsDigest.Add( await TxToJSON(tx, (UInt64)blockHeight, blockHeight > 0, false, false, false) );
+            }
+            return Json( new GetTransactionsResponse{ pagesTotal = pageCount, txs = txsDigest.ToArray() } );
         }
 
         private async Task<ActionResult> GetTransactionsByBlockHash(string blockHash, UInt64 pageNum)
@@ -392,7 +408,7 @@ namespace bitprim.insight.Controllers
             }
         }
 
-        private async Task<GetTransactionsResponse> GetTransactionsBySingleAddress(string paymentAddress, bool pageResults, uint pageNum,bool noAsm, bool noScriptSig, bool noSpend)
+        private async Task<List<Tuple<Transaction, Int64>>> GetTransactionsBySingleAddress(string paymentAddress, bool pageResults, uint pageNum, bool noAsm, bool noScriptSig, bool noSpend)
         {
             Utils.CheckIfChainIsFresh(chain_, config_.AcceptStaleRequests);
 
@@ -402,9 +418,21 @@ namespace bitprim.insight.Controllers
                 Utils.CheckBitprimApiErrorCode(getTransactionResult.ErrorCode, "FetchTransactionAsync(" + paymentAddress + ") failed, check error log.");
 
                 var txIds = getTransactionResult.Result;
-                var txs = new List<TransactionSummary>();
                 var pageSize = pageResults ? (uint) config_.TransactionsByAddressPageSize : txIds.Count;
 
+                //Unconfirmed first
+                List<Transaction> unconfirmedTxs = await GetUnconfirmedTransactions(address, pageSize, noAsm, noScriptSig, noSpend);
+                var txs = new List<Tuple<Transaction, Int64>>();
+                for(int i=0; i<pageSize; i++)
+                {
+                    txs.Add( new Tuple<Transaction, Int64>(unconfirmedTxs[i], -1) );
+                }
+                if(txs.Count >= pageSize)
+                {
+                    return txs;
+                }
+
+                //Confirmed
                 for(uint i=0; i<pageSize && (pageNum * pageSize + i < txIds.Count); i++)
                 {
                     var txHash = txIds[(pageNum * pageSize + i)];
@@ -412,30 +440,26 @@ namespace bitprim.insight.Controllers
                     {
                         Utils.CheckBitprimApiErrorCode(getTxResult.ErrorCode, "FetchTransactionAsync(" + Binary.ByteArrayToHexString(txHash) + ") failed, check error log");
                         bool confirmed = CheckIfTransactionIsConfirmed(getTxResult.Result);
-                        txs.Add(await TxToJSON(getTxResult.Result.Tx, getTxResult.Result.TxPosition.BlockHeight, confirmed, noAsm, noScriptSig, noSpend));
+                        txs.Add(new Tuple<Transaction, Int64>(getTxResult.Result.Tx, confirmed? (Int64) getTxResult.Result.TxPosition.BlockHeight : -1));
                     }
                 }
-                UInt64 pageCount = (UInt64) Math.Ceiling((double)txIds.Count/(double)pageSize);
-                List<TransactionSummary> unconfirmedTxs = await GetUnconfirmedTransactions(address, noAsm, noScriptSig, noSpend);
-                txs = unconfirmedTxs.Concat(txs).ToList(); //Unconfirmed txs go first
-                return new GetTransactionsResponse{ pagesTotal = pageCount, txs = txs.ToArray() };
+
+                return txs;
             }
         }
 
-        private async Task<List<TransactionSummary>> GetUnconfirmedTransactions(PaymentAddress address, bool noAsm, bool noScriptSig, bool noSpend)
+        private async Task<List<Transaction>> GetUnconfirmedTransactions(PaymentAddress address, uint maxTxs, bool noAsm, bool noScriptSig, bool noSpend)
         {
-            var unconfirmedTxsJson = new List<TransactionSummary>();
-            using(MempoolTransactionList unconfirmedTxs = chain_.GetMempoolTransactions(address, nodeExecutor_.UseTestnetRules))
+            var unconfirmedTxsJson = new List<Transaction>();
+            using(MempoolTransactionList unconfirmedTxIds = chain_.GetMempoolTransactions(address, nodeExecutor_.UseTestnetRules))
             {
-                foreach(MempoolTransaction unconfirmedTx in unconfirmedTxs)
+                for(uint i=0; i<unconfirmedTxIds.Count && i<maxTxs; i++)
                 {
-                    using(var getTxResult = await chain_.FetchTransactionAsync(Binary.HexStringToByteArray(unconfirmedTx.Hash), requireConfirmed: false))
+                    var unconfirmedTxId = unconfirmedTxIds[i];
+                    using(var getTxResult = await chain_.FetchTransactionAsync(Binary.HexStringToByteArray(unconfirmedTxId.Hash), requireConfirmed: false))
                     {
-                        Utils.CheckBitprimApiErrorCode(getTxResult.ErrorCode, "FetchTransactionAsync(" + unconfirmedTx.Hash + ") failed, check error log");
-                        unconfirmedTxsJson.Add
-                        (
-                            await TxToJSON(getTxResult.Result.Tx, 0, confirmed: false, noAsm: noAsm, noScriptSig: noScriptSig, noSpend: noSpend)
-                        );
+                        Utils.CheckBitprimApiErrorCode(getTxResult.ErrorCode, "FetchTransactionAsync(" + unconfirmedTxId.Hash + ") failed, check error log");
+                        unconfirmedTxsJson.Add(getTxResult.Result.Tx);
                     }
                 }
                 return unconfirmedTxsJson;
