@@ -490,7 +490,7 @@ namespace bitprim.insight.Controllers
                 //Unconfirmed first
                 List<Transaction> unconfirmedTxs = await GetUnconfirmedTransactions(address, noAsm, noScriptSig, noSpend);
                 var txs = new List<Tuple<Transaction, Int64>>();
-                for(int i=0; i<pageSize; i++)
+                for(int i=0; i<unconfirmedTxs.Count; i++)
                 {
                     txs.Add( new Tuple<Transaction, Int64>(unconfirmedTxs[i], -1) );
                 }
@@ -526,7 +526,7 @@ namespace bitprim.insight.Controllers
                 //Unconfirmed first
                 List<byte[]> unconfirmedTxs = GetUnconfirmedTransactionIds(address, noAsm, noScriptSig, noSpend);
                 var txIds = new List<Tuple<byte[], Int64>>();
-                for(int i=0; i<pageSize; i++)
+                for(int i=0; i<unconfirmedTxs.Count; i++)
                 {
                     txIds.Add( new Tuple<byte[], Int64>(unconfirmedTxs[i], -1) );
                 }
