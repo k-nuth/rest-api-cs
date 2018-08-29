@@ -232,24 +232,6 @@ namespace bitprim.insight.Controllers
         }
 
         /// <summary>
-        /// Returns all transactions from a set of addresses.
-        /// </summary>
-        /// <param name="paymentAddresses"> Comma-separated list of addresses. For BCH, cashaddr format is accepted.
-        /// The maximum amount of addresses is determined by the MaxAddressesPerQuery configuration key. </param>
-        /// <param name="from"> Results selection starting point; first item is 0 (zero). Default to said value. </param>
-        /// <param name="to"> Results selection ending point. Default to 10.</param>
-        /// <returns> See GetTransactionsForMultipleAddressesResponse DTO. </returns>
-        [HttpGet("addrs/{paymentAddresses}/txs_alt")]
-        [ResponseCache(CacheProfileName = Constants.Cache.SHORT_CACHE_PROFILE_NAME)]
-        [SwaggerOperation("GetTransactionsForMultipleAddressesAlt")]
-        [SwaggerResponse((int)System.Net.HttpStatusCode.OK, typeof(GetTransactionsForMultipleAddressesResponse))]
-        [SwaggerResponse((int)System.Net.HttpStatusCode.BadRequest, typeof(string))]
-        public async Task<ActionResult> GetTransactionsForMultipleAddressesAlt([FromRoute] string paymentAddresses, [FromQuery] int from = 0, [FromQuery] int to = 10)
-        {
-            return await DoGetTransactionsForMultipleAddressesAlt(paymentAddresses, from, to, false, false, false);
-        }
-
-        /// <summary>
         /// Returns all transactions from a set of adresses.
         /// </summary>
         /// <param name="request"> See GetTxsForMultipleAddressesRequest DTO. </param>
@@ -336,51 +318,6 @@ namespace bitprim.insight.Controllers
         }
 
         private async Task<ActionResult> DoGetTransactionsForMultipleAddresses(string addrs, int from, int to,
-                                                                   bool noAsm = true, bool noScriptSig = true, bool noSpend = true)
-        { 
-            if(from < 0)
-            {
-                from = 0;
-            }
-
-            if(from >= to)
-            {
-                return BadRequest("'from' must be lower than 'to'");
-            }
-            
-            var txs = new List<Tuple<Transaction, Int64>>();
-            var addresses = System.Web.HttpUtility.UrlDecode(addrs).Split(",");
-            if(addresses.Length > config_.MaxAddressesPerQuery)
-            {
-                return BadRequest("Max addresses per query: " + config_.MaxAddressesPerQuery + " (" + addresses.Length + " requested)");
-            }
-            foreach(string address in addresses)
-            {
-                var txList = await GetTransactionsBySingleAddress(address, false, 0, noAsm, noScriptSig, noSpend);
-                txs.AddRange(txList);
-            }
-            //Sort by descending block height
-            txs.Sort((tx1, tx2) => tx2.Item2.CompareTo(tx1.Item2) );
-            
-            to = Math.Min(to, txs.Count);
-
-            //Convert selected range to JSON
-            var txsDigest = new List<TransactionSummary>();
-            foreach(var tx in txs.GetRange(from, to-from))
-            {
-                txsDigest.Add( await TxToJSON(tx.Item1, (UInt64) tx.Item2, tx.Item2 > 0, noAsm, noScriptSig, noSpend) );
-            }
-
-            return Json(new GetTransactionsForMultipleAddressesResponse
-            {
-                totalItems = txs.Count,
-                from = from,
-                to = to,
-                items = txsDigest.ToArray()
-            });   
-        }
-
-        private async Task<ActionResult> DoGetTransactionsForMultipleAddressesAlt(string addrs, int from, int to,
                                                                    bool noAsm = true, bool noScriptSig = true, bool noSpend = true)
         { 
             if(from < 0)
