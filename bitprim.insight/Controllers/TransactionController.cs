@@ -32,7 +32,7 @@ namespace bitprim.insight.Controllers
         [HttpGet("tx/send")]
         public ActionResult GetBroadcastTransaction(RawTxRequest request)
         {
-            return StatusCode((int)System.Net.HttpStatusCode.BadRequest, "tx/send method only accept POST requests");
+            return BadRequest("tx/send method only accepts POST requests");
         }
 
         /// <summary>
@@ -64,7 +64,7 @@ namespace bitprim.insight.Controllers
 
             if(string.IsNullOrWhiteSpace(request?.rawtx))
             {
-                return StatusCode((int)System.Net.HttpStatusCode.BadRequest, "Specify rawtx parameter");
+                return BadRequest("Invalid post body: check structure, or payload size");
             }
 
             Transaction tx;
@@ -74,7 +74,7 @@ namespace bitprim.insight.Controllers
             }
             catch(Exception e) //TODO Use a BitprimException from bitprim-cs to avoid this
             {
-                return StatusCode((int) System.Net.HttpStatusCode.BadRequest, "Invalid transaction: " + e.Message);
+                return BadRequest("Invalid transaction: " + e.Message);
             }
 
             try
@@ -83,7 +83,7 @@ namespace bitprim.insight.Controllers
 
                 if (ec != ErrorCode.Success)
                 {
-                    return StatusCode((int) System.Net.HttpStatusCode.BadRequest, ec.ToString());
+                    return BadRequest(ec.ToString());
                 }
                     
                 return Json
@@ -97,7 +97,7 @@ namespace bitprim.insight.Controllers
             }
             catch (Exception e)
             {
-                return StatusCode((int) System.Net.HttpStatusCode.BadRequest, "Error broadcasting transaction: " + e.Message);
+                return StatusCode((int) System.Net.HttpStatusCode.InternalServerError, "Error broadcasting transaction: " + e.Message);
             }
             finally
             {
@@ -108,7 +108,7 @@ namespace bitprim.insight.Controllers
         /// <summary>
         /// Given a transaction hash, retrieve its representation as a hex string.
         /// </summary>
-        /// <param name="hash"> 32-character hex string which univocally identifies the transaction in the network. </param>
+        /// <param name="hash"> 64-character (32 bytes) hex string which univocally identifies the transaction in the network. </param>
         /// <returns> See GetRawTransactionResponse DTO. </returns>
         [HttpGet("rawtx/{hash}")]
         [ResponseCache(CacheProfileName = Constants.Cache.LONG_CACHE_PROFILE_NAME)]
@@ -118,7 +118,7 @@ namespace bitprim.insight.Controllers
         {
             if(!Validations.IsValidHash(hash))
             {
-                return StatusCode((int)System.Net.HttpStatusCode.BadRequest, hash + " is not a valid transaction hash");
+                return BadRequest(hash + " is not a valid transaction hash");
             }
             Utils.CheckIfChainIsFresh(chain_, config_.AcceptStaleRequests);
             var binaryHash = Binary.HexStringToByteArray(hash);
@@ -138,7 +138,7 @@ namespace bitprim.insight.Controllers
         /// <summary>
         /// Given a transaction hash, retrieve its representation as a hex string.
         /// </summary>
-        /// <param name="hash"> 32-character hex string which univocally identifies the transaction in the network. </param>
+        /// <param name="hash"> 64-character (32 bytes) hex string which univocally identifies the transaction in the network. </param>
         /// <param name="requireConfirmed"> 1 = only confirmed transactions, otherwise include unconfirmed as well. </param>
         /// <returns> See TransactionSummary DTO. </returns>
         [HttpGet("tx/{hash}")]
@@ -146,11 +146,15 @@ namespace bitprim.insight.Controllers
         [SwaggerOperation("GetTransactionByHash")]
         [SwaggerResponse((int)System.Net.HttpStatusCode.OK, typeof(TransactionSummary))]
         [SwaggerResponse((int)System.Net.HttpStatusCode.BadRequest, typeof(string))]
-        public async Task<ActionResult> GetTransactionByHash(string hash, int requireConfirmed)
+        public async Task<ActionResult> GetTransactionByHash([FromRoute] string hash, [FromQuery] int requireConfirmed)
         {
+            if( !ModelState.IsValid )
+            {
+                return BadRequest("requireConfirmed must be an integer number");
+            }
             if( !Validations.IsValidHash(hash) )
             {
-                return StatusCode((int)System.Net.HttpStatusCode.BadRequest, hash + " is not a valid transaction hash");
+                return BadRequest(hash + " is not a valid transaction hash");
             }
             Utils.CheckIfChainIsFresh(chain_, config_.AcceptStaleRequests);
             var binaryHash = Binary.HexStringToByteArray(hash);
@@ -169,7 +173,7 @@ namespace bitprim.insight.Controllers
         /// <summary>
         /// Returns all transactions from a block, or an address (only one source at a time).
         /// </summary>
-        /// <param name="block"> 32-character hex string which univocally identifies a block. </param>
+        /// <param name="block"> 64-character (32 bytes) hex string which univocally identifies a block. </param>
         /// <param name="address"> Address to get transactions from. When selecting by address, unconfirmed
         /// transactions are included.
         /// </param>
@@ -186,25 +190,25 @@ namespace bitprim.insight.Controllers
         {
             if(block == null && address == null)
             {
-                return StatusCode((int)System.Net.HttpStatusCode.BadRequest, "Specify block or address");
+                return BadRequest("Specify block or address");
             }
 
             if(block != null && address != null)
             {
-                return StatusCode((int)System.Net.HttpStatusCode.BadRequest, "Specify either block or address, but not both");
+                return BadRequest("Specify either block or address, but not both");
             }
 
             if(block != null)
             {
                 if( !Validations.IsValidHash(block) )
                 {
-                    return StatusCode((int)System.Net.HttpStatusCode.BadRequest, block + " is not a valid block hash");
+                    return BadRequest(block + " is not a valid block hash");
                 }
                 return await GetTransactionsByBlockHash(block, pageNum);
             }
             if( !Validations.IsValidPaymentAddress(address) )
             {
-                return StatusCode((int)System.Net.HttpStatusCode.BadRequest, address + " is not a valid address");
+                return BadRequest(address + " is not a valid address");
             }
             return await GetTransactionsByAddress(address, pageNum);
         }
@@ -260,9 +264,8 @@ namespace bitprim.insight.Controllers
             if(request == null || string.IsNullOrWhiteSpace(request.addrs))
             {
                 //TODO Point user to documentation once docs include DTOs (RA-176)
-                return StatusCode
+                return BadRequest
                 (
-                    (int)System.Net.HttpStatusCode.BadRequest,
                     "Invalid request format. Expected JSON format: \n{\n\t\"addrs\": \"addr1,addr2,addrN\",\n \t\"from\": 0,\n\t\"to\": M,\n\t\"noAsm\": 1, \n\t\"noScriptSig\": 1, \n\t\"noSpend\": 1\n}"
                 );
             }
@@ -270,7 +273,7 @@ namespace bitprim.insight.Controllers
             {
                 if( !Validations.IsValidPaymentAddress(address) )
                 {
-                    return StatusCode((int)System.Net.HttpStatusCode.BadRequest, address + " is not a valid address");
+                    return BadRequest(address + " is not a valid address");
                 }
             }
             return await DoGetTransactionsForMultipleAddresses
@@ -342,14 +345,14 @@ namespace bitprim.insight.Controllers
 
             if(from >= to)
             {
-                return StatusCode((int)System.Net.HttpStatusCode.BadRequest, "'from' must be lower than 'to'");
+                return BadRequest("'from' must be lower than 'to'");
             }
             
             var txs = new List<Tuple<Transaction, Int64>>();
             var addresses = System.Web.HttpUtility.UrlDecode(addrs).Split(",");
             if(addresses.Length > config_.MaxAddressesPerQuery)
             {
-                return StatusCode((int)System.Net.HttpStatusCode.BadRequest, "Max addresses per query: " + config_.MaxAddressesPerQuery + " (" + addresses.Length + " requested)");
+                return BadRequest("Max addresses per query: " + config_.MaxAddressesPerQuery + " (" + addresses.Length + " requested)");
             }
             foreach(string address in addresses)
             {
@@ -453,11 +456,7 @@ namespace bitprim.insight.Controllers
                 UInt64 pageCount = (UInt64) Math.Ceiling((double)fullBlock.TransactionCount/(double)pageSize);
                 if(pageNum >= pageCount)
                 {
-                    return StatusCode
-                    (
-                        (int)System.Net.HttpStatusCode.BadRequest,
-                        "pageNum cannot exceed " + (pageCount - 1) + " (zero-indexed)"
-                    );
+                    return BadRequest("pageNum cannot exceed " + (pageCount - 1) + " (zero-indexed)");
                 }
                 
                 var txs = new List<TransactionSummary>();

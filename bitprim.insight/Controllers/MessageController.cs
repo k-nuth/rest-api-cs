@@ -1,3 +1,4 @@
+using Bitprim;
 using Microsoft.AspNetCore.Mvc;
 using Swashbuckle.AspNetCore.SwaggerGen;
 
@@ -19,6 +20,11 @@ namespace bitprim.insight.Controllers
         [SwaggerOperation("VerifyMessage")]
         public ActionResult Verify(string address, string signature, string message)
         {
+            if( !Validations.IsValidPaymentAddress(address) )
+            {
+                return BadRequest(address + " is not a valid address");
+            }
+            //TODO Validate signature
             return VerifyMessage(address, signature, message);  
         }
 
@@ -32,13 +38,18 @@ namespace bitprim.insight.Controllers
         [SwaggerOperation("VerifyMessagePost")]
         public ActionResult VerifyPost(string address, string signature, string message)
         {
+            if( !Validations.IsValidPaymentAddress(address) )
+            {
+                return BadRequest(address + " is not a valid address");
+            }
+            //TODO Validate signature
             return VerifyMessage(address, signature, message);
         }
 
         private ActionResult VerifyMessage(string address, string signature, string message)
         {
             //Dummy return
-            return StatusCode((int)System.Net.HttpStatusCode.BadRequest, "Unexpected error:");
+            return BadRequest("Unexpected error:");
             
             //TODO full implementation
             //dynamic result = new ExpandoObject();

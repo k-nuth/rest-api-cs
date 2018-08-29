@@ -38,22 +38,22 @@ namespace bitprim.insight.DTOs
         public string chainwork { get; set; }
 
         /// <summary>
-        /// Block hash as 32-character hex string.
+        /// Block hash as a 64-character (32 bytes) hex string.
         /// </summary>
         public string hash { get; set; }
 
         /// <summary>
-        /// Hash of all block transactions (Merkle tree root) as 32-character hex string.
+        /// Hash of all block transactions (Merkle tree root) as a 64-character (32 bytes) hex string.
         /// </summary>
         public string merkleroot { get; set; }
 
         /// <summary>
-        /// Next block hash as 32-character hex string; for the latest block, this field is left empty.
+        /// Next block hash as a 64-character (32 bytes) hex string; for the latest block, this field is left empty.
         /// </summary>
         public string nextblockhash { get; set; }
 
         /// <summary>
-        /// Previous block hash as 32-character hex string; for the first block (Genesis), this field is left empty.
+        /// Previous block hash as a 64-character (32 bytes) hex string; for the first block (Genesis), this field is left empty.
         /// </summary>
         public string previousblockhash { get; set; }
 

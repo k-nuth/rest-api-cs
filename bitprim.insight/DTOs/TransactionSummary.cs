@@ -38,7 +38,7 @@ namespace bitprim.insight.DTOs
         public string blockhash { get; set; }
 
         /// <summary>
-        /// 32-character hex string which univocally identifies the transaction in the network.
+        /// 64-character (32 bytes) hex string which univocally identifies the transaction in the network.
         /// </summary>
         public string txid { get; set; }
 
