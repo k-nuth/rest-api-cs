@@ -329,8 +329,8 @@ namespace bitprim.insight.Controllers
             {
                 return StatusCode((int)System.Net.HttpStatusCode.BadRequest, "'from' must be lower than 'to'");
             }
-            
-            var txPositions = new List<Tuple<byte[], Int64>>();
+
+            var txPositions = new SortedSet<Tuple<Int64, string>>( new ByBlockHeightDescAndTxHashAsc() );
             var addresses = System.Web.HttpUtility.UrlDecode(addrs).Split(",");
             if(addresses.Length > config_.MaxAddressesPerQuery)
             {
@@ -338,22 +338,19 @@ namespace bitprim.insight.Controllers
             }
             foreach(string address in addresses)
             {
-                var addressTxPositions = await GetTransactionPositionsBySingleAddress(address, false, 0, noAsm, noScriptSig, noSpend);
-                txPositions.AddRange(addressTxPositions);
+                await GetTransactionPositionsBySingleAddress(address, false, 0, noAsm, noScriptSig, noSpend, txPositions);
             }
-            //Sort by descending block height
-            txPositions.Sort((tx1, tx2) => tx2.Item2.CompareTo(tx1.Item2) );
-            
+
             to = Math.Min(to, txPositions.Count);
 
             //Fetch selected range and convert to JSON
             var txsDigest = new List<TransactionSummary>();
-            foreach(var txPosition in txPositions.GetRange(from, to-from))
+            foreach(var txPosition in txPositions.ToList().GetRange(from, to-from))
             {
-                using(var getTxResult = await chain_.FetchTransactionAsync(txPosition.Item1, false))
+                using(var getTxResult = await chain_.FetchTransactionAsync( Binary.HexStringToByteArray(txPosition.Item2), false))
                 {
-                    Utils.CheckBitprimApiErrorCode(getTxResult.ErrorCode, "FetchTransactionAsync(" + Binary.ByteArrayToHexString(txPosition.Item1) + ") failed, check error log");
-                    txsDigest.Add( await TxToJSON(getTxResult.Result.Tx, (UInt64) txPosition.Item2, txPosition.Item2 > 0, noAsm, noScriptSig, noSpend) );
+                    Utils.CheckBitprimApiErrorCode(getTxResult.ErrorCode, "FetchTransactionAsync(" + txPosition.Item2 + ") failed, check error log");
+                    txsDigest.Add( await TxToJSON(getTxResult.Result.Tx, (UInt64) txPosition.Item1, txPosition.Item1 > 0, noAsm, noScriptSig, noSpend) );
                 }
             }
 
@@ -447,7 +444,9 @@ namespace bitprim.insight.Controllers
             }
         }
 
-        private async Task<List<Tuple<byte[], Int64>>> GetTransactionPositionsBySingleAddress(string paymentAddress, bool pageResults, uint pageNum, bool noAsm, bool noScriptSig, bool noSpend)
+        private async Task GetTransactionPositionsBySingleAddress(string paymentAddress, bool pageResults, uint pageNum,
+                                                                  bool noAsm, bool noScriptSig, bool noSpend,
+                                                                  SortedSet<Tuple<Int64, string>> txPositions)
         {
             Utils.CheckIfChainIsFresh(chain_, config_.AcceptStaleRequests);
 
@@ -460,24 +459,18 @@ namespace bitprim.insight.Controllers
                 var pageSize = pageResults ? (uint) config_.TransactionsByAddressPageSize : confirmedTxIds.Count;
 
                 //Unconfirmed first
-                List<byte[]> unconfirmedTxs = GetUnconfirmedTransactionIds(address, noAsm, noScriptSig, noSpend);
-                var txIds = new List<Tuple<byte[], Int64>>();
-                for(int i=0; i<unconfirmedTxs.Count; i++)
-                {
-                    txIds.Add( new Tuple<byte[], Int64>(unconfirmedTxs[i], -1) );
-                }
+                GetUnconfirmedTransactionPositions(address, noAsm, noScriptSig, noSpend, txPositions);
 
                 //Confirmed
                 for(uint i=0; i<pageSize && (pageNum * pageSize + i < confirmedTxIds.Count); i++)
                 {
                     var txHash = confirmedTxIds[(pageNum * pageSize + i)];
                     var getTxPosResult = await chain_.FetchTransactionPositionAsync(txHash, true);
-                    Utils.CheckBitprimApiErrorCode(getTxPosResult.ErrorCode, "FetchTransactionPositionAsync(" + Binary.ByteArrayToHexString(txHash) + ") failed, check error log");
+                    string txHashStr = Binary.ByteArrayToHexString(txHash);
+                    Utils.CheckBitprimApiErrorCode(getTxPosResult.ErrorCode, "FetchTransactionPositionAsync(" + txHashStr + ") failed, check error log");
                     bool confirmed = CheckIfTransactionIsConfirmed(getTxPosResult.Result);
-                    txIds.Add(new Tuple<byte[], Int64>(txHash, confirmed? (Int64) getTxPosResult.Result.BlockHeight : -1));
+                    txPositions.Add(new Tuple<Int64, string>(confirmed? (Int64) getTxPosResult.Result.BlockHeight : -1, txHashStr));
                 }
-
-                return txIds;
             }
         }
 
@@ -498,16 +491,15 @@ namespace bitprim.insight.Controllers
             }
         }
 
-        private List<byte[]> GetUnconfirmedTransactionIds(PaymentAddress address, bool noAsm, bool noScriptSig, bool noSpend)
+        private void GetUnconfirmedTransactionPositions(PaymentAddress address, bool noAsm, bool noScriptSig,
+                                                  bool noSpend, SortedSet<Tuple<Int64, string>> txPositions)
         {
-            var unconfirmedTxIds = new List<byte[]>();
-            using(MempoolTransactionList nativeUnconfirmedTxIds = chain_.GetMempoolTransactions(address, nodeExecutor_.UseTestnetRules))
+            using(MempoolTransactionList unconfirmedTxIds = chain_.GetMempoolTransactions(address, nodeExecutor_.UseTestnetRules))
             {
-                foreach(MempoolTransaction nativeUnconfirmedTxId in nativeUnconfirmedTxIds)
+                foreach(MempoolTransaction unconfirmedTxId in unconfirmedTxIds)
                 {
-                    unconfirmedTxIds.Add( Binary.HexStringToByteArray(nativeUnconfirmedTxId.Hash) );
+                    txPositions.Add( new Tuple<Int64, string>(-1, unconfirmedTxId.Hash) );
                 }
-                return unconfirmedTxIds;
             }
         }
 
@@ -679,5 +671,24 @@ namespace bitprim.insight.Controllers
             return type;
         }
 
+    }
+
+    internal class ByBlockHeightDescAndTxHashAsc : IComparer<Tuple<Int64, string>>
+    {
+        public SortedList<string, Int64> List { set; private get; }
+
+        public int Compare(Tuple<Int64, string> lv, Tuple<Int64, string> rv)
+        {
+            if(lv.Item1 != rv.Item1)
+            {
+                //When sorting by block height, we want descending order, so we invert the comparison
+                return rv.Item1.CompareTo( lv.Item1 );
+            }
+            else
+            {
+                //For equal block height, order by ascending txId
+                return lv.Item2.CompareTo( rv.Item2 );
+            }
+        }
     }
 }
