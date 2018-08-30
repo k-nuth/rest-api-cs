@@ -65,6 +65,10 @@ namespace bitprim.insight.Controllers
         [SwaggerResponse((int)System.Net.HttpStatusCode.OK, typeof(IDictionary<string, string>))]
         public ActionResult GetEstimateFee([FromQuery] int nbBlocks = 2)
         {
+            if( !ModelState.IsValid || nbBlocks <= 0)
+            {
+                return BadRequest("nbBlocks must be an integer greater than zero");
+            }
             var estimateFee = new ExpandoObject() as IDictionary<string, Object>;
             //TODO Check which algorithm to use (see bitcoin-abc's median, at src/policy/fees.cpp for an example)
             estimateFee.Add(nbBlocks.ToString(), config_.EstimateFeeDefault.ToString("N8"));
@@ -161,8 +165,12 @@ namespace bitprim.insight.Controllers
         [HttpGet("healthcheck")]
         [SwaggerOperation("GetHealthCheck")]
         [SwaggerResponse((int)System.Net.HttpStatusCode.OK, typeof(string))]
-        public async Task<ActionResult> GetHealthCheck(float minimumSync)
+        public async Task<ActionResult> GetHealthCheck([FromQuery] float minimumSync)
         {
+            if( !ModelState.IsValid )
+            {
+                return BadRequest("minimumSync must be a floating point number");
+            }
             dynamic syncStatus = await DoGetSyncStatus();
             bool isNumeric = Double.TryParse(syncStatus.syncPercentage, out double syncPercentage);
             bool isHealthy = isNumeric && syncPercentage > minimumSync;
