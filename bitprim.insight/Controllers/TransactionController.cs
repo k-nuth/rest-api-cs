@@ -22,6 +22,7 @@ namespace bitprim.insight.Controllers
         private readonly Executor nodeExecutor_;
         private readonly ILogger<TransactionController> logger_;
         private readonly NodeConfig config_;
+        private static readonly TxPositionComparer txPositionComparer_ = new TxPositionComparer();
 
         /// <summary>
         /// This method exists only to warn clients who call GET instead of POST.
@@ -330,7 +331,7 @@ namespace bitprim.insight.Controllers
                 return StatusCode((int)System.Net.HttpStatusCode.BadRequest, "'from' must be lower than 'to'");
             }
 
-            var txPositions = new SortedSet<Tuple<Int64, string>>( new ByBlockHeightDescAndTxHashAsc() );
+            var txPositions = new SortedSet<Tuple<Int64, string>>( txPositionComparer_ );
             var addresses = System.Web.HttpUtility.UrlDecode(addrs).Split(",");
             if(addresses.Length > config_.MaxAddressesPerQuery)
             {
@@ -673,10 +674,8 @@ namespace bitprim.insight.Controllers
 
     }
 
-    internal class ByBlockHeightDescAndTxHashAsc : IComparer<Tuple<Int64, string>>
+    internal class TxPositionComparer : IComparer<Tuple<Int64, string>>
     {
-        public SortedList<string, Int64> List { set; private get; }
-
         public int Compare(Tuple<Int64, string> lv, Tuple<Int64, string> rv)
         {
             if(lv.Item1 != rv.Item1)
