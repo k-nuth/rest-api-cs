@@ -366,16 +366,9 @@ namespace bitprim.insight.Controllers
 
         private async Task<ActionResult> GetTransactionsByAddress(string address, uint pageNum)
         {
-            List<Tuple<Transaction, Int64>> txs = await GetTransactionsBySingleAddress(address, true, pageNum, false, false, false);
+            List<TransactionSummary> txs = await GetTransactionsBySingleAddress(address, true, pageNum, false, false, false);
             UInt64 pageCount = (UInt64) Math.Ceiling((double)txs.Count/(double)config_.TransactionsByAddressPageSize);
-            var txsDigest = new List<TransactionSummary>();
-            for(int i=0; i<config_.TransactionsByAddressPageSize; i++)
-            {
-                Transaction tx = txs[i].Item1;
-                Int64 blockHeight = txs[i].Item2;
-                txsDigest.Add( await TxToJSON(tx, (UInt64)blockHeight, blockHeight > 0, false, false, false) );
-            }
-            return Json( new GetTransactionsResponse{ pagesTotal = pageCount, txs = txsDigest.ToArray() } );
+            return Json( new GetTransactionsResponse{ pagesTotal = pageCount, txs = txs.ToArray() } );
         }
 
         private async Task<ActionResult> GetTransactionsByBlockHash(string blockHash, UInt64 pageNum)
@@ -409,7 +402,8 @@ namespace bitprim.insight.Controllers
             }
         }
 
-        private async Task<List<Tuple<Transaction, Int64>>> GetTransactionsBySingleAddress(string paymentAddress, bool pageResults, uint pageNum, bool noAsm, bool noScriptSig, bool noSpend)
+        private async Task<List<TransactionSummary>> GetTransactionsBySingleAddress(string paymentAddress, bool pageResults, uint pageNum,
+                                                                                    bool noAsm, bool noScriptSig, bool noSpend)
         {
             Utils.CheckIfChainIsFresh(chain_, config_.AcceptStaleRequests);
 
@@ -423,10 +417,10 @@ namespace bitprim.insight.Controllers
 
                 //Unconfirmed first
                 List<Transaction> unconfirmedTxs = await GetUnconfirmedTransactions(address, noAsm, noScriptSig, noSpend);
-                var txs = new List<Tuple<Transaction, Int64>>();
+                var txsJson = new List<TransactionSummary>();
                 for(int i=0; i<unconfirmedTxs.Count; i++)
                 {
-                    txs.Add( new Tuple<Transaction, Int64>(unconfirmedTxs[i], -1) );
+                    txsJson.Add( await TxToJSON(unconfirmedTxs[i], 0, false, noAsm, noScriptSig, noSpend) );
                 }
 
                 //Confirmed
@@ -437,11 +431,11 @@ namespace bitprim.insight.Controllers
                     {
                         Utils.CheckBitprimApiErrorCode(getTxResult.ErrorCode, "FetchTransactionAsync(" + Binary.ByteArrayToHexString(txHash) + ") failed, check error log");
                         bool confirmed = CheckIfTransactionIsConfirmed(getTxResult.Result.TxPosition);
-                        txs.Add(new Tuple<Transaction, Int64>(getTxResult.Result.Tx, confirmed? (Int64) getTxResult.Result.TxPosition.BlockHeight : -1));
+                        txsJson.Add( await TxToJSON(getTxResult.Result.Tx, getTxResult.Result.TxPosition.BlockHeight, confirmed, noAsm, noScriptSig, noSpend) );
                     }
                 }
 
-                return txs;
+                return txsJson;
             }
         }
 
