@@ -18,7 +18,7 @@ namespace bitprim.insight.Controllers
     [Route("[controller]")]
     public class TransactionController : Controller
     {
-        private readonly IChain chain_;
+        private readonly Chain chain_;
         private readonly Executor nodeExecutor_;
         private readonly ILogger<TransactionController> logger_;
         private readonly NodeConfig config_;
@@ -46,20 +46,8 @@ namespace bitprim.insight.Controllers
         {
             config_ = config.Value;
             nodeExecutor_ = executor;
-            chain_ = new BitprimChain(executor.Chain);
+            chain_ = executor.Chain;
             logger_ = logger;
-        }
-
-        /// <summary>
-        /// This method exists only to warn clients who call GET instead of POST.
-        /// </summary>
-        /// <param name="request"> See RawTxRequest DTO. </param>
-        /// <returns> Error message advising client to use POST version instead. </returns>
-        [ApiExplorerSettings(IgnoreApi=true)]
-        [HttpGet("tx/send")]
-        public ActionResult GetBroadcastTransaction(RawTxRequest request)
-        {
-            return StatusCode((int)System.Net.HttpStatusCode.BadRequest, "tx/send method only accept POST requests");
         }
 
         /// <summary>
