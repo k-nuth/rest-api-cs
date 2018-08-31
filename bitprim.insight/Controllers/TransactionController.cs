@@ -366,7 +366,7 @@ namespace bitprim.insight.Controllers
 
         private async Task<ActionResult> GetTransactionsByAddress(string address, uint pageNum)
         {
-            List<TransactionSummary> txs = await GetTransactionsBySingleAddress(address, true, pageNum, false, false, false);
+            List<TransactionSummary> txs = await GetTransactionsBySingleAddress(address, pageNum, false, false, false);
             UInt64 pageCount = (UInt64) Math.Ceiling((double)txs.Count/(double)config_.TransactionsByAddressPageSize);
             return Json( new GetTransactionsResponse{ pagesTotal = pageCount, txs = txs.ToArray() } );
         }
@@ -402,8 +402,8 @@ namespace bitprim.insight.Controllers
             }
         }
 
-        private async Task<List<TransactionSummary>> GetTransactionsBySingleAddress(string paymentAddress, bool pageResults, uint pageNum,
-                                                                                    bool noAsm, bool noScriptSig, bool noSpend)
+        private async Task<List<TransactionSummary>> GetTransactionsBySingleAddress(string paymentAddress, uint pageNum, bool noAsm,
+                                                                                    bool noScriptSig, bool noSpend)
         {
             Utils.CheckIfChainIsFresh(chain_, config_.AcceptStaleRequests);
 
@@ -413,7 +413,7 @@ namespace bitprim.insight.Controllers
                 Utils.CheckBitprimApiErrorCode(getTransactionResult.ErrorCode, "FetchTransactionAsync(" + paymentAddress + ") failed, check error log.");
 
                 var txIds = getTransactionResult.Result;
-                var pageSize = pageResults ? (uint) config_.TransactionsByAddressPageSize : txIds.Count;
+                var pageSize = config_.TransactionsByAddressPageSize;
 
                 //Unconfirmed first
                 List<Transaction> unconfirmedTxs = await GetUnconfirmedTransactions(address, noAsm, noScriptSig, noSpend);
