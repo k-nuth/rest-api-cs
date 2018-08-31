@@ -47,7 +47,7 @@ namespace bitprim.insight.Controllers
         {
             config_ = config.Value;
             nodeExecutor_ = executor;
-            chain_ = new BitprimChain(executor.Chain);
+            chain_ = executor.Chain;
             memoryCache_ = memoryCache;
             execPolicy_ = Policy.WrapAsync(retryPolicy_, breakerPolicy_);
             logger_ = logger;
@@ -278,7 +278,7 @@ namespace bitprim.insight.Controllers
             return Json(await DoGetSyncStatus());
         }
 
-        private async Task<DisposableApiCallResult<GetBlockDataResult<Block>>> GetLastBlock()
+        private async Task<DisposableApiCallResult<GetBlockDataResult<IBlock>>> GetLastBlock()
         {
             var getLastHeightResult = await chain_.FetchLastHeightAsync();
             Utils.CheckBitprimApiErrorCode(getLastHeightResult.ErrorCode, "FetchLastHeightAsync() failed");

@@ -1,9 +1,7 @@
-using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
 using System.Text.RegularExpressions;
-using System.Threading;
 using Bitprim;
 using Newtonsoft.Json;
 using static System.String;
@@ -66,7 +64,7 @@ namespace bitprim.insight
         /// <returns> If tx contains pool info and it matches a pool defined in the pools file, return its info;
         /// otherwise, return the Empty PollInfo instance
         /// </returns>
-        public PoolInfo GetPoolInfo(Transaction tx)
+        public PoolInfo GetPoolInfo(ITransaction tx)
         {
             if (tx == null)
             {

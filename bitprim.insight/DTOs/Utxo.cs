@@ -22,8 +22,8 @@ namespace bitprim.insight.DTOs
         /// <param name="tx"> Transaction containing this output. </param>
         /// <param name="compact"> History entry referencing this utxo. </param>
         /// <param name="topHeight"> Current blockchain height. </param>
-        public Utxo(PaymentAddress paymentAddress, Point outputPoint, ErrorCode getTxEc,
-                    Transaction tx, HistoryCompact compact, UInt64 topHeight)
+        public Utxo(PaymentAddress paymentAddress, IPoint outputPoint, ErrorCode getTxEc,
+                    ITransaction tx, HistoryCompact compact, UInt64 topHeight)
         {
             address = paymentAddress.Encoded;
             txid = Binary.ByteArrayToHexString(outputPoint.Hash);

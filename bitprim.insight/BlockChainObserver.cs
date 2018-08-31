@@ -18,7 +18,7 @@ namespace bitprim.insight
         public BlockChainObserver(Executor executor, WebSocketHandler webSocketHandler)
         {
             executor_ = executor;
-            chain_ = null;
+            chain_ = executor.Chain;
             webSocketHandler_ = webSocketHandler;
             blockHandler_ = new Executor.BlockHandler(OnBlockReceived);
             txHandler_ = new Executor.TransactionHandler(OnTransactionReceived);
@@ -35,7 +35,7 @@ namespace bitprim.insight
                 using(var getBlockResult = executor_.Chain.FetchBlockByHeightAsync(height).Result )
                 {
                     Utils.CheckBitprimApiErrorCode(getBlockResult.ErrorCode, "FetchBlockByHeightAsync(" + height + ") failed");
-                    Transaction coinbaseTx = getBlockResult.Result.BlockData.GetNthTransaction(0);
+                    ITransaction coinbaseTx = getBlockResult.Result.BlockData.GetNthTransaction(0);
                     coinbaseTxHash = Binary.ByteArrayToHexString(coinbaseTx.Hash);
                     destinationAddress = coinbaseTx.Outputs[0].PaymentAddress(executor_.UseTestnetRules).Encoded;
                 }
@@ -55,11 +55,6 @@ namespace bitprim.insight
         {
             if(error == ErrorCode.Success && newTransaction != null)
             {
-                if(chain_ == null)
-                {
-                    chain_ = new BitprimChain(executor_.Chain);
-                }
-
                 var txid = Binary.ByteArrayToHexString(newTransaction.Hash);
 
                 HashSet<string> addresses = Utils.GetTransactionAddresses(executor_,newTransaction).GetAwaiter().GetResult();

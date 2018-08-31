@@ -1,5 +1,4 @@
 using Bitprim;
-using bitprim.insight.DTOs;
 
 namespace bitprim.insight
 {
@@ -36,6 +35,6 @@ namespace bitprim.insight
         /// <returns> If tx contains pool info and it matches a pool defined in the pools file, return its info;
         /// otherwise, return the Empty PollInfo instance
         /// </returns>
-        PoolInfo GetPoolInfo(Transaction tx);
+        PoolInfo GetPoolInfo(ITransaction tx);
     }
 }
