@@ -40,7 +40,9 @@ namespace bitprim.insight.Middlewares
         {
             if (httpContext == null) 
                 throw new ArgumentNullException(nameof(httpContext));
-
+            
+            LogPreRequest(httpContext);
+            
             var start = Stopwatch.GetTimestamp();
             try
             {
@@ -76,7 +78,22 @@ namespace bitprim.insight.Middlewares
         {
              LogHttpRequest(context, elapsedMs, null);
         }
-    
+
+        private void LogPreRequest(HttpContext context)
+        {
+            using(LogContext.PushProperty(LogPropertyNames.SOURCE_IP, context.Connection.RemoteIpAddress))
+            using(LogContext.PushProperty(LogPropertyNames.HTTP_METHOD, context.Request.Method))
+            using(LogContext.PushProperty(LogPropertyNames.HTTP_REQUEST_URL, context.Request.Path.Value))
+            using(LogContext.PushProperty(LogPropertyNames.HTTP_PROTOCOL_VERSION, context.Request.Protocol))
+            using(LogContext.PushProperty(LogPropertyNames.HTTP_RESPONSE_STATUS_CODE, -1))
+            using(LogContext.PushProperty(LogPropertyNames.HTTP_RESPONSE_LENGTH, -1))
+            using(LogContext.PushProperty(LogPropertyNames.TIME_ZONE, timeZone_))
+            using(LogContext.PushProperty(LogPropertyNames.ELAPSED_MS, -1))
+            {
+                logger_.LogDebug(""); //Properties cover all information, so empty message
+            }
+        }
+
         private void LogHttpRequest(HttpContext context, double elapsedMs, Exception ex)
         {
             HttpResponse response = context.Response;
