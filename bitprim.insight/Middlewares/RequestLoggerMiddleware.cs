@@ -83,7 +83,7 @@ namespace bitprim.insight.Middlewares
         {
             using(LogContext.PushProperty(LogPropertyNames.SOURCE_IP, context.Connection.RemoteIpAddress))
             using(LogContext.PushProperty(LogPropertyNames.HTTP_METHOD, context.Request.Method))
-            using(LogContext.PushProperty(LogPropertyNames.HTTP_REQUEST_URL, context.Request.Path.Value))
+            using(LogContext.PushProperty(LogPropertyNames.HTTP_REQUEST_URL, context.Request.Path.Value + (context.Request.QueryString.HasValue ? context.Request.QueryString.Value : "") ))
             using(LogContext.PushProperty(LogPropertyNames.HTTP_PROTOCOL_VERSION, context.Request.Protocol))
             using(LogContext.PushProperty(LogPropertyNames.HTTP_RESPONSE_STATUS_CODE, -1))
             using(LogContext.PushProperty(LogPropertyNames.HTTP_RESPONSE_LENGTH, -1))
@@ -99,7 +99,7 @@ namespace bitprim.insight.Middlewares
             HttpResponse response = context.Response;
             using(LogContext.PushProperty(LogPropertyNames.SOURCE_IP, context.Connection.RemoteIpAddress))
             using(LogContext.PushProperty(LogPropertyNames.HTTP_METHOD, context.Request.Method))
-            using(LogContext.PushProperty(LogPropertyNames.HTTP_REQUEST_URL, context.Request.Path.Value))
+            using(LogContext.PushProperty(LogPropertyNames.HTTP_REQUEST_URL, context.Request.Path.Value + (context.Request.QueryString.HasValue ? context.Request.QueryString.Value : "") ))
             using(LogContext.PushProperty(LogPropertyNames.HTTP_PROTOCOL_VERSION, context.Request.Protocol))
             using(LogContext.PushProperty(LogPropertyNames.HTTP_RESPONSE_STATUS_CODE, context.Response.StatusCode))
             using(LogContext.PushProperty(LogPropertyNames.HTTP_RESPONSE_LENGTH, response.ContentLength ?? context.Response.Body.Length))
