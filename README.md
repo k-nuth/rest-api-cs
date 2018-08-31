@@ -69,6 +69,16 @@ dotnet bin/Release/netcoreapp2.0/published/bitprim.insight.dll --server.port=300
 
 *Default value:localhost*
 
+**--max.url**: Maximum allowed URL length for all requests, in characters. Any request
+which exceeds this value will be rejected with error 414 (request URI too long).
+
+*Default value:600*
+
+**--max.post**: Maximum body size for all requests, in bytes. Any request
+which exceeds this value will be rejected with error 413 (payload too large).
+
+*Default value:204800 (200kB)*
+
 ## Configuration Options
 
 

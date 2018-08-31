@@ -42,7 +42,7 @@ namespace bitprim.insight.Controllers
         /// <summary>
         /// Given a block hash, retrieve its univocally associated block.
         /// </summary>
-        /// <param name="hash"> 32-character hex string. </param>
+        /// <param name="hash"> 64-character (32 bytes) hex string. </param>
         /// <returns> The block with the given hash. </returns>
         [HttpGet("block/{hash}")]
         [ResponseCache(CacheProfileName = Constants.Cache.SHORT_CACHE_PROFILE_NAME)]
@@ -53,7 +53,7 @@ namespace bitprim.insight.Controllers
         {
             if(!Validations.IsValidHash(hash))
             {
-                return StatusCode((int)System.Net.HttpStatusCode.BadRequest, hash + " is not a valid block hash");
+                return BadRequest(hash + " is not a valid block hash");
             }
 
             Utils.CheckIfChainIsFresh(chain_, config_.AcceptStaleRequests);
@@ -106,15 +106,27 @@ namespace bitprim.insight.Controllers
         /// Given a block height, retrieve the block hash.
         /// </summary>
         /// <param name="height"> Block height. </param>
-        /// <returns> Block hash as 32-character hex string. </returns>
+        /// <returns> Block hash as 64-character (32 bytes) hex string. </returns>
         [HttpGet("block-index/{height}")]
         [ResponseCache(CacheProfileName = Constants.Cache.SHORT_CACHE_PROFILE_NAME)]
         [SwaggerOperation("GetBlockByHeight")]
         [SwaggerResponse((int)System.Net.HttpStatusCode.OK, typeof(GetBlockByHeightResponse))]
-        public async Task<ActionResult> GetBlockByHeight(UInt64 height)
+        public async Task<ActionResult> GetBlockByHeight([FromRoute] UInt64 height)
         {
+            if( !ModelState.IsValid )
+            {
+                return BadRequest("Block height must be a non-negative number");
+            }
             Utils.CheckIfChainIsFresh(chain_, config_.AcceptStaleRequests);
-            
+
+            var lastHeightResult = await chain_.FetchLastHeightAsync();
+            Utils.CheckBitprimApiErrorCode(lastHeightResult.ErrorCode, "FetchLastHeightAsync() failed, check error log");
+
+            if( height > lastHeightResult.Result )
+            {
+                return NotFound("Requesting beyond current height (" + lastHeightResult.Result + "); if you are polling for new blocks, please consider using our web socket API: https://bitprim.github.io/docfx/content/developer_guide/restapi/websockets.html");
+            }
+
             var result = await chain_.FetchBlockByHeightHashTimestampAsync(height);
             Utils.CheckBitprimApiErrorCode(result.ErrorCode, "FetchBlockByHeightHashTimestampAsync(" + height + ") failed, error log");
             
@@ -138,28 +150,32 @@ namespace bitprim.insight.Controllers
         [SwaggerOperation("GetBlocksByDate")]
         [SwaggerResponse((int)System.Net.HttpStatusCode.OK, typeof(GetBlocksByDateResponse))]
         [SwaggerResponse((int)System.Net.HttpStatusCode.BadRequest, typeof(string))]
-        public async Task<ActionResult> GetBlocksByDate(int limit = 200, string blockDate = "")
+        public async Task<ActionResult> GetBlocksByDate([FromQuery] int limit = 200, [FromQuery] string blockDate = "")
         {
             Utils.CheckIfChainIsFresh(chain_, config_.AcceptStaleRequests);
-
             //Validate input
             var validateInputResult = ValidateGetBlocksByDateInput(limit, blockDate);
             if(!validateInputResult.Item1)
             {
-                return StatusCode((int)System.Net.HttpStatusCode.BadRequest, validateInputResult.Item2);
+                return BadRequest(validateInputResult.Item2);
             }
-            
             var blockDateToSearch = validateInputResult.Item3;
 
-            //These define the search interval (lte, gte)
-            var gte = new DateTimeOffset(blockDateToSearch).ToUnixTimeSeconds();
-            var lte =  gte + 86400;
-
-            //Find blocks starting point
+            //If date is today, no need to search
             var getLastHeightResult = await chain_.FetchLastHeightAsync();
             Utils.CheckBitprimApiErrorCode(getLastHeightResult.ErrorCode, "FetchLastHeightAsync failed, check error log");
-            
+            //These define the date interval (lte, gte)
+            var gte = new DateTimeOffset(blockDateToSearch).ToUnixTimeSeconds();
+            var lte =  gte + 86400;
             var topHeight = getLastHeightResult.Result;
+            if(blockDateToSearch.Date == DateTime.Today.Date)
+            {
+                var latestBlocks = await GetPreviousBlocks(topHeight, (UInt64)limit, blockDateToSearch, topHeight);
+                var moreBlocksToday = await CheckIfMoreBlocks(topHeight, (UInt64)limit, blockDateToSearch, lte);
+                return Json(BlocksByDateToJSON(latestBlocks, blockDateToSearch, moreBlocksToday.Item1, moreBlocksToday.Item2, lte));   
+            }
+
+            //Find blocks starting point
             var low = await FindFirstBlockFromNextDay(blockDateToSearch, topHeight);
             if(low == 0) //No blocks
             {
@@ -172,14 +188,14 @@ namespace bitprim.insight.Controllers
             var blocks = await GetPreviousBlocks(startingHeight, (UInt64)limit, blockDateToSearch, topHeight);
 
             //Check if there are more blocks: grab one more earlier block
-            var moreBlocks = await CheckIfMoreBlocks(startingHeight, (UInt64)limit, blockDateToSearch,lte);
+            var moreBlocks = await CheckIfMoreBlocks(startingHeight, (UInt64)limit, blockDateToSearch, lte);
             return Json(BlocksByDateToJSON(blocks, blockDateToSearch, moreBlocks.Item1, moreBlocks.Item2, lte));   
         }
 
         /// <summary>
         /// Given a block hash, return the block's representation as a hex string.
         /// </summary>
-        /// <param name="hash"> 32-character hex string which univocally identifies the block in the blockchain. </param>
+        /// <param name="hash"> 64-character (32 bytes) hex string which univocally identifies the block in the blockchain. </param>
         /// <returns> Block raw data, as a hex string. </returns>
         [HttpGet("rawblock/{hash}")]
         [ResponseCache(CacheProfileName = Constants.Cache.LONG_CACHE_PROFILE_NAME)]
@@ -187,6 +203,10 @@ namespace bitprim.insight.Controllers
         [SwaggerResponse((int)System.Net.HttpStatusCode.OK, typeof(GetRawBlockResponse))]
         public async Task<ActionResult> GetRawBlockByHash(string hash)
         {
+            if(!Validations.IsValidHash(hash))
+            {
+                return BadRequest(hash + " is not a valid block hash");
+            }
             Utils.CheckIfChainIsFresh(chain_, config_.AcceptStaleRequests);
             var binaryHash = Binary.HexStringToByteArray(hash);
             using(var getBlockResult = await chain_.FetchBlockByHashAsync(binaryHash))
@@ -212,8 +232,12 @@ namespace bitprim.insight.Controllers
         [ResponseCache(CacheProfileName = Constants.Cache.SHORT_CACHE_PROFILE_NAME)]
         [SwaggerOperation("GetRawBlockByHeight")]
         [SwaggerResponse((int)System.Net.HttpStatusCode.OK, typeof(GetRawBlockResponse))]
-        public async Task<ActionResult> GetRawBlockByHeight(UInt64 height)
+        public async Task<ActionResult> GetRawBlockByHeight([FromRoute] UInt64 height)
         {
+            if( !ModelState.IsValid )
+            {
+                return BadRequest("Block height must be a non negative integer");
+            }
             Utils.CheckIfChainIsFresh(chain_, config_.AcceptStaleRequests);
             using(var getBlockResult = await chain_.FetchBlockByHeightAsync(height))
             {
@@ -412,6 +436,11 @@ namespace bitprim.insight.Controllers
 
         private Tuple<bool, string, DateTime> ValidateGetBlocksByDateInput(int limit, string blockDate)
         {
+            if( !ModelState.IsValid )
+            {
+                return new Tuple<bool, string, DateTime>(false, "Invalid params: limit must be an integer", DateTime.MinValue);
+            }
+
             if(limit <= 0)
             {
                 return new Tuple<bool, string, DateTime>(false, "Invalid limit; must be greater than zero", DateTime.MinValue);

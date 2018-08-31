@@ -65,6 +65,10 @@ namespace bitprim.insight.Controllers
         [SwaggerResponse((int)System.Net.HttpStatusCode.OK, typeof(IDictionary<string, string>))]
         public ActionResult GetEstimateFee([FromQuery] int nbBlocks = 2)
         {
+            if( !ModelState.IsValid || nbBlocks <= 0)
+            {
+                return BadRequest("nbBlocks must be an integer greater than zero");
+            }
             var estimateFee = new ExpandoObject() as IDictionary<string, Object>;
             //TODO Check which algorithm to use (see bitcoin-abc's median, at src/policy/fees.cpp for an example)
             estimateFee.Add(nbBlocks.ToString(), config_.EstimateFeeDefault.ToString("N8"));
@@ -102,21 +106,24 @@ namespace bitprim.insight.Controllers
         public async Task<ActionResult> GetCurrency()
         {
             var usdPrice = 1.0f;
-            try
+            if( !memoryCache_.TryGetValue(Constants.Cache.CURRENT_PRICE_CACHE_KEY, out usdPrice))
             {
-                usdPrice = await execPolicy_.ExecuteAsync<float>(() => GetCurrentCoinPriceInUsd());
-                memoryCache_.Set
-                (
-                    Constants.Cache.CURRENT_PRICE_CACHE_KEY, usdPrice,
-                    new MemoryCacheEntryOptions { Size = Constants.Cache.CURRENT_PRICE_CACHE_ENTRY_SIZE }
-                );
-            }
-            catch (Exception ex)
-            {
-                logger_.LogWarning(ex, "Failed to get latest currency price from external service; returning last read value");
-                if (!memoryCache_.TryGetValue(Constants.Cache.CURRENT_PRICE_CACHE_KEY, out usdPrice))
+                try
                 {
-                    logger_.LogWarning("No cached value available, returning default (1.0)");
+                    usdPrice = await execPolicy_.ExecuteAsync<float>(() => GetCurrentCoinPriceInUsd());
+                    memoryCache_.Set
+                    (
+                        Constants.Cache.CURRENT_PRICE_CACHE_KEY, usdPrice,
+                        new MemoryCacheEntryOptions
+                        {
+                            AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(config_.MaxCoinPriceAgeInSeconds),
+                            Size = Constants.Cache.CURRENT_PRICE_CACHE_ENTRY_SIZE
+                        }
+                    );
+                }
+                catch (Exception ex)
+                {
+                    logger_.LogWarning(ex, "Failed to get latest currency price from cache or external service; returning default value");
                 }
             }
             return Json(new GetCurrencyResponse
@@ -158,8 +165,12 @@ namespace bitprim.insight.Controllers
         [HttpGet("healthcheck")]
         [SwaggerOperation("GetHealthCheck")]
         [SwaggerResponse((int)System.Net.HttpStatusCode.OK, typeof(string))]
-        public async Task<ActionResult> GetHealthCheck(float minimumSync)
+        public async Task<ActionResult> GetHealthCheck([FromQuery] float minimumSync)
         {
+            if( !ModelState.IsValid )
+            {
+                return BadRequest("minimumSync must be a floating point number");
+            }
             dynamic syncStatus = await DoGetSyncStatus();
             bool isNumeric = Double.TryParse(syncStatus.syncPercentage, out double syncPercentage);
             bool isHealthy = isNumeric && syncPercentage > minimumSync;
@@ -306,17 +317,31 @@ namespace bitprim.insight.Controllers
             var getLastHeightResult = await chain_.FetchLastHeightAsync();
             Utils.CheckBitprimApiErrorCode(getLastHeightResult.ErrorCode, "GetLastHeight() failed");
             var currentHeight = getLastHeightResult.Result;
-            UInt32 lastBlockTimestamp = 0;
-            using(var getLastBlockResult = await chain_.FetchBlockByHeightAsync(currentHeight))
+
+            long lastBlockTimestamp = 0;
+            if( !memoryCache_.TryGetValue(Constants.Cache.LAST_BLOCK_TIMESTAMP, out lastBlockTimestamp) )
             {
+                var getLastBlockResult = await chain_.FetchBlockByHeightHashTimestampAsync(currentHeight);
                 Utils.CheckBitprimApiErrorCode(getLastBlockResult.ErrorCode, "FetchBlockByHeightAsync(" + currentHeight + ") failed, check error log");
-                lastBlockTimestamp = getLastBlockResult.Result.BlockData.Header.Timestamp;
+                lastBlockTimestamp = new DateTimeOffset(getLastBlockResult.Result.BlockTimestamp).ToUnixTimeSeconds();
+                memoryCache_.Set(Constants.Cache.LAST_BLOCK_TIMESTAMP, lastBlockTimestamp,
+                    new MemoryCacheEntryOptions
+                    {
+                        AbsoluteExpirationRelativeToNow = Constants.Cache.BLOCK_TIMESTAMP_MAX_AGE,
+                        Size = Constants.Cache.TIMESTAMP_ENTRY_SIZE
+                    });
             }
-            UInt32 firstBlockTimestamp = 0;
-            using(var getFirstBlockResult = await chain_.FetchBlockByHeightAsync(0))
+            long firstBlockTimestamp = 0;
+            if( !memoryCache_.TryGetValue(Constants.Cache.FIRST_BLOCK_TIMESTAMP, out firstBlockTimestamp) )
             {
-                Utils.CheckBitprimApiErrorCode(getFirstBlockResult.ErrorCode, "FetchBlockByHeightAsync(0) failed, check error log");
-                firstBlockTimestamp = getFirstBlockResult.Result.BlockData.Header.Timestamp;
+                var getFirstBlockResult = await chain_.FetchBlockByHeightHashTimestampAsync(0);
+                Utils.CheckBitprimApiErrorCode(getFirstBlockResult.ErrorCode, "FetchBlockByHeightHashTimestampAsync(0) failed, check error log");
+                firstBlockTimestamp = new DateTimeOffset(getFirstBlockResult.Result.BlockTimestamp).ToUnixTimeSeconds();
+                memoryCache_.Set(Constants.Cache.FIRST_BLOCK_TIMESTAMP, firstBlockTimestamp,
+                    new MemoryCacheEntryOptions
+                    {
+                        Size = Constants.Cache.TIMESTAMP_ENTRY_SIZE
+                    });
             }
             var nowTimestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
             var lastBlockAge = nowTimestamp - lastBlockTimestamp;

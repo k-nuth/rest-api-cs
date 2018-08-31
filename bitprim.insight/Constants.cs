@@ -1,3 +1,5 @@
+using System;
+
 namespace bitprim.insight
 {
     internal class Constants
@@ -9,11 +11,15 @@ namespace bitprim.insight
             public const int BLOCK_CACHE_ENTRY_SIZE = 10;
             public const int BLOCK_CACHE_SUMMARY_SIZE = 5;
             public const int CURRENT_PRICE_CACHE_ENTRY_SIZE = 1;
+            public const int TIMESTAMP_ENTRY_SIZE = 1;
             public const int MAX_BLOCKCHAIN_HEIGHT_AGE_IN_SECONDS = 300; //5 Minutes
             public const string BLOCKCHAIN_HEIGHT_CACHE_KEY = "blockchain_height";
             public const string CURRENT_PRICE_CACHE_KEY = "current_price";
+            public const string FIRST_BLOCK_TIMESTAMP = "first_block_timestamp";
+            public const string LAST_BLOCK_TIMESTAMP = "last_block_timestamp";
             public const string LONG_CACHE_PROFILE_NAME = "Long";
             public const string SHORT_CACHE_PROFILE_NAME = "Short";
+            public static readonly TimeSpan BLOCK_TIMESTAMP_MAX_AGE = TimeSpan.FromMinutes(10);
         }
         
         public const int MAX_DELAY = 2;
