@@ -319,7 +319,7 @@ namespace bitprim.insight.Controllers
         }
 
         private async Task<ActionResult> DoGetTransactionsForMultipleAddresses(string addrs, int from, int to,
-                                                                   bool noAsm = true, bool noScriptSig = true, bool noSpend = true)
+                                                                               bool noAsm = true, bool noScriptSig = true, bool noSpend = true)
         { 
             if(from < 0)
             {
@@ -328,15 +328,21 @@ namespace bitprim.insight.Controllers
 
             if(from >= to)
             {
-                return StatusCode((int)System.Net.HttpStatusCode.BadRequest, "'from' must be lower than 'to'");
+                return BadRequest("'from' must be lower than 'to'");
             }
 
-            var txPositions = new SortedSet<Tuple<Int64, string>>( txPositionComparer_ );
-            var addresses = System.Web.HttpUtility.UrlDecode(addrs).Split(",");
+            var addresses = System.Web.HttpUtility.UrlDecode(addrs).Split(",").Distinct().ToArray();
             if(addresses.Length > config_.MaxAddressesPerQuery)
             {
-                return StatusCode((int)System.Net.HttpStatusCode.BadRequest, "Max addresses per query: " + config_.MaxAddressesPerQuery + " (" + addresses.Length + " requested)");
+                return BadRequest("Max addresses per query: " + config_.MaxAddressesPerQuery + " (" + addresses.Length + " requested)");
             }
+            foreach(string address in addresses)
+            {
+                if( !Validations.IsValidPaymentAddress(address) ) {
+                    return BadRequest(address + " is not a valid address");
+                }
+            }
+            var txPositions = new SortedSet<Tuple<Int64, string>>( txPositionComparer_ );
             foreach(string address in addresses)
             {
                 await GetTransactionPositionsBySingleAddress(address, false, 0, noAsm, noScriptSig, noSpend, txPositions);
