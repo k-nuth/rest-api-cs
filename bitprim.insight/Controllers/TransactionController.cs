@@ -408,12 +408,7 @@ namespace bitprim.insight.Controllers
                 var pageSize = config_.TransactionsByAddressPageSize;
 
                 //Unconfirmed first
-                List<Transaction> unconfirmedTxs = await GetUnconfirmedTransactions(address, noAsm, noScriptSig, noSpend);
-                var txsJson = new List<TransactionSummary>();
-                for(int i=0; i<unconfirmedTxs.Count; i++)
-                {
-                    txsJson.Add( await TxToJSON(unconfirmedTxs[i], 0, false, noAsm, noScriptSig, noSpend) );
-                }
+                List<TransactionSummary> txsJson = await GetUnconfirmedTransactions(address, noAsm, noScriptSig, noSpend);
 
                 //Confirmed
                 for(uint i=0; i<pageSize && (pageNum * pageSize + i < txIds.Count); i++)
@@ -461,9 +456,9 @@ namespace bitprim.insight.Controllers
             }
         }
 
-        private async Task<List<Transaction>> GetUnconfirmedTransactions(PaymentAddress address, bool noAsm, bool noScriptSig, bool noSpend)
+        private async Task<List<TransactionSummary>> GetUnconfirmedTransactions(PaymentAddress address, bool noAsm, bool noScriptSig, bool noSpend)
         {
-            var unconfirmedTxsJson = new List<Transaction>();
+            var unconfirmedTxsJson = new List<TransactionSummary>();
             using(MempoolTransactionList unconfirmedTxIds = chain_.GetMempoolTransactions(address, nodeExecutor_.UseTestnetRules))
             {
                 foreach(MempoolTransaction unconfirmedTxId in unconfirmedTxIds)
@@ -471,7 +466,7 @@ namespace bitprim.insight.Controllers
                     using(var getTxResult = await chain_.FetchTransactionAsync(Binary.HexStringToByteArray(unconfirmedTxId.Hash), requireConfirmed: false))
                     {
                         Utils.CheckBitprimApiErrorCode(getTxResult.ErrorCode, "FetchTransactionAsync(" + unconfirmedTxId.Hash + ") failed, check error log");
-                        unconfirmedTxsJson.Add(getTxResult.Result.Tx);
+                        unconfirmedTxsJson.Add( await TxToJSON(getTxResult.Result.Tx, 0, false, noAsm, noScriptSig, noSpend) );
                     }
                 }
                 return unconfirmedTxsJson;
