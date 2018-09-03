@@ -229,7 +229,19 @@ namespace bitprim.insight.Controllers
         [SwaggerResponse((int)System.Net.HttpStatusCode.BadRequest, typeof(string))]
         public async Task<ActionResult> GetTransactionsForMultipleAddresses([FromRoute] string paymentAddresses, [FromQuery] int from = 0, [FromQuery] int to = 10)
         {
-            return await DoGetTransactionsForMultipleAddresses(paymentAddresses, from, to, false, false, false);
+            var validationResult = ValidateGetTransactionsFromMultipleAddressesInput(paymentAddresses, from, to);
+            if( !validationResult.Item1 )
+            {
+                return BadRequest(validationResult.Item2);
+            }
+            var result = await DoGetTransactionsForMultipleAddresses(validationResult.Item3, from, to, false, false, false);
+            return Json(new GetTransactionsForMultipleAddressesResponse
+            {
+                totalItems = result.Item2,
+                from = from,
+                to = to,
+                items = result.Item1.ToArray()
+            });
         }
 
         /// <summary>
@@ -252,18 +264,19 @@ namespace bitprim.insight.Controllers
                     "Invalid request format. Expected JSON format: \n{\n\t\"addrs\": \"addr1,addr2,addrN\",\n \t\"from\": 0,\n\t\"to\": M,\n\t\"noAsm\": 1, \n\t\"noScriptSig\": 1, \n\t\"noSpend\": 1\n}"
                 );
             }
-            foreach(var address in request.addrs.Split(","))
-            {
-                if( !Validations.IsValidPaymentAddress(address) )
-                {
-                    return BadRequest(address + " is not a valid address");
-                }
-            }
-            return await DoGetTransactionsForMultipleAddresses
+            var addresses = request.addrs.Split(",");
+            
+            var result = await DoGetTransactionsForMultipleAddresses
             (
-                request.addrs, request.from, request.to,
+                addresses, request.from, request.to,
                 request.noAsm == 1, request.noScriptSig == 1, request.noSpend == 1
             );
+            return Json(new GetTransactionsForMultipleAddressesResponse{
+                totalItems = result.Item2,
+                from = request.from,
+                to = request.to,
+                items = result.Item1.ToArray()
+            });
         }
 
         private async Task SetInputNonCoinbaseFields(TransactionInputSummary jsonInput, Input input, bool noAsm, bool noScriptSig)
@@ -318,37 +331,17 @@ namespace bitprim.insight.Controllers
             
         }
 
-        private async Task<ActionResult> DoGetTransactionsForMultipleAddresses(string addrs, int from, int to,
-                                                                               bool noAsm = true, bool noScriptSig = true, bool noSpend = true)
+        private async Task<Tuple<List<TransactionSummary>, int, int>>
+        DoGetTransactionsForMultipleAddresses(string[] addresses, int from, int to,
+                                              bool noAsm = true, bool noScriptSig = true, bool noSpend = true)
         { 
-            if(from < 0)
-            {
-                from = 0;
-            }
-
-            if(from >= to)
-            {
-                return BadRequest("'from' must be lower than 'to'");
-            }
-
-            var addresses = System.Web.HttpUtility.UrlDecode(addrs).Split(",").Distinct().ToArray();
-            if(addresses.Length > config_.MaxAddressesPerQuery)
-            {
-                return BadRequest("Max addresses per query: " + config_.MaxAddressesPerQuery + " (" + addresses.Length + " requested)");
-            }
-            foreach(string address in addresses)
-            {
-                if( !Validations.IsValidPaymentAddress(address) ) {
-                    return BadRequest(address + " is not a valid address");
-                }
-            }
             var txPositions = new SortedSet<Tuple<Int64, string>>( txPositionComparer_ );
             foreach(string address in addresses)
             {
                 await GetTransactionPositionsBySingleAddress(address, false, 0, noAsm, noScriptSig, noSpend, txPositions);
             }
 
-            to = Math.Min(to, txPositions.Count);
+            var finalTo = Math.Min(to, txPositions.Count);
 
             //Fetch selected range and convert to JSON
             var txsDigest = new List<TransactionSummary>();
@@ -360,14 +353,7 @@ namespace bitprim.insight.Controllers
                     txsDigest.Add( await TxToJSON(getTxResult.Result.Tx, (UInt64) txPosition.Item1, txPosition.Item1 > 0, noAsm, noScriptSig, noSpend) );
                 }
             }
-
-            return Json(new GetTransactionsForMultipleAddressesResponse
-            {
-                totalItems = txPositions.Count,
-                from = from,
-                to = to,
-                items = txsDigest.ToArray()
-            });   
+            return new Tuple<List<TransactionSummary>, int, int>(txsDigest, txPositions.Count, finalTo);
         }
 
         private async Task<ActionResult> GetTransactionsByAddress(string address, uint pageNum)
@@ -672,6 +658,35 @@ namespace bitprim.insight.Controllers
             return type;
         }
 
+        private Tuple<bool, string, string[]> ValidateGetTransactionsFromMultipleAddressesInput(string paymentAddresses, int from, int to)
+        {
+            if(from < 0)
+            {
+                return new Tuple<bool, string, string[]>(false, "'from' must be greater than or equal to zero", null);
+            }
+            if(from >= to)
+            {
+                return new Tuple<bool, string, string[]>(false, "'from' must be lower than 'to'", null);
+            }
+            var addresses = System.Web.HttpUtility.UrlDecode(paymentAddresses).Split(",").Distinct().ToArray();
+            if(addresses.Length > config_.MaxAddressesPerQuery)
+            {
+                return new Tuple<bool, string, string[]>
+                (
+                    false,
+                    "Max addresses per query: " + config_.MaxAddressesPerQuery + " (" + addresses.Length + " requested)",
+                    null
+                );
+            }
+            foreach(string address in addresses)
+            {
+                if( !Validations.IsValidPaymentAddress(address) )
+                {
+                    return new Tuple<bool, string, string[]>(false, address + " is not a valid address", null);
+                }
+            }
+            return new Tuple<bool, string, string[]>(true, "", addresses);
+        }
     }
 
     internal class TxPositionComparer : IComparer<Tuple<Int64, string>>
