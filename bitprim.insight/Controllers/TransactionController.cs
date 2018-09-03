@@ -409,6 +409,10 @@ namespace bitprim.insight.Controllers
 
                 //Unconfirmed first
                 List<TransactionSummary> txsJson = await GetUnconfirmedTransactions(address, noAsm, noScriptSig, noSpend);
+                if( pageNum * (pageSize + 1) < txsJson.Count )
+                {
+                    return txsJson;
+                }
 
                 //Confirmed
                 for(uint i=0; i<pageSize && (pageNum * pageSize + i < txIds.Count); i++)
