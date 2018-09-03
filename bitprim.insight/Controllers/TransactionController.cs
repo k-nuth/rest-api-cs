@@ -6,7 +6,6 @@ using Microsoft.Extensions.Options;
 using Swashbuckle.AspNetCore.SwaggerGen;
 using System;
 using System.Collections.Generic;
-using System.Dynamic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Caching.Memory;
@@ -215,7 +214,19 @@ namespace bitprim.insight.Controllers
             {
                 return BadRequest(address + " is not a valid address");
             }
-            return await GetTransactionsByAddress(address, pageNum);
+
+            var pageSize = config_.TransactionsByAddressPageSize;
+            var from = (int)(pageSize * pageNum);
+            int to = (int)(from + pageSize - 1);
+
+            var result = await DoGetTransactionsForMultipleAddresses( new[] {address}, from, to, false, false, false);
+
+            var pageCount = (UInt64) Math.Ceiling((double)result.Item2/(double)pageSize);
+
+            return Json( new GetTransactionsResponse
+            {
+                pagesTotal = pageCount, txs = result.Item1.ToArray()
+            } );
         }
 
         /// <summary>
@@ -370,7 +381,6 @@ namespace bitprim.insight.Controllers
                 });
             }
 
-
             var finalTo = Math.Min(to, txPositions.Count);
 
             //Fetch selected range and convert to JSON
@@ -384,31 +394,6 @@ namespace bitprim.insight.Controllers
                 }
             }
             return new Tuple<List<TransactionSummary>, int, int>(txsDigest, txPositions.Count, finalTo);
-        }
-
-        private async Task<ActionResult> GetTransactionsByAddress(string address, uint pageNum)
-        {
-            //List<TransactionSummary> txs = await GetTransactionsBySingleAddress(address, pageNum, false, false, false);
-            var txPositions = new SortedSet<Tuple<Int64, string>>( txPositionComparer_ );
-            await GetTransactionPositionsBySingleAddress(address, true, pageNum, txPositions);
-            
-            var pageCount = (UInt64) Math.Ceiling((double)txPositions.Count/(double)config_.TransactionsByAddressPageSize);
-
-            //Convert to JSON
-            var txsDigest = new List<TransactionSummary>();
-            foreach(var txPosition in txPositions)
-            {
-                using(var getTxResult = await chain_.FetchTransactionAsync( Binary.HexStringToByteArray(txPosition.Item2), false))
-                {
-                    Utils.CheckBitprimApiErrorCode(getTxResult.ErrorCode, "FetchTransactionAsync(" + txPosition.Item2 + ") failed, check error log");
-                    txsDigest.Add( await TxToJSON(getTxResult.Result.Tx, (UInt64) txPosition.Item1, txPosition.Item1 > 0, false, false, false) );
-                }
-            }
-           
-            return Json( new GetTransactionsResponse
-            {
-                pagesTotal = pageCount, txs = txsDigest.ToArray()
-            } );
         }
 
         private async Task<ActionResult> GetTransactionsByBlockHash(string blockHash, UInt64 pageNum)
