@@ -69,11 +69,6 @@ namespace bitprim.insight
         ///</summary>
         public int SocketPublishRetryIntervalInSeconds { get; set; } = 1;
         ///<summary>
-        /// This applies to the GetTransactions method from TransactionController.
-        /// The value is measured in transaction count.
-        ///</summary>
-        public int TransactionsByAddressPageSize { get; set; } = 10;
-        ///<summary>
         /// This applies to http communication with the client.
         ///</summary>
         public int HttpClientTimeoutInSeconds { get; set; } = 5;
@@ -158,6 +153,12 @@ namespace bitprim.insight
         /// bitprim-insight API version.
         ///</summary>
         public string Version { get; set; } = "";
+
+        ///<summary>
+        /// This applies to the GetTransactions method from TransactionController.
+        /// The value is measured in transaction count.
+        ///</summary>
+        public uint TransactionsByAddressPageSize { get; set; } = 10;
 
         ///<summary>
         /// If the last block's timestamp is older than this value in seconds,
