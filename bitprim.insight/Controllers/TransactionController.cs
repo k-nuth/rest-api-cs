@@ -31,6 +31,7 @@ namespace bitprim.insight.Controllers
         /// <param name="config"> Higher level API configuration. </param>
         /// <param name="executor"> Node executor from bitprim-cs library. </param>
         /// <param name="logger"> Abstract logger. </param>
+        /// <param name="memoryCache">Memory cache</param>
         public TransactionController(IOptions<NodeConfig> config, Executor executor, ILogger<TransactionController> logger, IMemoryCache memoryCache)
         {
             config_ = config.Value;
