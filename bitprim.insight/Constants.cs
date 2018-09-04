@@ -20,6 +20,10 @@ namespace bitprim.insight
             public const string LONG_CACHE_PROFILE_NAME = "Long";
             public const string SHORT_CACHE_PROFILE_NAME = "Short";
             public static readonly TimeSpan BLOCK_TIMESTAMP_MAX_AGE = TimeSpan.FromMinutes(10);
+            public const int TXID_LIST_CACHE_MIN = 100;
+            public const int TXID_LIST_CACHE_EXPIRATION_SECONDS = 60;
+            public const int TXID_LIST_CACHE_ITEM_SIZE = 1;
+
         }
         
         public const int MAX_DELAY = 2;
