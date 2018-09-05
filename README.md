@@ -101,6 +101,7 @@ Eg.
   "TimeOffset": "0",
   "TransactionsByAddressPageSize": 10,
   "Version": "170000",
+  "HttpClientTimeoutInSeconds" : 5,
   "WebsocketEnabled": true,
   "WebsocketMsgBlockEnabled": true,
   "WebsocketMsgTxEnabled": true,
@@ -258,6 +259,8 @@ http://blockdozer.com/[ApiPrefix]/blocks/
 **Version**: The value returned in *version* element by the /status method. 
 *Default value:""*
 
+**HttpClientTimeoutInSeconds**: Defines HttpClient timeout. Used in forwarder mode. 
+*Default value:5*
 
 **WebsocketEnabled**: Define if the node accepts websocket requests.
 *Default value:true*
