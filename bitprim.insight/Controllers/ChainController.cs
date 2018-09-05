@@ -10,10 +10,8 @@ using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
 using Polly;
 using Swashbuckle.AspNetCore.SwaggerGen;
-using System.Linq;
 using System.Globalization;
 
 namespace bitprim.insight.Controllers
@@ -84,16 +82,16 @@ namespace bitprim.insight.Controllers
         [SwaggerResponse((int)System.Net.HttpStatusCode.OK, typeof(GetBestBlockHashResponse))]
         public async Task<ActionResult> GetBestBlockHash()
         {
-            using (var getLastBlockResult = await GetLastBlock())
-            {
-                return Json
-                (
-                    new GetBestBlockHashResponse
-                    {
-                        bestblockhash = Binary.ByteArrayToHexString(getLastBlockResult.Result.BlockData.Hash)
-                    }
-                );
-            }
+            var getLastBlockResult = await GetLastBlock();
+            
+            return Json
+            (
+                new GetBestBlockHashResponse
+                {
+                    bestblockhash = Binary.ByteArrayToHexString(getLastBlockResult.Hash)
+                }
+            );
+            
         }
 
         /// <summary>
@@ -145,16 +143,16 @@ namespace bitprim.insight.Controllers
         [SwaggerResponse((int)System.Net.HttpStatusCode.OK, typeof(GetDifficultyResponse))]
         public async Task<ActionResult> GetDifficulty()
         {
-            using (var getLastBlockResult = await GetLastBlock())
-            {
-                return Json
-                (
-                    new GetDifficultyResponse
-                    {
-                        difficulty = Utils.BitsToDifficulty(getLastBlockResult.Result.BlockData.Header.Bits)
-                    }
-                );
-            }
+            var getLastBlockResult = await GetLastBlock();
+            
+            return Json
+            (
+                new GetDifficultyResponse
+                {
+                    difficulty = Utils.BitsToDifficulty(getLastBlockResult.Bits)
+                }
+            );
+            
         }
 
         /// <summary>
@@ -188,31 +186,31 @@ namespace bitprim.insight.Controllers
         [SwaggerResponse((int)System.Net.HttpStatusCode.OK, typeof(GetInfoResponse))]
         public async Task<ActionResult> GetInfo()
         {
-            using (var getLastBlockResult = await GetLastBlock())
-            {
-                return Json
-                (
-                    new GetInfoResponse
+            var getLastBlockResult = await GetLastBlock();
+            
+            return Json
+            (
+                new GetInfoResponse
+                {
+                    info = new GetInfoData
                     {
-                        info = new GetInfoData
-                        {
-                            //TODO Some of these values should be retrieved from node-cint
-                            version = config_.Version,
-                            protocolversion = config_.ProtocolVersion,
-                            blocks = getLastBlockResult.Result.BlockHeight,
-                            timeoffset = config_.TimeOffset,
-                            connections = config_.Connections,
-                            proxy = config_.Proxy,
-                            difficulty = Utils.BitsToDifficulty(getLastBlockResult.Result.BlockData.Header.Bits),
-                            testnet = nodeExecutor_.UseTestnetRules,
-                            relayfee = config_.RelayFee,
-                            errors = "",
-                            network = GetNetworkType(nodeExecutor_.NetworkType),
-                            coin = GetCoin()
-                        }
+                        //TODO Some of these values should be retrieved from node-cint
+                        version = config_.Version,
+                        protocolversion = config_.ProtocolVersion,
+                        blocks = getLastBlockResult.BlockHeight,
+                        timeoffset = config_.TimeOffset,
+                        connections = config_.Connections,
+                        proxy = config_.Proxy,
+                        difficulty = Utils.BitsToDifficulty(getLastBlockResult.Bits),
+                        testnet = nodeExecutor_.UseTestnetRules,
+                        relayfee = config_.RelayFee,
+                        errors = "",
+                        network = GetNetworkType(nodeExecutor_.NetworkType),
+                        coin = GetCoin()
                     }
-                );
-            }
+                }
+            );
+            
         }
 
         /// <summary>
@@ -224,18 +222,16 @@ namespace bitprim.insight.Controllers
         [SwaggerResponse((int)System.Net.HttpStatusCode.OK, typeof(GetLastBlockHashResponse))]
         public async Task<ActionResult> GetLastBlockHash()
         {
-            using (var getLastBlockResult = await GetLastBlock())
-            {
-                var hashHexString = Binary.ByteArrayToHexString(getLastBlockResult.Result.BlockData.Hash);
-                return Json
-                (
-                    new GetLastBlockHashResponse
-                    {
-                        syncTipHash = hashHexString,
-                        lastblockhash = hashHexString
-                    }
-                );
-            }
+            var getLastBlockResult = await GetLastBlock();
+            var hashHexString = Binary.ByteArrayToHexString(getLastBlockResult.Hash);
+            return Json
+            (
+                new GetLastBlockHashResponse
+                {
+                    syncTipHash = hashHexString,
+                    lastblockhash = hashHexString
+                }
+            );
         }
 
         /// <summary>
@@ -278,16 +274,47 @@ namespace bitprim.insight.Controllers
             return Json(await DoGetSyncStatus());
         }
 
-        private async Task<DisposableApiCallResult<GetBlockDataResult<Block>>> GetLastBlock()
+        private async Task<GetLastBlock> GetLastBlock()
         {
-            var getLastHeightResult = await chain_.FetchLastHeightAsync();
-            Utils.CheckBitprimApiErrorCode(getLastHeightResult.ErrorCode, "FetchLastHeightAsync() failed");
+            ulong currentHeight; 
+            if (!memoryCache_.TryGetValue(Constants.Cache.LAST_BLOCK_HEIGHT_CACHE_KEY,out currentHeight))
+            {
+                var getLastHeightResult = await chain_.FetchLastHeightAsync();
+                Utils.CheckBitprimApiErrorCode(getLastHeightResult.ErrorCode, "FetchLastHeightAsync() failed");
+                currentHeight = getLastHeightResult.Result;
 
-            var currentHeight = getLastHeightResult.Result;
-            var getBlockResult = await chain_.FetchBlockByHeightAsync(currentHeight);
-            Utils.CheckBitprimApiErrorCode(getBlockResult.ErrorCode, "FetchBlockByHeightAsync(" + currentHeight + ") failed");
+                memoryCache_.Set(Constants.Cache.LAST_BLOCK_HEIGHT_CACHE_KEY, currentHeight,
+                    new MemoryCacheEntryOptions
+                    {
+                        AbsoluteExpirationRelativeToNow = Constants.Cache.LAST_BLOCK_HEIGHT_MAX_AGE,
+                        Size = Constants.Cache.LAST_BLOCK_HEIGHT_ENTRY_SIZE
+                    });
+            }
 
-            return getBlockResult;
+            GetLastBlock ret;
+            if (!memoryCache_.TryGetValue(Constants.Cache.LAST_BLOCK_CACHE_KEY,out ret))
+            {
+                using (var getBlockDataResult = await chain_.FetchBlockHeaderByHeightAsync(currentHeight))
+                {
+                    Utils.CheckBitprimApiErrorCode(getBlockDataResult.ErrorCode, "FetchBlockHeaderByHeightAsync(" + currentHeight + ") failed");
+
+                    ret = new GetLastBlock
+                    {
+                        BlockHeight = getBlockDataResult.Result.BlockHeight
+                        , Bits = getBlockDataResult.Result.BlockData.Bits
+                        , Hash = getBlockDataResult.Result.BlockData.Hash
+                    };
+
+                    memoryCache_.Set(Constants.Cache.LAST_BLOCK_CACHE_KEY, ret,
+                        new MemoryCacheEntryOptions
+                        {
+                            AbsoluteExpirationRelativeToNow = Constants.Cache.LAST_BLOCK_MAX_AGE,
+                            Size = Constants.Cache.LAST_BLOCK_ENTRY_SIZE
+                        });
+                }
+            }
+
+            return ret;
         }
 
         //TODO Consider moving this down to node-cint for other APIs to reuse
@@ -318,7 +345,7 @@ namespace bitprim.insight.Controllers
             Utils.CheckBitprimApiErrorCode(getLastHeightResult.ErrorCode, "GetLastHeight() failed");
             var currentHeight = getLastHeightResult.Result;
 
-            long lastBlockTimestamp = 0;
+            long lastBlockTimestamp;
             if( !memoryCache_.TryGetValue(Constants.Cache.LAST_BLOCK_TIMESTAMP, out lastBlockTimestamp) )
             {
                 var getLastBlockResult = await chain_.FetchBlockByHeightHashTimestampAsync(currentHeight);
@@ -331,7 +358,7 @@ namespace bitprim.insight.Controllers
                         Size = Constants.Cache.TIMESTAMP_ENTRY_SIZE
                     });
             }
-            long firstBlockTimestamp = 0;
+            long firstBlockTimestamp;
             if( !memoryCache_.TryGetValue(Constants.Cache.FIRST_BLOCK_TIMESTAMP, out firstBlockTimestamp) )
             {
                 var getFirstBlockResult = await chain_.FetchBlockByHeightHashTimestampAsync(0);
