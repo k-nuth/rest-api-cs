@@ -62,7 +62,7 @@ namespace bitprim.insight.Controllers
                 wss_input_messages = WebSocketStats.InputMessages
                 ,wss_output_messages=WebSocketStats.OutputMessages
                 ,wss_pending_queue_size=WebSocketStats.PendingQueueSize
-                ,wss_send_messages=WebSocketStats.SendMessages
+                ,wss_sent_messages=WebSocketStats.SendMessages
                 ,wss_subscriber_count=WebSocketStats.SubscriberCount
             });
         }

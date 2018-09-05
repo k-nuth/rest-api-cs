@@ -28,7 +28,7 @@ namespace bitprim.insight
 
         private bool OnBlockReceived(ErrorCode error, UInt64 height, BlockList incoming, BlockList outgoing)
         {
-            //TODO Avoid event process if not exists subscribers
+            //TODO Avoid event processing if subscribers do not exist
             if(error == ErrorCode.Success && incoming != null && incoming.Count > 0)
             {
                 string coinbaseTxHash = "";

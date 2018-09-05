@@ -218,7 +218,7 @@ namespace bitprim.insight.Websockets
                                             true,
                                             CancellationToken.None
                                         );
-                                        WebSocketStats.IncrementSendMessages();
+                                        WebSocketStats.IncrementSentMessages();
                                         logger_.LogDebug($"Sent Frame {WebSocketMessageType.Text}: Len={message.Content.Length}, Fin={true}: {message.Content}");
                                     });
                                 }
