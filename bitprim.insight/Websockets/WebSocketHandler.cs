@@ -194,6 +194,10 @@ namespace bitprim.insight.Websockets
                 {
                     //This call blocks on an empty queue
                     var message = await messageQueue_.DequeueAsync();
+                    
+                    WebSocketStats.IncrementOutputMessages();
+                    WebSocketStats.DecrementPendingQueueSize();
+
                     keepRunning = message.MessageType != BitprimWebSocketMessageType.SHUTDOWN;
                     if(keepRunning)
                     {
@@ -214,6 +218,7 @@ namespace bitprim.insight.Websockets
                                             true,
                                             CancellationToken.None
                                         );
+                                        WebSocketStats.IncrementSendMessages();
                                         logger_.LogDebug($"Sent Frame {WebSocketMessageType.Text}: Len={message.Content.Length}, Fin={true}: {message.Content}");
                                     });
                                 }
@@ -248,6 +253,8 @@ namespace bitprim.insight.Websockets
                 }
             }
 
+            WebSocketStats.DecrementSubscriberCount();
+            
             logger_.LogDebug("WebSocket status " + webSocket.State);
 
             logger_.LogInformation("Closing websocket");
@@ -258,11 +265,17 @@ namespace bitprim.insight.Websockets
             }
            
             logger_.LogInformation("Channel unregistered");
+
+            //TODO
+            // If the last subscriber is removed , clear the pending queue
         }
 
         private void RegisterChannel(WebSocket webSocket, string channelName)
         {
-            subscriptions_.TryAdd(webSocket, new ConcurrentDictionary<string, byte>());
+            if (subscriptions_.TryAdd(webSocket, new ConcurrentDictionary<string, byte>()))
+            {
+                WebSocketStats.IncrementSubscriberCount();
+            }
             subscriptions_[webSocket].TryAdd(channelName, 1);
         }
 
@@ -299,6 +312,8 @@ namespace bitprim.insight.Websockets
                         MessageType = BitprimWebSocketMessageType.PUBLICATION
                     }
                 );
+                WebSocketStats.IncrementInputMessages();
+                WebSocketStats.IncrementPendingQueueSize();
             }
         }
 

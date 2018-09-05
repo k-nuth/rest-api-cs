@@ -1,7 +1,7 @@
 using bitprim.insight.DTOs;
 using Microsoft.AspNetCore.Mvc;
 using Swashbuckle.AspNetCore.SwaggerGen;
-using System.Dynamic;
+using bitprim.insight.Websockets;
 
 namespace bitprim.insight.Controllers
 {
@@ -47,5 +47,24 @@ namespace bitprim.insight.Controllers
             });
         }
 
+        /// <summary>
+        /// Get websocket stats.
+        /// </summary>
+        /// <returns> See WebSocketStatsDto. </returns>
+        [HttpGet("stats")]
+        [ResponseCache(CacheProfileName = Constants.Cache.SHORT_CACHE_PROFILE_NAME)]
+        [SwaggerOperation("GetStats")]
+        [SwaggerResponse((int)System.Net.HttpStatusCode.OK, typeof(WebSocketStatsDto))]
+        public ActionResult GetStats()
+        {
+            return Json(new WebSocketStatsDto
+            {
+                wss_input_messages = WebSocketStats.InputMessages
+                ,wss_output_messages=WebSocketStats.OutputMessages
+                ,wss_pending_queue_size=WebSocketStats.PendingQueueSize
+                ,wss_send_messages=WebSocketStats.SendMessages
+                ,wss_subscriber_count=WebSocketStats.SubscriberCount
+            });
+        }
     }
 }

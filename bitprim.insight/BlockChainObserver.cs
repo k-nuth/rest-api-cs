@@ -20,12 +20,15 @@ namespace bitprim.insight
             webSocketHandler_ = webSocketHandler;
             blockHandler_ = new Executor.BlockHandler(OnBlockReceived);
             txHandler_ = new Executor.TransactionHandler(OnTransactionReceived);
+            
+            //TODO Add setting to enable/disable subscriptions
             executor.SubscribeToBlockChain(blockHandler_);
             executor.SubscribeToTransaction(txHandler_);
         }
 
         private bool OnBlockReceived(ErrorCode error, UInt64 height, BlockList incoming, BlockList outgoing)
         {
+            //TODO Avoid event process if not exists subscribers
             if(error == ErrorCode.Success && incoming != null && incoming.Count > 0)
             {
                 string coinbaseTxHash = "";
@@ -51,10 +54,12 @@ namespace bitprim.insight
 
         private bool OnTransactionReceived(ErrorCode error, Transaction newTransaction)
         {
+            //TODO Avoid event process if not exists subscribers
             if(error == ErrorCode.Success && newTransaction != null)
             {
                 var txid = Binary.ByteArrayToHexString(newTransaction.Hash);
 
+                //TODO Add setting to enable/disable websocket events 
                 HashSet<string> addresses = Utils.GetTransactionAddresses(executor_,newTransaction).GetAwaiter().GetResult();
 
                 var addressesToPublish = new List<Tuple<string, string>>(addresses.Count);
