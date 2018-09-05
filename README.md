@@ -260,12 +260,16 @@ http://blockdozer.com/[ApiPrefix]/blocks/
 
 
 **WebsocketEnabled**: Define if the node accepts websocket requests.
+*Default value:true*
 
 **WebsocketMsgBlockEnabled**: Define if the node send block messages. 
+*Default value:true*
 
 **WebsocketMsgTxEnabled**: Define if the node send tx messages.
+*Default value:true*
 
 **WebsocketMsgAddressTxEnabled**: Define if the node send addresstx messages.
+*Default value:true*
 
 **WebsocketForwarderClientRetryDelay**: The delay in seconds beetween retries when the websocket connection to the fullnode fails.
 *Default value:10*
