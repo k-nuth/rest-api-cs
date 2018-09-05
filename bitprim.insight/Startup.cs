@@ -67,7 +67,7 @@ namespace bitprim.insight
 
             var serviceProvider = services.BuildServiceProvider();
 
-            if (nodeConfig_.WebsocketEnabled)
+            if (nodeConfig_.WebsocketsEnabled)
             {
                 webSocketHandler_ = new WebSocketHandler(serviceProvider.GetService<ILogger<WebSocketHandler>>(), nodeConfig_);
                 webSocketHandler_.Init();
@@ -152,7 +152,7 @@ namespace bitprim.insight
 
         private void ConfigureWebSockets(IApplicationBuilder app)
         {
-            if (nodeConfig_.WebsocketEnabled)
+            if (nodeConfig_.WebsocketsEnabled)
             {
                 app.UseWebSockets();
                 app.Use(async (context, next) =>
@@ -215,7 +215,7 @@ namespace bitprim.insight
                 Log.Information("Initializing forwarder mode");
                 Log.Information("Forward Url " + nodeConfig_.ForwardUrl);
 
-                if (nodeConfig_.WebsocketEnabled)
+                if (nodeConfig_.WebsocketsEnabled)
                 {
                     webSocketForwarderClient_ = new WebSocketForwarderClient(
                         serviceProvider.GetService<IOptions<NodeConfig>>(),
@@ -251,7 +251,7 @@ namespace bitprim.insight
             services.AddSingleton<Executor>(exec_);
             services.AddSingleton<Chain>(exec_.Chain);
 
-            if (nodeConfig_.WebsocketEnabled)
+            if (nodeConfig_.WebsocketsEnabled)
             {
                 blockChainObserver_ = new BlockChainObserver(exec_, webSocketHandler_, nodeConfig_);
             }

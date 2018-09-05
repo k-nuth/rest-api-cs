@@ -21,13 +21,13 @@ namespace bitprim.insight
             webSocketHandler_ = webSocketHandler;
             config_ = config;
 
-            if (config_.WebsocketMsgBlockEnabled)
+            if (config_.WebsocketsMsgBlockEnabled)
             {
                 blockHandler_ = new Executor.BlockHandler(OnBlockReceived);
                 executor.SubscribeToBlockChain(blockHandler_);
             }
 
-            if (config_.WebsocketMsgTxEnabled || config_.WebsocketMsgAddressTxEnabled) 
+            if (config_.WebsocketsMsgTxEnabled || config_.WebsocketsMsgAddressTxEnabled) 
             {
                 txHandler_ = new Executor.TransactionHandler(OnTransactionReceived);
                 executor.SubscribeToTransaction(txHandler_);
@@ -72,7 +72,7 @@ namespace bitprim.insight
                 var addressesToPublish = new List<Tuple<string, string>>(addresses.Count);
                 var balanceDeltas = new Dictionary<string, decimal>();
 
-                if (config_.WebsocketMsgAddressTxEnabled)
+                if (config_.WebsocketsMsgAddressTxEnabled)
                 {
                     foreach(string addr in addresses)
                     {
@@ -93,7 +93,7 @@ namespace bitprim.insight
                 }
                 else
                 {   
-                    if (config_.WebsocketMsgTxEnabled)
+                    if (config_.WebsocketsMsgTxEnabled)
                     {    
                         foreach(string addr in addresses)
                         {
@@ -103,7 +103,7 @@ namespace bitprim.insight
                     }
                 }
 
-                if (config_.WebsocketMsgTxEnabled)
+                if (config_.WebsocketsMsgTxEnabled)
                 {    
                     var tx = new
                     {

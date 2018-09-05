@@ -102,11 +102,11 @@ Eg.
   "TransactionsByAddressPageSize": 10,
   "Version": "170000",
   "HttpClientTimeoutInSeconds" : 5,
-  "WebsocketEnabled": true,
-  "WebsocketMsgBlockEnabled": true,
-  "WebsocketMsgTxEnabled": true,
-  "WebsocketMsgAddressTxEnabled": true,
-  "WebsocketForwarderClientRetryDelay": 10,
+  "WebsocketsEnabled": true,
+  "WebsocketsMsgBlockEnabled": true,
+  "WebsocketsMsgTxEnabled": true,
+  "WebsocketsMsgAddressTxEnabled": true,
+  "WebsocketsForwarderClientRetryDelay": 10,
   "Serilog":
   {
     "Using": ["Serilog.Sinks.Console", "Serilog.Sinks.File"],
@@ -262,19 +262,19 @@ http://blockdozer.com/[ApiPrefix]/blocks/
 **HttpClientTimeoutInSeconds**: Defines HttpClient timeout. Used in forwarder mode. 
 *Default value:5*
 
-**WebsocketEnabled**: Define if the node accepts websocket requests.
+**WebsocketsEnabled**: Define if the node accepts websocket requests.
 *Default value:true*
 
-**WebsocketMsgBlockEnabled**: Define if the node send block messages. 
+**WebsocketsMsgBlockEnabled**: Define if the node sends block messages. 
 *Default value:true*
 
-**WebsocketMsgTxEnabled**: Define if the node send tx messages.
+**WebsocketsMsgTxEnabled**: Define if the node sends tx messages.
 *Default value:true*
 
-**WebsocketMsgAddressTxEnabled**: Define if the node send addresstx messages.
+**WebsocketsMsgAddressTxEnabled**: Define if the node sends addresstx messages.
 *Default value:true*
 
-**WebsocketForwarderClientRetryDelay**: The delay in seconds beetween retries when the websocket connection to the fullnode fails.
+**WebsocketsForwarderClientRetryDelay**: The delay in seconds beetween retries when the websocket connection to the fullnode fails.
 *Default value:10*
 
 **Serilog**: The Serilog configuration. For more detailed documentation, check https://github.com/serilog/serilog/wiki/Getting-Started

@@ -20,19 +20,19 @@ namespace bitprim.insight
         /// <summary>
         /// If and only if true, the node accepts websockets requests
         /// </summary>
-        public bool WebsocketEnabled { get; set; } = true;
+        public bool WebsocketsEnabled { get; set; } = true;
         /// <summary>
         /// If and only if true, the node send block messages
         /// </summary>
-        public bool WebsocketMsgBlockEnabled { get; set; } = true;
+        public bool WebsocketsMsgBlockEnabled { get; set; } = true;
         /// <summary>
         /// If and only if true, the node send tx messages
         /// </summary>
-        public bool WebsocketMsgTxEnabled { get; set; } = true;
+        public bool WebsocketsMsgTxEnabled { get; set; } = true;
         /// <summary>
         /// If and only if true, the node send addresstx messages
         /// </summary>
-        public bool WebsocketMsgAddressTxEnabled { get; set; } = true;
+        public bool WebsocketsMsgAddressTxEnabled { get; set; } = true;
 
         /// <summary>
         /// Current amount of P2P connections the node has with other peers.
@@ -92,7 +92,7 @@ namespace bitprim.insight
         ///<summary>
         /// Used in forwarder mode.
         ///</summary>
-        public int WebsocketForwarderClientRetryDelay { get; set; } = 10;
+        public int WebsocketsForwarderClientRetryDelay { get; set; } = 10;
 
         ///<summary>
         /// In coin units.
