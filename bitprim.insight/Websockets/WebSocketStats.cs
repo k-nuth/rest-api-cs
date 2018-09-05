@@ -26,7 +26,7 @@ namespace bitprim.insight.Websockets
         /// <summary>
         /// Count of sended messages
         /// </summary>
-        public static long SendMessages => Interlocked.Read(ref _sentMessages);
+        public static long SentMessages => Interlocked.Read(ref _sentMessages);
         
         /// <summary>
         /// Count of websocket subscribers
@@ -55,7 +55,7 @@ namespace bitprim.insight.Websockets
         }
 
         /// <summary>
-        /// Increment _sendMessages in one unit
+        /// Increment _sentMessages in one unit
         /// </summary>
         public static void IncrementSentMessages()
         {
