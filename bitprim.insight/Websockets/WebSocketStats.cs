@@ -24,7 +24,7 @@ namespace bitprim.insight.Websockets
         public static long OutputMessages => Interlocked.Read(ref _outputMessages);
         
         /// <summary>
-        /// Count of sended messages
+        /// Count of sent messages
         /// </summary>
         public static long SentMessages => Interlocked.Read(ref _sentMessages);
         
