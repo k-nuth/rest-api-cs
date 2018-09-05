@@ -101,7 +101,10 @@ Eg.
   "TimeOffset": "0",
   "TransactionsByAddressPageSize": 10,
   "Version": "170000",
-  "HttpClientTimeoutInSeconds" : 5,
+  "WebsocketEnabled": true,
+  "WebsocketMsgBlockEnabled": true,
+  "WebsocketMsgTxEnabled": true,
+  "WebsocketMsgAddressTxEnabled": true,
   "WebsocketForwarderClientRetryDelay": 10,
   "Serilog":
   {
@@ -255,8 +258,14 @@ http://blockdozer.com/[ApiPrefix]/blocks/
 **Version**: The value returned in *version* element by the /status method. 
 *Default value:""*
 
-**HttpClientTimeoutInSeconds**: Defines HttpClient timeout. Used in forwarder mode. 
-*Default value:5*
+
+**WebsocketEnabled**: Define if the node accepts websocket requests.
+
+**WebsocketMsgBlockEnabled**: Define if the node send block messages. 
+
+**WebsocketMsgTxEnabled**: Define if the node send tx messages.
+
+**WebsocketMsgAddressTxEnabled**: Define if the node send addresstx messages.
 
 **WebsocketForwarderClientRetryDelay**: The delay in seconds beetween retries when the websocket connection to the fullnode fails.
 *Default value:10*

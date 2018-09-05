@@ -18,6 +18,23 @@ namespace bitprim.insight
         public bool InitializeNode { get; set; } = true;
 
         /// <summary>
+        /// If and only if true, the node accepts websockets requests
+        /// </summary>
+        public bool WebsocketEnabled { get; set; } = true;
+        /// <summary>
+        /// If and only if true, the node send block messages
+        /// </summary>
+        public bool WebsocketMsgBlockEnabled { get; set; } = true;
+        /// <summary>
+        /// If and only if true, the node send tx messages
+        /// </summary>
+        public bool WebsocketMsgTxEnabled { get; set; } = true;
+        /// <summary>
+        /// If and only if true, the node send addresstx messages
+        /// </summary>
+        public bool WebsocketMsgAddressTxEnabled { get; set; } = true;
+
+        /// <summary>
         /// Current amount of P2P connections the node has with other peers.
         /// </summary>
         public int Connections { get; set; } = 8;
