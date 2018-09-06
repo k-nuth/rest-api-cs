@@ -5,7 +5,7 @@
 *Bitprim Insight* is a Rest API written in _C#_ with .NET Core 2.0 which exposes methods matching the insight API interface
 
 Bitprim Insight supports the following cryptocurrencies:
-  * [Bitcoin Cash](https://www.bitcoincash.org/)B
+  * [Bitcoin Cash](https://www.bitcoincash.org/)C
   * [Bitcoin](https://bitcoin.org/)
   * [Litecoin](https://litecoin.org/) (coming soon)
 
