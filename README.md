@@ -6,7 +6,7 @@
 
 Bitprim Insight supports the following cryptocurrencies:
   * [Bitcoin Cash](https://www.bitcoincash.org/)
-  * [Bitcoin](https://bitcoin.org/)Z
+  * [Bitcoin](https://bitcoin.org/)
   * [Litecoin](https://litecoin.org/) (coming soon)
 
 ## Installation Requirements
