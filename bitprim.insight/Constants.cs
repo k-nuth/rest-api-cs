@@ -24,7 +24,7 @@ namespace bitprim.insight
             public const int TXID_LIST_CACHE_EXPIRATION_SECONDS = 60;
             public const int TXID_LIST_CACHE_ITEM_SIZE = 1;
             
-            public static readonly TimeSpan LAST_BLOCK_HEIGHT_MAX_AGE = TimeSpan.FromMinutes(10);
+            public static readonly TimeSpan LAST_BLOCK_HEIGHT_MAX_AGE = TimeSpan.FromMinutes(5);
             public const string LAST_BLOCK_HEIGHT_CACHE_KEY = "last_block_height_key";
             public const int LAST_BLOCK_HEIGHT_ENTRY_SIZE = 1;
 
