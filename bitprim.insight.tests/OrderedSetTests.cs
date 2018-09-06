@@ -5,7 +5,7 @@ using Xunit;
 
 namespace bitprim.insight.tests
 {
-    public class OrderedSetTest
+    public class OrderedSetTests
     {
         private class Person
         {

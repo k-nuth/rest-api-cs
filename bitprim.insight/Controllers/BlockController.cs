@@ -144,7 +144,7 @@ namespace bitprim.insight.Controllers
         /// <param name="limit"> Max amount of blocks in result (older ones discarded). </param>
         /// <param name="blockDate"> Date to search, in the format specified in the settings. Defaults to yyyy-MM-dd (dashes required). </param>
         /// <returns> Block list. </returns>
-        [HttpGet("blocks/")]
+        [HttpGet("blocks")]
         [ResponseCache(CacheProfileName = Constants.Cache.SHORT_CACHE_PROFILE_NAME)]
         [SwaggerOperation("GetBlocksByDate")]
         [SwaggerResponse((int)System.Net.HttpStatusCode.OK, typeof(GetBlocksByDateResponse))]
@@ -160,16 +160,18 @@ namespace bitprim.insight.Controllers
             }
             var blockDateToSearch = validateInputResult.Item3;
 
-            //If date is today, no need to search
             var getLastHeightResult = await chain_.FetchLastHeightAsync();
             Utils.CheckBitprimApiErrorCode(getLastHeightResult.ErrorCode, "FetchLastHeightAsync failed, check error log");
+            var topHeight = getLastHeightResult.Result;
+
             //These define the date interval (lte, gte)
             var gte = new DateTimeOffset(blockDateToSearch).ToUnixTimeSeconds();
             var lte =  gte + 86400;
-            var topHeight = getLastHeightResult.Result;
+            
+            //If date is today, no need to search            
             if(blockDateToSearch.Date == DateTime.Today.Date)
             {
-                var latestBlocks = await GetPreviousBlocks(topHeight, (UInt64)limit, blockDateToSearch, topHeight);
+                var latestBlocks = await GetPreviousBlocks(topHeight, (UInt64)limit, gte, lte, topHeight);
                 var moreBlocksToday = await CheckIfMoreBlocks(topHeight, (UInt64)limit, blockDateToSearch, lte);
                 return Json(BlocksByDateToJSON(latestBlocks, blockDateToSearch, moreBlocksToday.Item1, moreBlocksToday.Item2, lte));   
             }
@@ -184,7 +186,7 @@ namespace bitprim.insight.Controllers
             //Grab the specified amount of blocks (limit)
             var startingHeight = low - 1;
             
-            var blocks = await GetPreviousBlocks(startingHeight, (UInt64)limit, blockDateToSearch, topHeight);
+            var blocks = await GetPreviousBlocks(startingHeight, (UInt64)limit, gte, lte, topHeight);
 
             //Check if there are more blocks: grab one more earlier block
             var moreBlocks = await CheckIfMoreBlocks(startingHeight, (UInt64)limit, blockDateToSearch, lte);
@@ -288,9 +290,9 @@ namespace bitprim.insight.Controllers
             return low;
         }
 
-        private async Task<BlockSummary> GetBlockSummary(Block block, UInt64 height, UInt64 topHeight)
+        private async Task<BlockSummary> GetBlockSummary(Header header, UInt64 height, UInt64 topHeight)
         {
-            var hashStr = Binary.ByteArrayToHexString(block.Hash);
+            var hashStr = Binary.ByteArrayToHexString(header.Hash);
             var key = "blockSummary" + hashStr;
 
             if (memoryCache_.TryGetValue(key, out BlockSummary ret))
@@ -298,10 +300,10 @@ namespace bitprim.insight.Controllers
                 return ret;
             }
 
-            using (var blockHeaderResult = await chain_.FetchBlockHeaderByHashTxSizesAsync(block.Hash))
+            using (var blockHeaderResult = await chain_.FetchBlockHeaderByHashTxSizesAsync(header.Hash))
             {
                 Utils.CheckBitprimApiErrorCode(blockHeaderResult.ErrorCode,
-                    "FetchBlockHeaderByHashTxSizesAsync(" + block.Hash + ") failed, check error log");
+                    "FetchBlockHeaderByHashTxSizesAsync(" + header.Hash + ") failed, check error log");
 
                 PoolsInfo.PoolInfo poolInfo;
                 using(DisposableApiCallResult<GetTxDataResult> coinbase = await chain_.FetchTransactionAsync(blockHeaderResult.Result.TransactionHashes[0], true))
@@ -309,14 +311,14 @@ namespace bitprim.insight.Controllers
                     Utils.CheckBitprimApiErrorCode(coinbase.ErrorCode, "FetchTransactionAsync(" + blockHeaderResult.Result.TransactionHashes[0] + ") failed, check error log");
                     poolInfo = poolsInfo_.GetPoolInfo(coinbase.Result.Tx);
                 }
-                
+
                 var blockSummary = new BlockSummary
                 {
                     height = height,
-                    size = block.GetSerializedSize(block.Header.Version),
-                    hash = Binary.ByteArrayToHexString(block.Hash),
-                    time = block.Header.Timestamp,
-                    txlength = block.TransactionCount,
+                    size = blockHeaderResult.Result.SerializedBlockSize,
+                    hash = Binary.ByteArrayToHexString(header.Hash),
+                    time = header.Timestamp,
+                    txlength = blockHeaderResult.Result.TransactionHashes.Count,
                     poolInfo = new PoolInfo{ poolName = poolInfo.Name, url = poolInfo.Url}
                 };
 
@@ -330,26 +332,25 @@ namespace bitprim.insight.Controllers
             }
         }
 
-        private async Task<List<BlockSummary>> GetPreviousBlocks(UInt64 startingHeight, UInt64 blockCount, DateTime blockDateToSearch, UInt64 topHeight)
+        private async Task<List<BlockSummary>> GetPreviousBlocks(UInt64 startingHeight, UInt64 blockCount, long initialTimeStamp, long lastTimeStamp, UInt64 topHeight)
         {
+            //Prerequisite: blockDateToSearch doesn't include Time. Only date. Kind UTC.
             var blocks = new List<BlockSummary>();
             var blockWithinDate = true;
             
             for(UInt64 i=0; i<blockCount && startingHeight>=i && blockWithinDate; i++)
             {
-                using(var getBlockResult = await chain_.FetchBlockByHeightAsync(startingHeight - i))
+                using (var getHeaderResult = await chain_.FetchBlockHeaderByHeightAsync(startingHeight - i))
                 {
-                    Utils.CheckBitprimApiErrorCode(getBlockResult.ErrorCode, "FetchBlockByHeightAsync(" + (startingHeight - i) + ") failed, check error log");
-                    
-                    var block = getBlockResult.Result.BlockData;
+                    Utils.CheckBitprimApiErrorCode(getHeaderResult.ErrorCode, "FetchBlockHeaderByHeightAsync(" + (startingHeight - i) + ") failed, check error log");
 
-                    blockWithinDate = DateTimeOffset.FromUnixTimeSeconds(block.Header.Timestamp).UtcDateTime.Date == blockDateToSearch.Date;
-                    
+                    blockWithinDate = getHeaderResult.Result.BlockData.Timestamp >= initialTimeStamp && getHeaderResult.Result.BlockData.Timestamp <= lastTimeStamp;
+
                     if(blockWithinDate)
-                    {
-                        blocks.Add(await GetBlockSummary(block,getBlockResult.Result.BlockHeight, topHeight)); 
+                    { 
+                        blocks.Add(await GetBlockSummary(getHeaderResult.Result.BlockData,getHeaderResult.Result.BlockHeight, topHeight)); 
                     }
-                }
+                }                
             }
             return blocks;
         }
