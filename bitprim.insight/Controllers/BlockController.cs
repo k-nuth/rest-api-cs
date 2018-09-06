@@ -144,7 +144,7 @@ namespace bitprim.insight.Controllers
         /// <param name="limit"> Max amount of blocks in result (older ones discarded). </param>
         /// <param name="blockDate"> Date to search, in the format specified in the settings. Defaults to yyyy-MM-dd (dashes required). </param>
         /// <returns> Block list. </returns>
-        [HttpGet("blocks")]
+        [HttpGet("blocks/")]
         [ResponseCache(CacheProfileName = Constants.Cache.SHORT_CACHE_PROFILE_NAME)]
         [SwaggerOperation("GetBlocksByDate")]
         [SwaggerResponse((int)System.Net.HttpStatusCode.OK, typeof(GetBlocksByDateResponse))]
