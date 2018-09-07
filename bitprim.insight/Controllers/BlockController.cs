@@ -411,7 +411,7 @@ namespace bitprim.insight.Controllers
                 version = blockHeader.Version,
                 merkleroot = Binary.ByteArrayToHexString(blockHeader.Merkle),
                 tx = includeTransactions ? BlockTxsToJSON(txHashes) : new string[0],
-                txlength = txHashes.Count,
+                txCount = txHashes.Count,
                 time = blockHeader.Timestamp,
                 nonce = blockHeader.Nonce,
                 bits = Utils.EncodeInBase16(blockHeader.Bits),

@@ -65,7 +65,7 @@ namespace bitprim.insight.DTOs
         /// <summary>
         /// Block transaction length.
         /// </summary>
-        public uint txlength { get; set; }
+        public uint txCount { get; set; }
 
         /// <summary>
         /// Block nonce.
