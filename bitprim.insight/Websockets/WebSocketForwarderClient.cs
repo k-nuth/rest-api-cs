@@ -35,14 +35,14 @@ namespace bitprim.insight.Websockets
             logger_ = logger;
             webSocketHandler_ = webSocketHandler;
 
-            breakerPolicy_ = Policy.Handle<Exception>().CircuitBreakerAsync(2, TimeSpan.FromSeconds(config_.Value.WebsocketForwarderClientRetryDelay));
+            breakerPolicy_ = Policy.Handle<Exception>().CircuitBreakerAsync(2, TimeSpan.FromSeconds(config_.Value.WebsocketsForwarderClientRetryDelay));
 
             retryPolicy_ = Policy.Handle<Exception>()
                                     .WaitAndRetryForeverAsync(
                                                                 retryAttempt =>
                                                                 {
                                                                     logger_.LogWarning("Retry attempt " + retryAttempt);
-                                                                    return TimeSpan.FromSeconds(config_.Value.WebsocketForwarderClientRetryDelay);
+                                                                    return TimeSpan.FromSeconds(config_.Value.WebsocketsForwarderClientRetryDelay);
                                                                 });
 
             execPolicy_ = Policy.WrapAsync(retryPolicy_,breakerPolicy_);
@@ -50,6 +50,8 @@ namespace bitprim.insight.Websockets
 
         private async Task ReceiveHandler()
         {
+            logger_.LogInformation("Initializing websocket receiver hander");
+
             var buffer = new byte[RECEPTION_BUFFER_SIZE];
           
             while (Interlocked.CompareExchange(ref active_, 0, 0) > 0)
@@ -168,12 +170,14 @@ namespace bitprim.insight.Websockets
 
         private async Task ReInit()
         {
+            logger_.LogInformation("ReInit websocket forwarder client");
             await execPolicy_.ExecuteAsync(async ()=> await CreateAndOpen());
             await SendSubscriptions();
         }
 
         public async Task Init()
         {
+            logger_.LogInformation("Init websocket forwarder client");
             await execPolicy_.ExecuteAsync(async ()=> await CreateAndOpen());
             _ = ReceiveHandler();
             await SendSubscriptions();

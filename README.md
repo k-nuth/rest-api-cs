@@ -102,7 +102,11 @@ Eg.
   "TransactionsByAddressPageSize": 10,
   "Version": "170000",
   "HttpClientTimeoutInSeconds" : 5,
-  "WebsocketForwarderClientRetryDelay": 10,
+  "WebsocketsEnabled": true,
+  "WebsocketsMsgBlockEnabled": true,
+  "WebsocketsMsgTxEnabled": true,
+  "WebsocketsMsgAddressTxEnabled": true,
+  "WebsocketsForwarderClientRetryDelay": 10,
   "Serilog":
   {
     "Using": ["Serilog.Sinks.Console", "Serilog.Sinks.File"],
@@ -258,7 +262,19 @@ http://blockdozer.com/[ApiPrefix]/blocks/
 **HttpClientTimeoutInSeconds**: Defines HttpClient timeout. Used in forwarder mode. 
 *Default value:5*
 
-**WebsocketForwarderClientRetryDelay**: The delay in seconds beetween retries when the websocket connection to the fullnode fails.
+**WebsocketsEnabled**: Define if the node accepts websocket requests.
+*Default value:true*
+
+**WebsocketsMsgBlockEnabled**: Define if the node sends block messages. 
+*Default value:true*
+
+**WebsocketsMsgTxEnabled**: Define if the node sends tx messages.
+*Default value:true*
+
+**WebsocketsMsgAddressTxEnabled**: Define if the node sends addresstx messages.
+*Default value:true*
+
+**WebsocketsForwarderClientRetryDelay**: The delay in seconds beetween retries when the websocket connection to the fullnode fails.
 *Default value:10*
 
 **Serilog**: The Serilog configuration. For more detailed documentation, check https://github.com/serilog/serilog/wiki/Getting-Started
