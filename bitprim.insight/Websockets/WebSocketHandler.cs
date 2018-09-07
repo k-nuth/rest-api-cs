@@ -314,10 +314,13 @@ namespace bitprim.insight.Websockets
 
         private async Task Publish(string channelName, string item)
         {
-            if(subscriptions_.Count > 0)
+            logger_.LogDebug($"Adding websocket message to queue ({channelName})");
+            if (subscriptions_.Count <= 0)
             {
-                logger_.LogDebug("Adding websocket message to queue");
-
+                logger_.LogDebug("Zero subscriptions. websocket message dropped");
+            }
+            else
+            {
                 await messageQueue_.EnqueueAsync
                 (
                     new BitprimWebSocketMessage
