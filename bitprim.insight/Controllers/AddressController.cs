@@ -5,7 +5,6 @@ using Bitprim;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 using Swashbuckle.AspNetCore.SwaggerGen;
-using System.Dynamic;
 using System.Threading.Tasks;
 
 namespace bitprim.insight.Controllers
@@ -77,7 +76,7 @@ namespace bitprim.insight.Controllers
         /// transaction ids involved in the address.
         /// </summary>
         /// <param name="paymentAddress"> The address of interest. For BCH, it can be in cashaddr format. </param>
-        /// <param name="noTxList"> If 1, include transaction id list; otherwise, do not include it. </param>
+        /// <param name="noTxList"> If 0, include transaction id list; otherwise, do not include it. </param>
         /// <param name="from"> Allows selecting a subrange of transaction ids from the full list; starts in zero (0). </param>
         /// <param name="to"> Allows selecting a subrange of transactions from the full list; max value is (txCount - 1). </param>
         /// <returns> Confirmed balance, unconfirmed balance and transaction id list (if requested). </returns>
@@ -95,16 +94,18 @@ namespace bitprim.insight.Controllers
 
             Utils.CheckIfChainIsFresh(chain_, config_.AcceptStaleRequests);
             var balance = await GetBalance(paymentAddress);
-            
-            var historyJson = new GetAddressHistoryResponse();
-            historyJson.addrStr = paymentAddress;
-            historyJson.balance = Utils.SatoshisToCoinUnits(balance.Balance);
-            historyJson.balanceSat = balance.Balance;
-            historyJson.totalReceived = Utils.SatoshisToCoinUnits(balance.Received);
-            historyJson.totalReceivedSat = balance.Received;
-            historyJson.totalSent = Utils.SatoshisToCoinUnits(balance.Sent);
-            historyJson.totalSentSat = balance.Sent;
-            historyJson.txApperances = balance.Transactions.Count;
+
+            var historyJson = new GetAddressHistoryResponse
+            {
+                addrStr = paymentAddress,
+                balance = Utils.SatoshisToCoinUnits(balance.Balance),
+                balanceSat = balance.Balance,
+                totalReceived = Utils.SatoshisToCoinUnits(balance.Received),
+                totalReceivedSat = balance.Received,
+                totalSent = Utils.SatoshisToCoinUnits(balance.Sent),
+                totalSentSat = balance.Sent,
+                txApperances = balance.Transactions.Count
+            };
             Tuple<uint, Int64> unconfirmedSummary = await GetUnconfirmedSummary(paymentAddress);
             historyJson.unconfirmedBalance = Utils.SatoshisToCoinUnits(unconfirmedSummary.Item2);
             historyJson.unconfirmedBalanceSat = unconfirmedSummary.Item2;
