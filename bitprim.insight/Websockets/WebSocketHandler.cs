@@ -56,6 +56,7 @@ namespace bitprim.insight.Websockets
 
         public void Init()
         {
+            logger_.LogInformation("Initializing websocket handler");
             _ = PublisherThread();
         }
 
@@ -65,6 +66,7 @@ namespace bitprim.insight.Websockets
         ///</summary>
         public async Task Subscribe(HttpContext context, WebSocket webSocket)
         {
+            logger_.LogInformation("New websocket subscription arrived");
             try
             {
                 var buffer = new byte[RECEPTION_BUFFER_SIZE];
@@ -93,11 +95,13 @@ namespace bitprim.insight.Websockets
                         else if (content.Equals(BLOCKS_SUBSCRIPTION_MESSAGE) &&
                                  Interlocked.CompareExchange(ref acceptSubscriptions_, 0, 0) > 0)
                         {
+                            logger_.LogInformation("Registering new block channel");
                             RegisterChannel(webSocket, BLOCKS_CHANNEL_NAME);
                         }
                         else if (content.Equals(TXS_SUBSCRIPTION_MESSAGE) &&
                                  Interlocked.CompareExchange(ref acceptSubscriptions_, 0, 0) > 0)
                         {
+                            logger_.LogInformation("Registering new tx channel");
                             RegisterChannel(webSocket, TXS_CHANNEL_NAME);
                         }
                         else 
@@ -106,6 +110,7 @@ namespace bitprim.insight.Websockets
                             {
                                 if (address.IsValid)
                                 {
+                                    logger_.LogInformation("Registering new addresstx channel");
                                     RegisterChannel(webSocket, content);
                                 }
                             }
@@ -113,11 +118,13 @@ namespace bitprim.insight.Websockets
                     }
                     else if (result.MessageType == WebSocketMessageType.Close)
                     {
+                        logger_.LogInformation("Weboscket close message arrived");
                         LogFrame(result, "Close message");
                         keepListening = false;
                     }
                 }
 
+                
                 await UnregisterChannels(webSocket);
             }
             catch (WebSocketException ex)
@@ -161,7 +168,10 @@ namespace bitprim.insight.Websockets
 
         public async Task Shutdown()
         {
+            logger_.LogInformation("Closing websocket handler");
             Interlocked.Decrement(ref acceptSubscriptions_);
+            
+            logger_.LogInformation("Unregistering channels");
             foreach(var ws in subscriptions_.Keys)
             {
                 try
@@ -187,6 +197,7 @@ namespace bitprim.insight.Websockets
 
         private async Task PublisherThread()
         {
+            logger_.LogInformation("Initializing websocket publisher thread");
             try
             {
                 var keepRunning = true;
@@ -236,10 +247,12 @@ namespace bitprim.insight.Websockets
             {
                 logger_.LogError(ex,"PublisherThread error");
             }
+            logger_.LogInformation("Closing websocket publisher thread");
         }
 
         private async Task UnregisterChannels(WebSocket webSocket)
         {
+            logger_.LogInformation("Unregistering websockets channels");
             bool removedSocket = false;
             int tries = 0;
             logger_.LogInformation("Removing websocket");
@@ -303,6 +316,8 @@ namespace bitprim.insight.Websockets
         {
             if(subscriptions_.Count > 0)
             {
+                logger_.LogDebug("Adding websocket message to queue");
+
                 await messageQueue_.EnqueueAsync
                 (
                     new BitprimWebSocketMessage

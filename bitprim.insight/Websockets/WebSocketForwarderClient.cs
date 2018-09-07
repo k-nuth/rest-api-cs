@@ -50,6 +50,8 @@ namespace bitprim.insight.Websockets
 
         private async Task ReceiveHandler()
         {
+            logger_.LogInformation("Initializing websocket receiver hander");
+
             var buffer = new byte[RECEPTION_BUFFER_SIZE];
           
             while (Interlocked.CompareExchange(ref active_, 0, 0) > 0)
@@ -168,12 +170,14 @@ namespace bitprim.insight.Websockets
 
         private async Task ReInit()
         {
+            logger_.LogInformation("ReInit websocket forwarder client");
             await execPolicy_.ExecuteAsync(async ()=> await CreateAndOpen());
             await SendSubscriptions();
         }
 
         public async Task Init()
         {
+            logger_.LogInformation("Init websocket forwarder client");
             await execPolicy_.ExecuteAsync(async ()=> await CreateAndOpen());
             _ = ReceiveHandler();
             await SendSubscriptions();

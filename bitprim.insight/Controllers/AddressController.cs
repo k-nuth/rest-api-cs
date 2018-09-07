@@ -5,7 +5,6 @@ using Bitprim;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 using Swashbuckle.AspNetCore.SwaggerGen;
-using System.Dynamic;
 using System.Threading.Tasks;
 
 namespace bitprim.insight.Controllers
