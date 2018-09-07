@@ -62,7 +62,7 @@ namespace bitprim.insight
 
         private bool OnTransactionReceived(ErrorCode error, Transaction newTransaction)
         {
-            //TODO Avoid event process if not exists subscribers
+            //TODO Avoid event processing if subscribers do not exist
             if(error == ErrorCode.Success && newTransaction != null)
             {
                 var txid = Binary.ByteArrayToHexString(newTransaction.Hash);
