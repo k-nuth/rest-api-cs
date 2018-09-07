@@ -49,7 +49,7 @@ namespace bitprim.insight.Controllers
         [SwaggerOperation("GetBlockByHash")]
         [SwaggerResponse((int)System.Net.HttpStatusCode.OK, typeof(GetBlockByHashResponse))]
         [SwaggerResponse((int)System.Net.HttpStatusCode.BadRequest, typeof(string))]
-        public async Task<ActionResult> GetBlockByHash(string hash, int noTxList = 0)
+        public async Task<ActionResult> GetBlockByHash(string hash, int noTxList = 1)
         {
             if(!Validations.IsValidHash(hash))
             {
