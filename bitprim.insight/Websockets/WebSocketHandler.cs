@@ -118,7 +118,7 @@ namespace bitprim.insight.Websockets
                     }
                     else if (result.MessageType == WebSocketMessageType.Close)
                     {
-                        logger_.LogInformation("Weboscket close message arrived");
+                        logger_.LogInformation("Websocket close message arrived");
                         LogFrame(result, "Close message");
                         keepListening = false;
                     }
