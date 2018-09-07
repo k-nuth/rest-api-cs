@@ -103,12 +103,11 @@ namespace bitprim.insight.Controllers
         [SwaggerResponse((int)System.Net.HttpStatusCode.OK, typeof(GetCurrencyResponse))]
         public async Task<ActionResult> GetCurrency()
         {
-            var usdPrice = 1.0f;
-            if( !memoryCache_.TryGetValue(Constants.Cache.CURRENT_PRICE_CACHE_KEY, out usdPrice))
+            if( !memoryCache_.TryGetValue(Constants.Cache.CURRENT_PRICE_CACHE_KEY, out float usdPrice))
             {
                 try
                 {
-                    usdPrice = await execPolicy_.ExecuteAsync<float>(() => GetCurrentCoinPriceInUsd());
+                    usdPrice = await execPolicy_.ExecuteAsync(GetCurrentCoinPriceInUsd);
                     memoryCache_.Set
                     (
                         Constants.Cache.CURRENT_PRICE_CACHE_KEY, usdPrice,
@@ -276,8 +275,7 @@ namespace bitprim.insight.Controllers
 
         private async Task<GetLastBlock> GetLastBlock()
         {
-            ulong currentHeight; 
-            if (!memoryCache_.TryGetValue(Constants.Cache.LAST_BLOCK_HEIGHT_CACHE_KEY,out currentHeight))
+            if (!memoryCache_.TryGetValue(Constants.Cache.LAST_BLOCK_HEIGHT_CACHE_KEY,out ulong currentHeight))
             {
                 var getLastHeightResult = await chain_.FetchLastHeightAsync();
                 Utils.CheckBitprimApiErrorCode(getLastHeightResult.ErrorCode, "FetchLastHeightAsync() failed");
@@ -291,8 +289,7 @@ namespace bitprim.insight.Controllers
                     });
             }
 
-            GetLastBlock ret;
-            if (!memoryCache_.TryGetValue(Constants.Cache.LAST_BLOCK_CACHE_KEY,out ret))
+            if (!memoryCache_.TryGetValue(Constants.Cache.LAST_BLOCK_CACHE_KEY,out GetLastBlock ret))
             {
                 using (var getBlockDataResult = await chain_.FetchBlockHeaderByHeightAsync(currentHeight))
                 {
@@ -320,7 +317,7 @@ namespace bitprim.insight.Controllers
         //TODO Consider moving this down to node-cint for other APIs to reuse
         private async Task<float> GetCurrentCoinPriceInUsd()
         {
-            string currencyPair = "";
+            string currencyPair;
             switch (NodeSettings.CurrencyType)
             {
                 case CurrencyType.Bitcoin: currencyPair = Constants.BITSTAMP_BTCUSD; break;
@@ -331,8 +328,7 @@ namespace bitprim.insight.Controllers
             string bitstampUrl = Constants.BITSTAMP_URL.Replace(Constants.BITSTAMP_CURRENCY_PAIR_PLACEHOLDER, currencyPair);
             var priceDataString = await httpClient_.GetStringAsync(bitstampUrl);
             dynamic priceData = JsonConvert.DeserializeObject<dynamic>(priceDataString);
-            float price = 1.0f;
-            if (!float.TryParse(priceData.last.Value, NumberStyles.Float, CultureInfo.InvariantCulture, out price))
+            if (!float.TryParse(priceData.last.Value, NumberStyles.Float, CultureInfo.InvariantCulture, out float price))
             {
                 throw new FormatException("Invalid price value: " + priceData.last.Value);
             }
@@ -345,8 +341,7 @@ namespace bitprim.insight.Controllers
             Utils.CheckBitprimApiErrorCode(getLastHeightResult.ErrorCode, "GetLastHeight() failed");
             var currentHeight = getLastHeightResult.Result;
 
-            long lastBlockTimestamp;
-            if( !memoryCache_.TryGetValue(Constants.Cache.LAST_BLOCK_TIMESTAMP, out lastBlockTimestamp) )
+            if( !memoryCache_.TryGetValue(Constants.Cache.LAST_BLOCK_TIMESTAMP, out long lastBlockTimestamp) )
             {
                 var getLastBlockResult = await chain_.FetchBlockByHeightHashTimestampAsync(currentHeight);
                 Utils.CheckBitprimApiErrorCode(getLastBlockResult.ErrorCode, "FetchBlockByHeightAsync(" + currentHeight + ") failed, check error log");
@@ -358,8 +353,8 @@ namespace bitprim.insight.Controllers
                         Size = Constants.Cache.TIMESTAMP_ENTRY_SIZE
                     });
             }
-            long firstBlockTimestamp;
-            if( !memoryCache_.TryGetValue(Constants.Cache.FIRST_BLOCK_TIMESTAMP, out firstBlockTimestamp) )
+
+            if( !memoryCache_.TryGetValue(Constants.Cache.FIRST_BLOCK_TIMESTAMP, out long firstBlockTimestamp) )
             {
                 var getFirstBlockResult = await chain_.FetchBlockByHeightHashTimestampAsync(0);
                 Utils.CheckBitprimApiErrorCode(getFirstBlockResult.ErrorCode, "FetchBlockByHeightHashTimestampAsync(0) failed, check error log");

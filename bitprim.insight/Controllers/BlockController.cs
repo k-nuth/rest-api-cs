@@ -42,13 +42,14 @@ namespace bitprim.insight.Controllers
         /// Given a block hash, retrieve its univocally associated block.
         /// </summary>
         /// <param name="hash"> 64-character (32 bytes) hex string. </param>
+        /// <param name="noTxList"> If 0, include transaction id list; otherwise, do not include it. </param>
         /// <returns> The block with the given hash. </returns>
         [HttpGet("block/{hash}")]
         [ResponseCache(CacheProfileName = Constants.Cache.SHORT_CACHE_PROFILE_NAME)]
         [SwaggerOperation("GetBlockByHash")]
         [SwaggerResponse((int)System.Net.HttpStatusCode.OK, typeof(GetBlockByHashResponse))]
         [SwaggerResponse((int)System.Net.HttpStatusCode.BadRequest, typeof(string))]
-        public async Task<ActionResult> GetBlockByHash(string hash)
+        public async Task<ActionResult> GetBlockByHash(string hash, int noTxList = 0)
         {
             if(!Validations.IsValidHash(hash))
             {
@@ -57,7 +58,9 @@ namespace bitprim.insight.Controllers
 
             Utils.CheckIfChainIsFresh(chain_, config_.AcceptStaleRequests);
 
-            if(memoryCache_.TryGetValue("block" + hash, out JsonResult cachedBlockJson))
+            string key = "block" + noTxList + hash;
+
+            if(memoryCache_.TryGetValue(key, out JsonResult cachedBlockJson))
             {
                 return cachedBlockJson;
             };
@@ -93,10 +96,10 @@ namespace bitprim.insight.Controllers
                 (
                     getBlockResult.Result.Block.BlockData, blockHeight, getBlockResult.Result.TransactionHashes,
                     blockReward, getLastHeightResult.Result, getNextBlockResult?.Result.BlockHash,
-                    getBlockResult.Result.SerializedBlockSize, poolInfo)
+                    getBlockResult.Result.SerializedBlockSize, poolInfo, noTxList == 0)
                 );
 
-                memoryCache_.Set("block" + hash, blockJson, new MemoryCacheEntryOptions{Size = Constants.Cache.BLOCK_CACHE_ENTRY_SIZE});
+                memoryCache_.Set(key, blockJson, new MemoryCacheEntryOptions{Size = Constants.Cache.BLOCK_CACHE_ENTRY_SIZE});
                 return blockJson;
             }
         }
@@ -397,23 +400,28 @@ namespace bitprim.insight.Controllers
 
         private static GetBlockByHashResponse BlockToJSON(Header blockHeader, UInt64 blockHeight, HashList txHashes,
                                                           decimal blockReward, UInt64 currentHeight, byte[] nextBlockHash,
-                                                        UInt64 serializedBlockSize, PoolsInfo.PoolInfo poolInfo)
+                                                        UInt64 serializedBlockSize, PoolsInfo.PoolInfo poolInfo, bool includeTransactionIds)
         {
             BigInteger.TryParse(blockHeader.ProofString, out var proof);
-            var blockJson = new GetBlockByHashResponse();
-            blockJson.hash = Binary.ByteArrayToHexString(blockHeader.Hash);
-            blockJson.size = serializedBlockSize;
-            blockJson.height = blockHeight;
-            blockJson.version = blockHeader.Version;
-            blockJson.merkleroot = Binary.ByteArrayToHexString(blockHeader.Merkle);
-            blockJson.tx = BlockTxsToJSON(txHashes);
-            blockJson.time = blockHeader.Timestamp;
-            blockJson.nonce = blockHeader.Nonce;
-            blockJson.bits = Utils.EncodeInBase16(blockHeader.Bits);
-            blockJson.difficulty = Utils.BitsToDifficulty(blockHeader.Bits); //TODO Use bitprim API when implemented
-            blockJson.chainwork = (proof * 2).ToString("X64"); //TODO Does not match Blockdozer value; check how bitpay calculates it
-            blockJson.confirmations = currentHeight - blockHeight + 1;
-            blockJson.previousblockhash = Binary.ByteArrayToHexString(blockHeader.PreviousBlockHash);
+            var blockJson = new GetBlockByHashResponse
+            {
+                hash = Binary.ByteArrayToHexString(blockHeader.Hash),
+                size = serializedBlockSize,
+                height = blockHeight,
+                version = blockHeader.Version,
+                merkleroot = Binary.ByteArrayToHexString(blockHeader.Merkle),
+                tx = includeTransactionIds ? BlockTxsToJSON(txHashes) : new string[0],
+                txCount = txHashes.Count,
+                time = blockHeader.Timestamp,
+                nonce = blockHeader.Nonce,
+                bits = Utils.EncodeInBase16(blockHeader.Bits),
+                difficulty = Utils.BitsToDifficulty(blockHeader.Bits),
+                chainwork = (proof * 2).ToString("X64"),
+                confirmations = currentHeight - blockHeight + 1,
+                previousblockhash = Binary.ByteArrayToHexString(blockHeader.PreviousBlockHash)
+            };
+            //TODO Use bitprim API when implemented
+            //TODO Does not match Blockdozer value; check how bitpay calculates it
             if(nextBlockHash != null)
             {
                 blockJson.nextblockhash = Binary.ByteArrayToHexString(nextBlockHash);
