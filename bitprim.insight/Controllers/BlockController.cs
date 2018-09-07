@@ -400,7 +400,7 @@ namespace bitprim.insight.Controllers
 
         private static GetBlockByHashResponse BlockToJSON(Header blockHeader, UInt64 blockHeight, HashList txHashes,
                                                           decimal blockReward, UInt64 currentHeight, byte[] nextBlockHash,
-                                                        UInt64 serializedBlockSize, PoolsInfo.PoolInfo poolInfo, bool includeTransactions)
+                                                        UInt64 serializedBlockSize, PoolsInfo.PoolInfo poolInfo, bool includeTransactionIds)
         {
             BigInteger.TryParse(blockHeader.ProofString, out var proof);
             var blockJson = new GetBlockByHashResponse
@@ -410,7 +410,7 @@ namespace bitprim.insight.Controllers
                 height = blockHeight,
                 version = blockHeader.Version,
                 merkleroot = Binary.ByteArrayToHexString(blockHeader.Merkle),
-                tx = includeTransactions ? BlockTxsToJSON(txHashes) : new string[0],
+                tx = includeTransactionIds ? BlockTxsToJSON(txHashes) : new string[0],
                 txCount = txHashes.Count,
                 time = blockHeader.Timestamp,
                 nonce = blockHeader.Nonce,
