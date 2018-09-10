@@ -1,10 +1,11 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Xunit;
 
 namespace bitprim.insight.tests
 {
-    public class OrderedSetTest
+    public class OrderedSetTests
     {
         private class Person
         {
@@ -147,6 +148,20 @@ namespace bitprim.insight.tests
             Assert.True(set.Add(new Person(){ IdNumber = 1, Name = "John Doe" }));
             Assert.False(set.Add(new Person(){ IdNumber = 1, Name = "Richard Bauer" }));
         }
+       
         
+
+        [Fact]
+        public void SkipTest()
+        {
+            var set = new OrderedSet<int> {1, 2,3,4,5,6};
+            var range = set.GetRange(0, 2);
+            var range2 = set.Skip(0).Take(2);
+            Assert.Equal(range,range2);
+
+            range = set.GetRange(1, 2);
+            range2 = set.Skip(1).Take(2);
+            Assert.Equal(range,range2);
+        }
     }
 }

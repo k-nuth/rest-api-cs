@@ -17,21 +17,22 @@ namespace bitprim.insight.Middlewares
         private readonly ILogger<ForwarderMiddleware> logger_;
         private static readonly HttpClient client = new HttpClient();
         private readonly Policy retryPolicy_;
+        private readonly NodeConfig nodeConfig_;
 
         public ForwarderMiddleware(RequestDelegate next, ILogger<ForwarderMiddleware> logger, IOptions<NodeConfig> config)
         {
             next_ = next ?? throw new ArgumentNullException(nameof(next));
             logger_ = logger;
-            NodeConfig nodeConfig = config.Value;
+            nodeConfig_ = config.Value;
             client.BaseAddress = new Uri(config.Value.ForwardUrl);
-            client.Timeout = TimeSpan.FromSeconds(nodeConfig.HttpClientTimeoutInSeconds);
+            client.Timeout = TimeSpan.FromSeconds(nodeConfig_.HttpClientTimeoutInSeconds);
             retryPolicy_ = Policy
                 .Handle<Exception>()
                 .WaitAndRetryAsync(RetryUtils.DecorrelatedJitter
                 (
-                    nodeConfig.ForwarderMaxRetries,
-                    TimeSpan.FromMilliseconds(nodeConfig.ForwarderFirstRetryDelayInMillis),
-                    TimeSpan.FromSeconds(nodeConfig.ForwarderMaxRetryDelayInSeconds)
+                    nodeConfig_.ForwarderMaxRetries,
+                    TimeSpan.FromMilliseconds(nodeConfig_.ForwarderFirstRetryDelayInMillis),
+                    TimeSpan.FromSeconds(nodeConfig_.ForwarderMaxRetryDelayInSeconds)
                 ));
         }
 

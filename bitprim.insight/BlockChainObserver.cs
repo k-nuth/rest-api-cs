@@ -14,24 +14,35 @@ namespace bitprim.insight
         private readonly Executor.TransactionHandler txHandler_;
         private readonly Executor executor_;
         private readonly WebSocketHandler webSocketHandler_;
+        private readonly NodeConfig config_;
 
-        public BlockChainObserver(Executor executor, WebSocketHandler webSocketHandler)
+        public BlockChainObserver(Executor executor, WebSocketHandler webSocketHandler, NodeConfig config)
         {
             executor_ = executor;
             chain_ = executor.Chain;
             webSocketHandler_ = webSocketHandler;
-            blockHandler_ = new Executor.BlockHandler(OnBlockReceived);
-            txHandler_ = new Executor.TransactionHandler(OnTransactionReceived);
-            executor.SubscribeToBlockChain(blockHandler_);
-            executor.SubscribeToTransaction(txHandler_);
+            config_ = config;
+
+            if (config_.WebsocketsMsgBlockEnabled)
+            {
+                blockHandler_ = new Executor.BlockHandler(OnBlockReceived);
+                executor.SubscribeToBlockChain(blockHandler_);
+            }
+
+            if (config_.WebsocketsMsgTxEnabled || config_.WebsocketsMsgAddressTxEnabled) 
+            {
+                txHandler_ = new Executor.TransactionHandler(OnTransactionReceived);
+                executor.SubscribeToTransaction(txHandler_);
+            }
         }
 
         private bool OnBlockReceived(ErrorCode error, UInt64 height, BlockList incoming, BlockList outgoing)
         {
+            //TODO Avoid event processing if subscribers do not exist
             if(error == ErrorCode.Success && incoming != null && incoming.Count > 0)
             {
-                string coinbaseTxHash = "";
-                string destinationAddress = "";
+                string coinbaseTxHash;
+                string destinationAddress;
                 using(var getBlockResult = executor_.Chain.FetchBlockByHeightAsync(height).Result )
                 {
                     Utils.CheckBitprimApiErrorCode(getBlockResult.ErrorCode, "FetchBlockByHeightAsync(" + height + ") failed");
@@ -53,40 +64,61 @@ namespace bitprim.insight
 
         private bool OnTransactionReceived(ErrorCode error, Transaction newTransaction)
         {
+            //TODO Avoid event processing if subscribers do not exist
             if(error == ErrorCode.Success && newTransaction != null)
             {
                 var txid = Binary.ByteArrayToHexString(newTransaction.Hash);
-
+ 
                 HashSet<string> addresses = Utils.GetTransactionAddresses(executor_,newTransaction).GetAwaiter().GetResult();
-
+                
                 var addressesToPublish = new List<Tuple<string, string>>(addresses.Count);
                 var balanceDeltas = new Dictionary<string, decimal>();
-                foreach(string addr in addresses)
+
+                if (config_.WebsocketsMsgAddressTxEnabled)
                 {
-                    var addressBalanceDelta = Utils.SatoshisToCoinUnits(Utils.CalculateBalanceDelta(newTransaction, addr, chain_, executor_.UseTestnetRules).Result);
-                    balanceDeltas[addr] = addressBalanceDelta;
-                    var addresstx = new
+                    foreach(string addr in addresses)
                     {
-                        eventname = "addresstx",
-                        txid = txid,
-                        balanceDelta = addressBalanceDelta
-                    };
-                    addressesToPublish.Add(new Tuple<string, string>(addr, JsonConvert.SerializeObject(addresstx)));
+                        var addressBalanceDelta = Utils.SatoshisToCoinUnits(Utils.CalculateBalanceDelta(newTransaction, addr, executor_.Chain, executor_.UseTestnetRules).Result);
+                        balanceDeltas[addr] = addressBalanceDelta;
+                    
+                        var addresstx = new
+                        {
+                            eventname = "addresstx",
+                            txid = txid,
+                            balanceDelta = addressBalanceDelta
+                        };
+                        addressesToPublish.Add(new Tuple<string, string>(addr, JsonConvert.SerializeObject(addresstx)));
+                    }
+
+                    var task = webSocketHandler_.PublishTransactionAddresses(addressesToPublish);
+                    task.Wait();
+                }
+                else
+                {   
+                    if (config_.WebsocketsMsgTxEnabled)
+                    {    
+                        foreach(string addr in addresses)
+                        {
+                            var addressBalanceDelta = Utils.SatoshisToCoinUnits(Utils.CalculateBalanceDelta(newTransaction, addr, executor_.Chain, executor_.UseTestnetRules).Result);
+                            balanceDeltas[addr] = addressBalanceDelta;    
+                        }
+                    }
                 }
 
-                var tx = new
-                {
-                    eventname = "tx",
-                    txid = txid,
-                    valueOut = Utils.SatoshisToCoinUnits(newTransaction.TotalOutputValue),
-                    addresses = addresses.ToArray(),
-                    balanceDeltas = balanceDeltas
-                };
+                if (config_.WebsocketsMsgTxEnabled)
+                {    
+                    var tx = new
+                    {
+                        eventname = "tx",
+                        txid = txid,
+                        valueOut = Utils.SatoshisToCoinUnits(newTransaction.TotalOutputValue),
+                        addresses = addresses.ToArray(),
+                        balanceDeltas = balanceDeltas
+                    };
 
-                var task = webSocketHandler_.PublishTransaction(JsonConvert.SerializeObject(tx));
-                task.Wait();
-                task = webSocketHandler_.PublishTransactionAddresses(addressesToPublish);
-                task.Wait();
+                    var task = webSocketHandler_.PublishTransaction(JsonConvert.SerializeObject(tx));
+                    task.Wait();
+                }
             }
             return true;
         }

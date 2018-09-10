@@ -1,5 +1,3 @@
-using System;
-
 namespace bitprim.insight.DTOs
 {
     /// <summary>
@@ -8,9 +6,9 @@ namespace bitprim.insight.DTOs
     public class GetTransactionsForMultipleAddressesResponse
     {
         /// <summary>
-        /// Selected transactions.
+        /// Unpaginated results count.
         /// </summary>
-        public TransactionSummary[] items { get; set; }
+        public int totalItems { get; set; }
 
         /// <summary>
         /// Results selection starting point.
@@ -23,8 +21,8 @@ namespace bitprim.insight.DTOs
         public int to { get; set; }
 
         /// <summary>
-        /// Unpaginated results count.
+        /// Selected transactions.
         /// </summary>
-        public int totalItems { get; set; }
+        public TransactionSummary[] items { get; set; }
     }
 }

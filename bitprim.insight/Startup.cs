@@ -67,14 +67,17 @@ namespace bitprim.insight
 
             var serviceProvider = services.BuildServiceProvider();
 
-            webSocketHandler_ = new WebSocketHandler(serviceProvider.GetService<ILogger<WebSocketHandler>>(), nodeConfig_);
-            webSocketHandler_.Init();
+            if (nodeConfig_.WebsocketsEnabled)
+            {
+                webSocketHandler_ = new WebSocketHandler(serviceProvider.GetService<ILogger<WebSocketHandler>>(), nodeConfig_);
+                webSocketHandler_.Init();
 
-            services.AddSingleton<WebSocketHandler>(webSocketHandler_);
-
+                services.AddSingleton(webSocketHandler_);
+            }
+            
             var poolInfo = new PoolsInfo(nodeConfig_.PoolsFile);
             poolInfo.Load();
-            services.AddSingleton<PoolsInfo>(poolInfo);
+            services.AddSingleton(poolInfo);
 
             StartNode(services, serviceProvider);
         }
@@ -85,9 +88,12 @@ namespace bitprim.insight
         {
             app.UseRequestLoggerMiddleware();
             app.UseHttpStatusCodeExceptionMiddleware();
+
             
+
             //Enable web sockets for sending block and tx notifications
             ConfigureWebSockets(app);
+
             // Enable middleware to serve generated Swagger as a JSON endpoint.
             app.UseSwagger();
             // Enable middleware to serve swagger-ui (HTML, JS, CSS, etc.), specifying the Swagger JSON endpoint.  
@@ -146,21 +152,42 @@ namespace bitprim.insight
 
         private void ConfigureWebSockets(IApplicationBuilder app)
         {
-            app.UseWebSockets();
-            app.Use(async (context, next) =>
+            if (nodeConfig_.WebsocketsEnabled)
             {
-                if (context.WebSockets.IsWebSocketRequest)
+                app.UseWebSockets();
+                app.Use(async (context, next) =>
                 {
-                    using (var webSocket = await context.WebSockets.AcceptWebSocketAsync())
+                    if (context.WebSockets.IsWebSocketRequest)
                     {
-                        await webSocketHandler_.Subscribe(context, webSocket);
+                        using (var webSocket = await context.WebSockets.AcceptWebSocketAsync())
+                        {
+                            await webSocketHandler_.Subscribe(context, webSocket);
+                        }
                     }
-                }
-                else
+                    else
+                    {
+                        await next();
+                    }
+                });
+            }
+            else
+            {
+                if (!nodeConfig_.InitializeNode)
                 {
-                    await next();
+                    app.UseWebSockets();
+                    app.Use(async (context, next) =>
+                    {
+                        if (context.WebSockets.IsWebSocketRequest)
+                        {
+                            context.Response.StatusCode = 403;
+                        }
+                        else
+                        {
+                            await next();
+                        }
+                    });
                 }
-            });
+            }
         }
 
         private void ConfigureCors(IServiceCollection services)
@@ -188,19 +215,25 @@ namespace bitprim.insight
                 Log.Information("Initializing forwarder mode");
                 Log.Information("Forward Url " + nodeConfig_.ForwardUrl);
 
-                webSocketForwarderClient_ = new WebSocketForwarderClient(
-                    serviceProvider.GetService<IOptions<NodeConfig>>(),
-                    serviceProvider.GetService<ILogger<WebSocketForwarderClient>>(), webSocketHandler_);
-                _ = webSocketForwarderClient_.Init();
+                if (nodeConfig_.WebsocketsEnabled)
+                {
+                    webSocketForwarderClient_ = new WebSocketForwarderClient(
+                        serviceProvider.GetService<IOptions<NodeConfig>>(),
+                        serviceProvider.GetService<ILogger<WebSocketForwarderClient>>(), webSocketHandler_);
+                    _ = webSocketForwarderClient_.Init();
+                }
             }
         }
 
         private void StartFullNode(IServiceCollection services)
         {
             Log.Information("Node Config File: " + nodeConfig_.NodeConfigFile);
-            if (!string.IsNullOrWhiteSpace(nodeConfig_.NodeConfigFile))
-                Log.Information("FullPath Node Config File: " + Path.GetFullPath(nodeConfig_.NodeConfigFile));
 
+            if (!string.IsNullOrWhiteSpace(nodeConfig_.NodeConfigFile))
+            {
+                Log.Information("FullPath Node Config File: " + Path.GetFullPath(nodeConfig_.NodeConfigFile));
+            }
+                
             // Initialize and register chain service
             exec_ = new Executor(nodeConfig_.NodeConfigFile);
 
@@ -215,17 +248,24 @@ namespace bitprim.insight
                 throw new ApplicationException("Executor::InitAndRunAsync failed; error code: " + result);
             }
 
-            blockChainObserver_ = new BlockChainObserver(exec_, webSocketHandler_);
             services.AddSingleton<Executor>(exec_);
             services.AddSingleton<Chain>(exec_.Chain);
+
+            if (nodeConfig_.WebsocketsEnabled)
+            {
+                blockChainObserver_ = new BlockChainObserver(exec_, webSocketHandler_, nodeConfig_);
+            }
         }
 
         private void OnShutdown()
         {
             Log.Information("Cancelling subscriptions...");
-            var task = webSocketHandler_.Shutdown();
-            task.Wait();
-
+            if (webSocketHandler_ != null)
+            {
+                var task = webSocketHandler_.Shutdown();
+                task.Wait();
+            }
+                        
             if (webSocketForwarderClient_ != null)
             {
                 Log.Information("Cancelling websocket forwarder...");

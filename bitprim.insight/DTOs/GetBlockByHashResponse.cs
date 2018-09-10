@@ -63,6 +63,11 @@ namespace bitprim.insight.DTOs
         public string[] tx { get; set; }
 
         /// <summary>
+        /// Block transaction length.
+        /// </summary>
+        public ulong txCount { get; set; }
+
+        /// <summary>
         /// Block nonce.
         /// </summary>
         public UInt32 nonce { get; set; }
