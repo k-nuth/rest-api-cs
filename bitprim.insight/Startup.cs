@@ -58,6 +58,9 @@ namespace bitprim.insight
             ConfigureFrameworkServices(services);
 
             ConfigureCors(services);
+
+            
+
             // Register the Swagger generator, defining one or more Swagger documents  
             services.AddSwaggerGen(c =>  
             {  
@@ -88,9 +91,8 @@ namespace bitprim.insight
         {
             app.UseRequestLoggerMiddleware();
             app.UseHttpStatusCodeExceptionMiddleware();
-
+            app.UseResponseCompression();
             
-
             //Enable web sockets for sending block and tx notifications
             ConfigureWebSockets(app);
 
@@ -141,6 +143,8 @@ namespace bitprim.insight
                    opt.SizeLimit = nodeConfig_.MaxCacheSize;
                }
             );
+
+            services.AddResponseCompression();
         }
 
         private void ConfigureLogging()
