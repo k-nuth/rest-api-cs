@@ -93,7 +93,7 @@ namespace bitprim.insight.Controllers
             }
 
             Utils.CheckIfChainIsFresh(chain_, config_.AcceptStaleRequests);
-            var balance = await GetBalance(paymentAddress);
+            var balance = await GetBalance(paymentAddress, noTxList == 0);
 
             var historyJson = new GetAddressHistoryResponse
             {
@@ -106,10 +106,12 @@ namespace bitprim.insight.Controllers
                 totalSentSat = balance.Sent,
                 txApperances = balance.Transactions.Count
             };
+
             Tuple<uint, Int64> unconfirmedSummary = await GetUnconfirmedSummary(paymentAddress);
             historyJson.unconfirmedBalance = Utils.SatoshisToCoinUnits(unconfirmedSummary.Item2);
             historyJson.unconfirmedBalanceSat = unconfirmedSummary.Item2;
             historyJson.unconfirmedTxAppearances = unconfirmedSummary.Item1;
+
             if( noTxList == 0 )
             {
                 Tuple<string[], string> addressTxs = GetAddressTransactions(balance.Transactions, from, to);
@@ -239,11 +241,11 @@ namespace bitprim.insight.Controllers
             {
                 return BadRequest("Invalid address: " + paymentAddress);
             }
-            var balance = await GetBalance(paymentAddress);
+            var balance = await GetBalance(paymentAddress,false);
             return Json(balance.GetType().GetProperty(propertyName).GetValue(balance, null));
         }
 
-        private async Task<AddressBalance> GetBalance(string paymentAddress)
+        private async Task<AddressBalance> GetBalance(string paymentAddress, bool includeTransactions)
         {
             using (var address = new PaymentAddress(paymentAddress))
             using (var getAddressHistoryResult = await chain_.FetchHistoryAsync(address, UInt64.MaxValue, 0))
@@ -256,24 +258,47 @@ namespace bitprim.insight.Controllers
                 UInt64 addressBalance = 0;
                 var txs = new OrderedSet<string>();
 
-                foreach(HistoryCompact compact in history)
+                if (includeTransactions)
                 {
-                    if(compact.PointKind == PointKind.Output)
+                    foreach(HistoryCompact compact in history)
                     {
-                        received += compact.ValueOrChecksum;
-
-                        using (var outPoint = new OutputPoint(compact.Point.Hash, compact.Point.Index))
+                        if(compact.PointKind == PointKind.Output)
                         {
-                            var getSpendResult = await chain_.FetchSpendAsync(outPoint);
-                            if(getSpendResult.ErrorCode == ErrorCode.NotFound)
+                            received += compact.ValueOrChecksum;
+
+                            using (var outPoint = new OutputPoint(compact.Point.Hash, compact.Point.Index))
                             {
-                                addressBalance += compact.ValueOrChecksum;
+                                var getSpendResult = await chain_.FetchSpendAsync(outPoint);
+                                if(getSpendResult.ErrorCode == ErrorCode.NotFound)
+                                {
+                                    addressBalance += compact.ValueOrChecksum;
+                                }
                             }
                         }
+                        txs.Add(Binary.ByteArrayToHexString(compact.Point.Hash));
                     }
-                    txs.Add(Binary.ByteArrayToHexString(compact.Point.Hash));
                 }
+                else
+                {
+                    foreach(HistoryCompact compact in history)
+                    {
+                        if(compact.PointKind == PointKind.Output)
+                        {
+                            received += compact.ValueOrChecksum;
 
+                            using (var outPoint = new OutputPoint(compact.Point.Hash, compact.Point.Index))
+                            {
+                                var getSpendResult = await chain_.FetchSpendAsync(outPoint);
+                                if(getSpendResult.ErrorCode == ErrorCode.NotFound)
+                                {
+                                    addressBalance += compact.ValueOrChecksum;
+                                }
+                            }
+                        }
+                        
+                    }
+                }
+               
                 UInt64 totalSent = received - addressBalance;
                 return new AddressBalance{ Balance = addressBalance, Received = received, Sent = totalSent, Transactions = txs };
             }
