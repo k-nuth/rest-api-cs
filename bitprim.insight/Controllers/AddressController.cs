@@ -85,7 +85,7 @@ namespace bitprim.insight.Controllers
         [SwaggerOperation("GetAddressHistory")]
         [SwaggerResponse((int)System.Net.HttpStatusCode.OK, typeof(GetAddressHistoryResponse))]
         [SwaggerResponse((int)System.Net.HttpStatusCode.BadRequest, typeof(string))]
-        public async Task<ActionResult> GetAddressHistory(string paymentAddress, int noTxList = 0, int? from = null, int? to = null)
+        public async Task<ActionResult> GetAddressHistory(string paymentAddress, int noTxList = 0, int from = 0, int to = 0)
         {
             if( !Validations.IsValidPaymentAddress(paymentAddress) )
             {
@@ -93,7 +93,7 @@ namespace bitprim.insight.Controllers
             }
 
             Utils.CheckIfChainIsFresh(chain_, config_.AcceptStaleRequests);
-            var balance = await GetBalance(paymentAddress);
+            var balance = await GetBalance(paymentAddress, noTxList == 0);
 
             var historyJson = new GetAddressHistoryResponse
             {
@@ -106,10 +106,12 @@ namespace bitprim.insight.Controllers
                 totalSentSat = balance.Sent,
                 txApperances = balance.Transactions.Count
             };
+
             Tuple<uint, Int64> unconfirmedSummary = await GetUnconfirmedSummary(paymentAddress);
             historyJson.unconfirmedBalance = Utils.SatoshisToCoinUnits(unconfirmedSummary.Item2);
             historyJson.unconfirmedBalanceSat = unconfirmedSummary.Item2;
             historyJson.unconfirmedTxAppearances = unconfirmedSummary.Item1;
+
             if( noTxList == 0 )
             {
                 Tuple<string[], string> addressTxs = GetAddressTransactions(balance.Transactions, from, to);
@@ -118,6 +120,10 @@ namespace bitprim.insight.Controllers
                     return BadRequest(addressTxs.Item2);
                 }
                 historyJson.transactions = addressTxs.Item1;
+            }
+            else
+            {
+                historyJson.transactions = new string[0];
             }
             return Json(historyJson);
         }
@@ -235,11 +241,11 @@ namespace bitprim.insight.Controllers
             {
                 return BadRequest("Invalid address: " + paymentAddress);
             }
-            var balance = await GetBalance(paymentAddress);
+            var balance = await GetBalance(paymentAddress,false);
             return Json(balance.GetType().GetProperty(propertyName).GetValue(balance, null));
         }
 
-        private async Task<AddressBalance> GetBalance(string paymentAddress)
+        private async Task<AddressBalance> GetBalance(string paymentAddress, bool includeTransactionIds)
         {
             using (var address = new PaymentAddress(paymentAddress))
             using (var getAddressHistoryResult = await chain_.FetchHistoryAsync(address, UInt64.MaxValue, 0))
@@ -252,24 +258,47 @@ namespace bitprim.insight.Controllers
                 UInt64 addressBalance = 0;
                 var txs = new OrderedSet<string>();
 
-                foreach(HistoryCompact compact in history)
+                if (includeTransactionIds)
                 {
-                    if(compact.PointKind == PointKind.Output)
+                    foreach(HistoryCompact compact in history)
                     {
-                        received += compact.ValueOrChecksum;
-
-                        using (var outPoint = new OutputPoint(compact.Point.Hash, compact.Point.Index))
+                        if(compact.PointKind == PointKind.Output)
                         {
-                            var getSpendResult = await chain_.FetchSpendAsync(outPoint);
-                            if(getSpendResult.ErrorCode == ErrorCode.NotFound)
+                            received += compact.ValueOrChecksum;
+
+                            using (var outPoint = new OutputPoint(compact.Point.Hash, compact.Point.Index))
                             {
-                                addressBalance += compact.ValueOrChecksum;
+                                var getSpendResult = await chain_.FetchSpendAsync(outPoint);
+                                if(getSpendResult.ErrorCode == ErrorCode.NotFound)
+                                {
+                                    addressBalance += compact.ValueOrChecksum;
+                                }
                             }
                         }
+                        txs.Add(Binary.ByteArrayToHexString(compact.Point.Hash));
                     }
-                    txs.Add(Binary.ByteArrayToHexString(compact.Point.Hash));
                 }
+                else
+                {
+                    foreach(HistoryCompact compact in history)
+                    {
+                        if(compact.PointKind == PointKind.Output)
+                        {
+                            received += compact.ValueOrChecksum;
 
+                            using (var outPoint = new OutputPoint(compact.Point.Hash, compact.Point.Index))
+                            {
+                                var getSpendResult = await chain_.FetchSpendAsync(outPoint);
+                                if(getSpendResult.ErrorCode == ErrorCode.NotFound)
+                                {
+                                    addressBalance += compact.ValueOrChecksum;
+                                }
+                            }
+                        }
+                        
+                    }
+                }
+               
                 UInt64 totalSent = received - addressBalance;
                 return new AddressBalance{ Balance = addressBalance, Received = received, Sent = totalSent, Transactions = txs };
             }
@@ -362,32 +391,47 @@ namespace bitprim.insight.Controllers
             return unconfirmedUtxo;
         }
 
-        private static Tuple<string[], string> GetAddressTransactions(OrderedSet<string> transactionIds, int? from = null, int? to = null)
+        private static Tuple<string[], string> GetAddressTransactions(OrderedSet<string> transactionIds, int from, int to)
         {
-            if (from == null && to == null)
+            if (transactionIds.Count == 0)
             {
-                from = 0;
-                to = transactionIds.Count;
+                return new Tuple<string[], string>(new string[0], "");
             }
-            else
+
+            if (to == 0)
             {
-                from = Math.Max(from ?? 0, 0); 
-                to = Math.Min(to ?? transactionIds.Count, transactionIds.Count);
+                to = from + Constants.MAX_TX_COUNT_BY_ADDRESS;
+            }
+         
+            var validationResult = ValidateParameters(from, to, transactionIds.Count);
+            if( ! validationResult.Item1 )
+            {
+                return new Tuple<string[], string>(null, validationResult.Item2);
+            }
             
-                var validationResult = ValidateParameters(from.Value, to.Value);
-                if( ! validationResult.Item1 )
-                {
-                    return new Tuple<string[], string>(null, validationResult.Item2);
-                }
-            }
-            return new Tuple<string[], string>(transactionIds.GetRange(from.Value, to.Value - from.Value).ToArray(), "");
+            return new Tuple<string[], string>(transactionIds.GetRange(from, to - from).ToArray(), "");
         }
 
-        private static Tuple<bool, string> ValidateParameters(int from, int to)
+        private static Tuple<bool, string> ValidateParameters(int from, int to, int total)
         {
-            if(from >= to)
+            if(from < 0)
+            {
+                return new Tuple<bool, string>(false, "'from' must be greater than or equal to zero");
+            }
+
+            if (from >= to)
             {
                 return new Tuple<bool, string>(false, "'from' must be lower than 'to'");
+            }
+
+            if (to - from > Constants.MAX_TX_COUNT_BY_ADDRESS)
+            {
+                return new Tuple<bool, string>(false, "The items count returned must be fewer than "  + Constants.MAX_TX_COUNT_BY_ADDRESS);
+            }
+
+            if (total - from < to - from)
+            {
+                return new Tuple<bool, string>(false, "The range requested is outside the collection bounds");
             }
 
             return new Tuple<bool, string>(true, "");
