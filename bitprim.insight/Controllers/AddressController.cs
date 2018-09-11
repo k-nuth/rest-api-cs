@@ -85,7 +85,7 @@ namespace bitprim.insight.Controllers
         [SwaggerOperation("GetAddressHistory")]
         [SwaggerResponse((int)System.Net.HttpStatusCode.OK, typeof(GetAddressHistoryResponse))]
         [SwaggerResponse((int)System.Net.HttpStatusCode.BadRequest, typeof(string))]
-        public async Task<ActionResult> GetAddressHistory(string paymentAddress, int noTxList = 0, int from = 0, int to = Constants.MAX_TX_COUNT_BY_ADDRESS)
+        public async Task<ActionResult> GetAddressHistory(string paymentAddress, int noTxList = 0, int from = 0, int to = 0)
         {
             if( !Validations.IsValidPaymentAddress(paymentAddress) )
             {
@@ -245,7 +245,7 @@ namespace bitprim.insight.Controllers
             return Json(balance.GetType().GetProperty(propertyName).GetValue(balance, null));
         }
 
-        private async Task<AddressBalance> GetBalance(string paymentAddress, bool includeTransactions)
+        private async Task<AddressBalance> GetBalance(string paymentAddress, bool includeTransactionIds)
         {
             using (var address = new PaymentAddress(paymentAddress))
             using (var getAddressHistoryResult = await chain_.FetchHistoryAsync(address, UInt64.MaxValue, 0))
@@ -258,7 +258,7 @@ namespace bitprim.insight.Controllers
                 UInt64 addressBalance = 0;
                 var txs = new OrderedSet<string>();
 
-                if (includeTransactions)
+                if (includeTransactionIds)
                 {
                     foreach(HistoryCompact compact in history)
                     {
@@ -398,9 +398,12 @@ namespace bitprim.insight.Controllers
                 return new Tuple<string[], string>(new string[0], "");
             }
 
-            to = Math.Min(transactionIds.Count, to);
-        
-            var validationResult = ValidateParameters(from, to);
+            if (to == 0)
+            {
+                to = from + Constants.MAX_TX_COUNT_BY_ADDRESS;
+            }
+         
+            var validationResult = ValidateParameters(from, to, transactionIds.Count);
             if( ! validationResult.Item1 )
             {
                 return new Tuple<string[], string>(null, validationResult.Item2);
@@ -409,7 +412,7 @@ namespace bitprim.insight.Controllers
             return new Tuple<string[], string>(transactionIds.GetRange(from, to - from).ToArray(), "");
         }
 
-        private static Tuple<bool, string> ValidateParameters(int from, int to)
+        private static Tuple<bool, string> ValidateParameters(int from, int to, int total)
         {
             if(from < 0)
             {
@@ -423,7 +426,12 @@ namespace bitprim.insight.Controllers
 
             if (to - from > Constants.MAX_TX_COUNT_BY_ADDRESS)
             {
-                return new Tuple<bool, string>(false, "the items count returned must be fewer than "  + Constants.MAX_TX_COUNT_BY_ADDRESS);
+                return new Tuple<bool, string>(false, "The items count returned must be fewer than "  + Constants.MAX_TX_COUNT_BY_ADDRESS);
+            }
+
+            if (total - from < to - from)
+            {
+                return new Tuple<bool, string>(false, "The range requested is outside the collection bounds");
             }
 
             return new Tuple<bool, string>(true, "");
