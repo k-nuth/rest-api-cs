@@ -85,7 +85,7 @@ namespace bitprim.insight.Controllers
         [SwaggerOperation("GetAddressHistory")]
         [SwaggerResponse((int)System.Net.HttpStatusCode.OK, typeof(GetAddressHistoryResponse))]
         [SwaggerResponse((int)System.Net.HttpStatusCode.BadRequest, typeof(string))]
-        public async Task<ActionResult> GetAddressHistory(string paymentAddress, int noTxList = 0, int? from = null, int? to = null)
+        public async Task<ActionResult> GetAddressHistory(string paymentAddress, int noTxList = 0, int from = 0, int to = Constants.MAX_TX_COUNT_BY_ADDRESS)
         {
             if( !Validations.IsValidPaymentAddress(paymentAddress) )
             {
@@ -118,6 +118,10 @@ namespace bitprim.insight.Controllers
                     return BadRequest(addressTxs.Item2);
                 }
                 historyJson.transactions = addressTxs.Item1;
+            }
+            else
+            {
+                historyJson.transactions = new string[0];
             }
             return Json(historyJson);
         }
@@ -362,32 +366,39 @@ namespace bitprim.insight.Controllers
             return unconfirmedUtxo;
         }
 
-        private static Tuple<string[], string> GetAddressTransactions(OrderedSet<string> transactionIds, int? from = null, int? to = null)
+        private static Tuple<string[], string> GetAddressTransactions(OrderedSet<string> transactionIds, int from, int to)
         {
-            if (from == null && to == null)
+            if (transactionIds.Count == 0)
             {
-                from = 0;
-                to = transactionIds.Count;
+                return new Tuple<string[], string>(new string[0], "");
             }
-            else
+
+            to = Math.Min(transactionIds.Count, to);
+        
+            var validationResult = ValidateParameters(from, to);
+            if( ! validationResult.Item1 )
             {
-                from = Math.Max(from ?? 0, 0); 
-                to = Math.Min(to ?? transactionIds.Count, transactionIds.Count);
+                return new Tuple<string[], string>(null, validationResult.Item2);
+            }
             
-                var validationResult = ValidateParameters(from.Value, to.Value);
-                if( ! validationResult.Item1 )
-                {
-                    return new Tuple<string[], string>(null, validationResult.Item2);
-                }
-            }
-            return new Tuple<string[], string>(transactionIds.GetRange(from.Value, to.Value - from.Value).ToArray(), "");
+            return new Tuple<string[], string>(transactionIds.GetRange(from, to - from).ToArray(), "");
         }
 
         private static Tuple<bool, string> ValidateParameters(int from, int to)
         {
-            if(from >= to)
+            if(from < 0)
+            {
+                return new Tuple<bool, string>(false, "'from' must be greater than or equal to zero");
+            }
+
+            if (from >= to)
             {
                 return new Tuple<bool, string>(false, "'from' must be lower than 'to'");
+            }
+
+            if (to - from > Constants.MAX_TX_COUNT_BY_ADDRESS)
+            {
+                return new Tuple<bool, string>(false, "the items count returned must be fewer than "  + Constants.MAX_TX_COUNT_BY_ADDRESS);
             }
 
             return new Tuple<bool, string>(true, "");
