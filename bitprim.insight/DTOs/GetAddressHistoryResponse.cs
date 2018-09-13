@@ -62,6 +62,7 @@ namespace bitprim.insight.DTOs
         /// <summary>
         /// Current amount of distinct unconfirmed transactions involving this address.
         /// The spelling error (apperances) is intentional, for compatibility with insight.
+        /// TODO Remove this property as soon as no one uses it
         /// </summary>
         public UInt64 unconfirmedTxApperances { get; set; }
 
@@ -74,6 +75,7 @@ namespace bitprim.insight.DTOs
         /// <summary>
         /// Amount of distinct transactions (i.e. don't count the same tx more than once) involving this address.
         /// The spelling error (apperances) is intentional, for compatibility with insight.
+        /// TODO Remove this property as soon as no one uses it
         /// </summary>
         public int txApperances { get; set; }
         
