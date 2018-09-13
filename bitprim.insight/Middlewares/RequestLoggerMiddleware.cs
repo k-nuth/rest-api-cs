@@ -63,15 +63,26 @@ namespace bitprim.insight.Middlewares
             catch (Exception ex) when (LogException(httpContext, GetElapsedMilliseconds(start, Stopwatch.GetTimestamp()), ex)) { }
         }
 
-        static double GetElapsedMilliseconds(long start, long stop)
-        {
-            return Math.Round((stop - start) * 1000 / (double)Stopwatch.Frequency,2);
-        }
-
         private bool LogException(HttpContext httpContext, double elapsedMs, Exception ex)
         {
             LogHttpRequest(httpContext, elapsedMs,ex);
             return false;
+        }
+
+        private static double GetElapsedMilliseconds(long start, long stop)
+        {
+            return Math.Round((stop - start) * 1000 / (double)Stopwatch.Frequency,2);
+        }
+
+        private static async Task<string> ReadRequestBody(HttpRequest request)
+        {
+            string body;
+            using (var reader = new StreamReader(request.Body))
+            {
+                request.Body.Position = 0;
+                body = await reader.ReadToEndAsync();
+            }
+            return body;
         }
 
         private void LogHttpRequest(HttpContext context, double elapsedMs)
@@ -108,11 +119,15 @@ namespace bitprim.insight.Middlewares
             {
                 if (ex != null)
                 {
-                    logger_.LogError(ex,""); //Properties cover all information, so empty message
+                    logger_.LogError(ex, ""); //Properties cover all information, so empty message if no body
                 }
                 else
                 {
-                    logger_.LogInformation(""); //Properties cover all information, so empty message
+                    logger_.LogInformation(""); //Properties cover all information, so empty message if no body
+                }
+                if(context.Request.Method == HttpMethods.Post)
+                {
+                    logger_.LogDebug(ReadRequestBody(context.Request).Result.Replace(Environment.NewLine, ""));
                 }
             }
             context.Response.Body.Position = 0;
