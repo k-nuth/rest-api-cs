@@ -104,6 +104,7 @@ namespace bitprim.insight.Controllers
                 totalReceivedSat = balance.Received,
                 totalSent = Utils.SatoshisToCoinUnits(balance.Sent),
                 totalSentSat = balance.Sent,
+                txAppearances = balance.Transactions.Count,
                 txApperances = balance.Transactions.Count
             };
 
@@ -111,6 +112,7 @@ namespace bitprim.insight.Controllers
             historyJson.unconfirmedBalance = Utils.SatoshisToCoinUnits(unconfirmedSummary.Item2);
             historyJson.unconfirmedBalanceSat = unconfirmedSummary.Item2;
             historyJson.unconfirmedTxAppearances = unconfirmedSummary.Item1;
+            historyJson.unconfirmedTxApperances = unconfirmedSummary.Item1;
 
             if( noTxList == 0 )
             {

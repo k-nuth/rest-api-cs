@@ -55,11 +55,25 @@ namespace bitprim.insight.DTOs
 
         /// <summary>
         /// Current amount of distinct unconfirmed transactions involving this address.
+        /// Correctly spelled version, for those who prefer it.
         /// </summary>
         public UInt64 unconfirmedTxAppearances { get; set; }
-        
+
+        /// <summary>
+        /// Current amount of distinct unconfirmed transactions involving this address.
+        /// The spelling error (apperances) is intentional, for compatibility with insight.
+        /// </summary>
+        public UInt64 unconfirmedTxApperances { get; set; }
+
         /// <summary>
         /// Amount of distinct transactions (i.e. don't count the same tx more than once) involving this address.
+        /// Correctly spelled version, for those who prefer it.
+        /// </summary>
+        public int txAppearances { get; set; }
+
+        /// <summary>
+        /// Amount of distinct transactions (i.e. don't count the same tx more than once) involving this address.
+        /// The spelling error (apperances) is intentional, for compatibility with insight.
         /// </summary>
         public int txApperances { get; set; }
         
