@@ -207,7 +207,7 @@ namespace bitprim.insight
             if (nodeConfig_.InitializeNode)
             {
                 Log.Information("Initializing full node mode");
-                StartFullNode(services);
+                StartFullNode(services, serviceProvider);
             }
             else
             {
@@ -229,7 +229,7 @@ namespace bitprim.insight
             }
         }
 
-        private void StartFullNode(IServiceCollection services)
+        private void StartFullNode(IServiceCollection services, ServiceProvider serviceProvider)
         {
             Log.Information("Node Config File: " + nodeConfig_.NodeConfigFile);
 
@@ -257,7 +257,7 @@ namespace bitprim.insight
 
             if (nodeConfig_.WebsocketsEnabled)
             {
-                blockChainObserver_ = new BlockChainObserver(exec_, webSocketHandler_, nodeConfig_);
+                blockChainObserver_ = new BlockChainObserver(exec_, webSocketHandler_, nodeConfig_,  serviceProvider.GetService<ILogger<BlockChainObserver>>());
             }
         }
 
