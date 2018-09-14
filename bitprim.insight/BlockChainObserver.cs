@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using bitprim.insight.Websockets;
 using Bitprim;
+using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 
 namespace bitprim.insight
@@ -14,12 +15,14 @@ namespace bitprim.insight
         private readonly Executor executor_;
         private readonly WebSocketHandler webSocketHandler_;
         private readonly NodeConfig config_;
+        private readonly ILogger<BlockChainObserver> logger_;
 
-        public BlockChainObserver(Executor executor, WebSocketHandler webSocketHandler, NodeConfig config)
+        public BlockChainObserver(Executor executor, WebSocketHandler webSocketHandler, NodeConfig config, ILogger<BlockChainObserver> logger)
         {
             executor_ = executor;
             webSocketHandler_ = webSocketHandler;
             config_ = config;
+            logger_ = logger;
 
             if (config_.WebsocketsMsgBlockEnabled)
             {
@@ -39,6 +42,7 @@ namespace bitprim.insight
             //TODO Avoid event processing if subscribers do not exist
             if(error == ErrorCode.Success && incoming != null && incoming.Count > 0)
             {
+                logger_.LogInformation($"New block arrived ({height}). {incoming.Count} blocks arrived.Block zero TxCount:{incoming[0].TransactionCount}"); 
                 string blockHash;
                 string coinbaseTxHash;
                 string destinationAddress;
@@ -69,6 +73,8 @@ namespace bitprim.insight
             //TODO Avoid event processing if subscribers do not exist
             if(error == ErrorCode.Success && newTransaction != null)
             {
+                logger_.LogDebug("New tx arrived. "); 
+
                 var txid = Binary.ByteArrayToHexString(newTransaction.Hash);
  
                 HashSet<string> addresses = Utils.GetTransactionAddresses(executor_,newTransaction).GetAwaiter().GetResult();

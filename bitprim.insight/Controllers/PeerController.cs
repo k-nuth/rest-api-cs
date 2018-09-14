@@ -66,5 +66,18 @@ namespace bitprim.insight.Controllers
                 ,wss_subscriber_count=WebSocketStats.SubscriberCount
             });
         }
+
+        /// <summary>
+        /// Get websocket stats.
+        /// </summary>
+        /// <returns> See WebSocketStatsDto. </returns>
+        [HttpGet("memstats")]
+        [ResponseCache(CacheProfileName = Constants.Cache.SHORT_CACHE_PROFILE_NAME)]
+        [SwaggerOperation("GetMemStats")]
+        [SwaggerResponse((int)System.Net.HttpStatusCode.OK, typeof(MemoryStatsDto))]
+        public ActionResult GetMemStats()
+        {
+            return Json(new MemoryStatsDto());
+        }
     }
 }

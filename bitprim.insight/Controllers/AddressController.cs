@@ -1,11 +1,13 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using bitprim.insight.DTOs;
 using Bitprim;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 using Swashbuckle.AspNetCore.SwaggerGen;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 
 namespace bitprim.insight.Controllers
 {
@@ -18,6 +20,7 @@ namespace bitprim.insight.Controllers
         private readonly Chain chain_;
         private readonly Executor nodeExecutor_;
         private readonly NodeConfig config_;
+        private readonly ILogger<AddressController> logger_;
 
         private struct AddressBalance
         {
@@ -27,16 +30,20 @@ namespace bitprim.insight.Controllers
             public UInt64 Sent { get; set; }
         }
 
+        private readonly long[] stats = new long[8];
+
         /// <summary>
         /// Build this controller.
         /// </summary>
         /// <param name="config"> Higher level API configuration. </param>
         /// <param name="executor"> Node executor from bitprim-cs library. </param>
-        public AddressController(IOptions<NodeConfig> config, Executor executor)
+        /// <param name="logger">  Abstract logger. </param>
+        public AddressController(IOptions<NodeConfig> config, Executor executor, ILogger<AddressController> logger)
         {
             nodeExecutor_ = executor;
             chain_ = nodeExecutor_.Chain;
             config_ = config.Value;
+            logger_ = logger;
         }
 
         /// <summary>
@@ -86,15 +93,22 @@ namespace bitprim.insight.Controllers
         [SwaggerResponse((int)System.Net.HttpStatusCode.OK, typeof(GetAddressHistoryResponse))]
         [SwaggerResponse((int)System.Net.HttpStatusCode.BadRequest, typeof(string))]
         public async Task<ActionResult> GetAddressHistory(string paymentAddress, int noTxList = 0, int from = 0, int to = 0)
-        {
+        { 
+            Stopwatch stopWatch = Stopwatch.StartNew();
+            
             if( !Validations.IsValidPaymentAddress(paymentAddress) )
             {
                 return BadRequest(paymentAddress + " is not a valid address");
             }
 
+            stats[0] = stopWatch.ElapsedMilliseconds;
+            
             Utils.CheckIfChainIsFresh(chain_, config_.AcceptStaleRequests);
-            var balance = await GetBalance(paymentAddress, noTxList == 0);
+            
+            var balance = await GetBalance(paymentAddress, noTxList == 0, stopWatch);
 
+            stats[4] = stopWatch.ElapsedMilliseconds;
+            
             var historyJson = new GetAddressHistoryResponse
             {
                 addrStr = paymentAddress,
@@ -109,14 +123,19 @@ namespace bitprim.insight.Controllers
             };
 
             Tuple<uint, Int64> unconfirmedSummary = await GetUnconfirmedSummary(paymentAddress);
+
+            stats[5] = stopWatch.ElapsedMilliseconds;
+
             historyJson.unconfirmedBalance = Utils.SatoshisToCoinUnits(unconfirmedSummary.Item2);
             historyJson.unconfirmedBalanceSat = unconfirmedSummary.Item2;
             historyJson.unconfirmedTxAppearances = unconfirmedSummary.Item1;
             historyJson.unconfirmedTxApperances = unconfirmedSummary.Item1;
-
+            
             if( noTxList == 0 )
             {
                 Tuple<string[], string> addressTxs = GetAddressTransactions(balance.Transactions, from, to);
+                stats[6] = stopWatch.ElapsedMilliseconds;
+                
                 if(addressTxs.Item1 == null)
                 {
                     return BadRequest(addressTxs.Item2);
@@ -127,9 +146,13 @@ namespace bitprim.insight.Controllers
             {
                 historyJson.transactions = new string[0];
             }
+
+            stats[7] = stopWatch.ElapsedMilliseconds;
+            logger_.LogDebug("Finish process addr request (ms): " + stats[0] + "\t" + stats[1] + "\t" + stats[2] + "\t" + stats[3] 
+                             + "\t" + stats[4] + "\t" + stats[5] + "\t" + stats[6] + "\t" + stats[7] );
             return Json(historyJson);
         }
-
+        
         /// <summary>
         /// Given an address, get total received amount in coin units.
         /// </summary>
@@ -247,11 +270,15 @@ namespace bitprim.insight.Controllers
             return Json(balance.GetType().GetProperty(propertyName).GetValue(balance, null));
         }
 
-        private async Task<AddressBalance> GetBalance(string paymentAddress, bool includeTransactionIds)
+        private async Task<AddressBalance> GetBalance(string paymentAddress, bool includeTransactionIds, Stopwatch stopWatch = null)
         {
+            stats[1] =  stopWatch?.ElapsedMilliseconds ?? -1;
+
             using (var address = new PaymentAddress(paymentAddress))
             using (var getAddressHistoryResult = await chain_.FetchHistoryAsync(address, UInt64.MaxValue, 0))
             {
+                stats[2] =  stopWatch?.ElapsedMilliseconds ?? -1;
+                
                 Utils.CheckBitprimApiErrorCode(getAddressHistoryResult.ErrorCode, "FetchHistoryAsync(" + paymentAddress + ") failed, check error log.");
                 
                 var history = getAddressHistoryResult.Result;
@@ -301,6 +328,8 @@ namespace bitprim.insight.Controllers
                     }
                 }
                
+                stats[3] =  stopWatch?.ElapsedMilliseconds ?? -1;
+
                 UInt64 totalSent = received - addressBalance;
                 return new AddressBalance{ Balance = addressBalance, Received = received, Sent = totalSent, Transactions = txs };
             }
