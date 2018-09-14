@@ -39,18 +39,22 @@ namespace bitprim.insight
             //TODO Avoid event processing if subscribers do not exist
             if(error == ErrorCode.Success && incoming != null && incoming.Count > 0)
             {
+                string blockHash;
                 string coinbaseTxHash;
                 string destinationAddress;
                 using(var getBlockResult = executor_.Chain.FetchBlockByHeightAsync(height).Result )
                 {
                     Utils.CheckBitprimApiErrorCode(getBlockResult.ErrorCode, "FetchBlockByHeightAsync(" + height + ") failed");
-                    Transaction coinbaseTx = getBlockResult.Result.BlockData.GetNthTransaction(0);
+                    Block newBlock = getBlockResult.Result.BlockData;
+                    blockHash = Binary.ByteArrayToHexString(newBlock.Hash);
+                    Transaction coinbaseTx = newBlock.GetNthTransaction(0);
                     coinbaseTxHash = Binary.ByteArrayToHexString(coinbaseTx.Hash);
                     destinationAddress = coinbaseTx.Outputs[0].PaymentAddress(executor_.UseTestnetRules).Encoded;
                 }
                 var newBlocksNotification = new
                 {
                     eventname = "block",
+                    blockhash = blockHash,
                     coinbasetxid = coinbaseTxHash,
                     destinationaddr = destinationAddress
                 };
