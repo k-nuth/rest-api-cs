@@ -30,6 +30,8 @@ namespace bitprim.insight.Controllers
             public UInt64 Sent { get; set; }
         }
 
+        private readonly long[] stats = new long[8];
+
         /// <summary>
         /// Build this controller.
         /// </summary>
@@ -91,23 +93,22 @@ namespace bitprim.insight.Controllers
         [SwaggerResponse((int)System.Net.HttpStatusCode.OK, typeof(GetAddressHistoryResponse))]
         [SwaggerResponse((int)System.Net.HttpStatusCode.BadRequest, typeof(string))]
         public async Task<ActionResult> GetAddressHistory(string paymentAddress, int noTxList = 0, int from = 0, int to = 0)
-        {
+        { 
             Stopwatch stopWatch = Stopwatch.StartNew();
             
-            logger_.LogDebug("Init addr/" + paymentAddress);
-
             if( !Validations.IsValidPaymentAddress(paymentAddress) )
             {
                 return BadRequest(paymentAddress + " is not a valid address");
             }
 
-            logger_.LogDebug("Finish Validation (ms): " + stopWatch.ElapsedMilliseconds); 
-
+            stats[0] = stopWatch.ElapsedMilliseconds;
+            
             Utils.CheckIfChainIsFresh(chain_, config_.AcceptStaleRequests);
+            
             var balance = await GetBalance(paymentAddress, noTxList == 0, stopWatch);
 
-            logger_.LogDebug("Finish GetBalance (ms): " + stopWatch.ElapsedMilliseconds); 
-
+            stats[4] = stopWatch.ElapsedMilliseconds;
+            
             var historyJson = new GetAddressHistoryResponse
             {
                 addrStr = paymentAddress,
@@ -122,7 +123,8 @@ namespace bitprim.insight.Controllers
             };
 
             Tuple<uint, Int64> unconfirmedSummary = await GetUnconfirmedSummary(paymentAddress);
-            logger_.LogDebug("Finish GetUnconfirmedSummary (ms): " + stopWatch.ElapsedMilliseconds);
+
+            stats[5] = stopWatch.ElapsedMilliseconds;
 
             historyJson.unconfirmedBalance = Utils.SatoshisToCoinUnits(unconfirmedSummary.Item2);
             historyJson.unconfirmedBalanceSat = unconfirmedSummary.Item2;
@@ -132,7 +134,8 @@ namespace bitprim.insight.Controllers
             if( noTxList == 0 )
             {
                 Tuple<string[], string> addressTxs = GetAddressTransactions(balance.Transactions, from, to);
-                logger_.LogDebug("Finish GetAddressTransactions (ms): " + stopWatch.ElapsedMilliseconds);
+                stats[6] = stopWatch.ElapsedMilliseconds;
+                
                 if(addressTxs.Item1 == null)
                 {
                     return BadRequest(addressTxs.Item2);
@@ -143,10 +146,13 @@ namespace bitprim.insight.Controllers
             {
                 historyJson.transactions = new string[0];
             }
-            logger_.LogDebug("Finish process request (ms): " + stopWatch.ElapsedMilliseconds);
+
+            stats[7] = stopWatch.ElapsedMilliseconds;
+            logger_.LogDebug("Finish process addr request (ms): " + stats[0] + "\t" + stats[1] + "\t" + stats[2] + "\t" + stats[3] 
+                             + "\t" + stats[4] + "\t" + stats[5] + "\t" + stats[6] + "\t" + stats[7] );
             return Json(historyJson);
         }
-
+        
         /// <summary>
         /// Given an address, get total received amount in coin units.
         /// </summary>
@@ -266,12 +272,12 @@ namespace bitprim.insight.Controllers
 
         private async Task<AddressBalance> GetBalance(string paymentAddress, bool includeTransactionIds, Stopwatch stopWatch = null)
         {
-            logger_.LogDebug("Init GetBalance (ms): " + stopWatch?.ElapsedMilliseconds); 
+            stats[1] =  stopWatch?.ElapsedMilliseconds ?? -1;
 
             using (var address = new PaymentAddress(paymentAddress))
             using (var getAddressHistoryResult = await chain_.FetchHistoryAsync(address, UInt64.MaxValue, 0))
             {
-                logger_.LogDebug("Finish FetchHistoryAsync (ms): " + stopWatch?.ElapsedMilliseconds); 
+                stats[2] =  stopWatch?.ElapsedMilliseconds ?? -1;
                 
                 Utils.CheckBitprimApiErrorCode(getAddressHistoryResult.ErrorCode, "FetchHistoryAsync(" + paymentAddress + ") failed, check error log.");
                 
@@ -322,7 +328,7 @@ namespace bitprim.insight.Controllers
                     }
                 }
                
-                logger_.LogDebug("Finish loop FetchSpendAsync (ms): " + stopWatch?.ElapsedMilliseconds); 
+                stats[3] =  stopWatch?.ElapsedMilliseconds ?? -1;
 
                 UInt64 totalSent = received - addressBalance;
                 return new AddressBalance{ Balance = addressBalance, Received = received, Sent = totalSent, Transactions = txs };
