@@ -1,3 +1,4 @@
+using System;
 using bitprim.insight.DTOs;
 using Microsoft.AspNetCore.Mvc;
 using Swashbuckle.AspNetCore.SwaggerGen;
@@ -78,6 +79,18 @@ namespace bitprim.insight.Controllers
         public ActionResult GetMemStats()
         {
             return Json(new MemoryStatsDto());
+        }
+
+        /// <summary>
+        /// Force GC.
+        /// </summary>
+        [HttpGet("gc")]
+        [ResponseCache(CacheProfileName = Constants.Cache.SHORT_CACHE_PROFILE_NAME)]
+        [SwaggerOperation("GetGc")]
+        public ActionResult Gc(int generation = 0, bool forced = false, bool block = false)
+        {
+            GC.Collect(generation,forced ?  GCCollectionMode.Forced: GCCollectionMode.Default, block);
+            return Json("OK");
         }
     }
 }
