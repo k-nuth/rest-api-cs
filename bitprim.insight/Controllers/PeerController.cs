@@ -73,7 +73,6 @@ namespace bitprim.insight.Controllers
         /// </summary>
         /// <returns> See WebSocketStatsDto. </returns>
         [HttpGet("memstats")]
-        [ResponseCache(CacheProfileName = Constants.Cache.SHORT_CACHE_PROFILE_NAME)]
         [SwaggerOperation("GetMemStats")]
         [SwaggerResponse((int)System.Net.HttpStatusCode.OK, typeof(MemoryStatsDto))]
         public ActionResult GetMemStats()
@@ -85,7 +84,6 @@ namespace bitprim.insight.Controllers
         /// Force GC.
         /// </summary>
         [HttpGet("gc")]
-        [ResponseCache(CacheProfileName = Constants.Cache.SHORT_CACHE_PROFILE_NAME)]
         [SwaggerOperation("GetGc")]
         public ActionResult Gc(int generation = 0, bool forced = false, bool block = false)
         {
