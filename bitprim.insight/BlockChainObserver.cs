@@ -43,19 +43,22 @@ namespace bitprim.insight
             if(error == ErrorCode.Success && incoming != null && incoming.Count > 0)
             {
                 logger_.LogInformation($"New block arrived ({height}). {incoming.Count} blocks arrived.Block zero TxCount:{incoming[0].TransactionCount}"); 
-
+                string blockHash;
                 string coinbaseTxHash;
                 string destinationAddress;
                 using(var getBlockResult = executor_.Chain.FetchBlockByHeightAsync(height).Result )
                 {
                     Utils.CheckBitprimApiErrorCode(getBlockResult.ErrorCode, "FetchBlockByHeightAsync(" + height + ") failed");
-                    Transaction coinbaseTx = getBlockResult.Result.BlockData.GetNthTransaction(0);
+                    Block newBlock = getBlockResult.Result.BlockData;
+                    blockHash = Binary.ByteArrayToHexString(newBlock.Hash);
+                    Transaction coinbaseTx = newBlock.GetNthTransaction(0);
                     coinbaseTxHash = Binary.ByteArrayToHexString(coinbaseTx.Hash);
                     destinationAddress = coinbaseTx.Outputs[0].PaymentAddress(executor_.UseTestnetRules).Encoded;
                 }
                 var newBlocksNotification = new
                 {
                     eventname = "block",
+                    blockhash = blockHash,
                     coinbasetxid = coinbaseTxHash,
                     destinationaddr = destinationAddress
                 };
