@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Dynamic;
 using System.Linq;
 using bitprim.insight.Websockets;
 using Bitprim;
@@ -132,14 +133,25 @@ namespace bitprim.insight
         private void PublishTxMessage(Transaction newTransaction, string txid, HashSet<string> addresses,
                                       Dictionary<string, decimal> balanceDeltas)
         {
-            var tx = new
+            dynamic tx = new ExpandoObject();
+            tx.eventname = "tx";
+            tx.txid = txid;
+            tx.valueOut = Utils.SatoshisToCoinUnits(newTransaction.TotalOutputValue);
+            tx.addresses = addresses.ToArray();
+            tx.balanceDeltas = balanceDeltas;
+
+            if(config_.WebsocketsMsgTxIncludeVout)
             {
-                eventname = "tx",
-                txid = txid,
-                valueOut = Utils.SatoshisToCoinUnits(newTransaction.TotalOutputValue),
-                addresses = addresses.ToArray(),
-                balanceDeltas = balanceDeltas
-            };
+                var vouts = new object[newTransaction.Outputs.Count][];
+                int i = 0;
+                foreach(Output output in newTransaction.Outputs)
+                {
+                    string addr = output.PaymentAddress(executor_.UseTestnetRules).Encoded;
+                    vouts[i] = new object[2]{addr, output.Value};
+                    i++;
+                }
+                tx.vout = vouts.ToArray();
+            }
 
             var task = webSocketHandler_.PublishTransaction(JsonConvert.SerializeObject(tx));
             task.Wait();
