@@ -96,18 +96,8 @@ namespace bitprim.insight
                 }
 
                 if (config_.WebsocketsMsgTxEnabled)
-                {    
-                    var tx = new
-                    {
-                        eventname = "tx",
-                        txid = txid,
-                        valueOut = Utils.SatoshisToCoinUnits(newTransaction.TotalOutputValue),
-                        addresses = addresses.ToArray(),
-                        balanceDeltas = balanceDeltas
-                    };
-
-                    var task = webSocketHandler_.PublishTransaction(JsonConvert.SerializeObject(tx));
-                    task.Wait();
+                {
+                    PublishTxMessage(newTransaction, txid, addresses, balanceDeltas);
                 }
             }
             return true;
@@ -137,6 +127,22 @@ namespace bitprim.insight
             var task = webSocketHandler_.PublishTransactionAddresses(addressesToPublish);
             task.Wait();
             return balanceDeltas;
+        }
+
+        private void PublishTxMessage(Transaction newTransaction, string txid, HashSet<string> addresses,
+                                      Dictionary<string, decimal> balanceDeltas)
+        {
+            var tx = new
+            {
+                eventname = "tx",
+                txid = txid,
+                valueOut = Utils.SatoshisToCoinUnits(newTransaction.TotalOutputValue),
+                addresses = addresses.ToArray(),
+                balanceDeltas = balanceDeltas
+            };
+
+            var task = webSocketHandler_.PublishTransaction(JsonConvert.SerializeObject(tx));
+            task.Wait();
         }
     }
 }
