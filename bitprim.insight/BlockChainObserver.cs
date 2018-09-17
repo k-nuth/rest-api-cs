@@ -74,42 +74,24 @@ namespace bitprim.insight
             if(error == ErrorCode.Success && newTransaction != null)
             {
                 logger_.LogDebug("New tx arrived. "); 
-
                 var txid = Binary.ByteArrayToHexString(newTransaction.Hash);
- 
                 HashSet<string> addresses = Utils.GetTransactionAddresses(executor_,newTransaction).GetAwaiter().GetResult();
-                
-                var addressesToPublish = new List<Tuple<string, string>>(addresses.Count);
-                var balanceDeltas = new Dictionary<string, decimal>();
+                Dictionary<string, decimal> balanceDeltas = null;
 
                 if (config_.WebsocketsMsgAddressTxEnabled)
                 {
+                    balanceDeltas = PublishAddressTxMessages(newTransaction, txid, addresses);
+                }
+                else if (config_.WebsocketsMsgTxEnabled)
+                {
+                    balanceDeltas = new Dictionary<string, decimal>();
                     foreach(string addr in addresses)
                     {
-                        var addressBalanceDelta = Utils.SatoshisToCoinUnits(Utils.CalculateBalanceDelta(newTransaction, addr, executor_.Chain, executor_.UseTestnetRules).Result);
-                        balanceDeltas[addr] = addressBalanceDelta;
-                    
-                        var addresstx = new
-                        {
-                            eventname = "addresstx",
-                            txid = txid,
-                            balanceDelta = addressBalanceDelta
-                        };
-                        addressesToPublish.Add(new Tuple<string, string>(addr, JsonConvert.SerializeObject(addresstx)));
-                    }
-
-                    var task = webSocketHandler_.PublishTransactionAddresses(addressesToPublish);
-                    task.Wait();
-                }
-                else
-                {   
-                    if (config_.WebsocketsMsgTxEnabled)
-                    {    
-                        foreach(string addr in addresses)
-                        {
-                            var addressBalanceDelta = Utils.SatoshisToCoinUnits(Utils.CalculateBalanceDelta(newTransaction, addr, executor_.Chain, executor_.UseTestnetRules).Result);
-                            balanceDeltas[addr] = addressBalanceDelta;    
-                        }
+                        var addressBalanceDelta = Utils.SatoshisToCoinUnits(Utils.CalculateBalanceDelta
+                        (
+                            newTransaction, addr, executor_.Chain, executor_.UseTestnetRules
+                        ).Result);
+                        balanceDeltas[addr] = addressBalanceDelta;    
                     }
                 }
 
@@ -129,6 +111,32 @@ namespace bitprim.insight
                 }
             }
             return true;
+        }
+
+        private Dictionary<string, decimal> PublishAddressTxMessages(Transaction newTransaction, string txid, HashSet<string> addresses)
+        {
+            var balanceDeltas = new Dictionary<string, decimal>();
+            var addressesToPublish = new List<Tuple<string, string>>(addresses.Count);
+            foreach(string addr in addresses)
+            {
+                var addressBalanceDelta = Utils.SatoshisToCoinUnits(Utils.CalculateBalanceDelta
+                (
+                    newTransaction, addr, executor_.Chain, executor_.UseTestnetRules
+                ).Result);
+                balanceDeltas[addr] = addressBalanceDelta;
+            
+                var addresstx = new
+                {
+                    eventname = "addresstx",
+                    txid = txid,
+                    balanceDelta = addressBalanceDelta
+                };
+                addressesToPublish.Add(new Tuple<string, string>(addr, JsonConvert.SerializeObject(addresstx)));
+            }
+
+            var task = webSocketHandler_.PublishTransactionAddresses(addressesToPublish);
+            task.Wait();
+            return balanceDeltas;
         }
     }
 }
