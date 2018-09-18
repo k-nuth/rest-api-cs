@@ -142,12 +142,14 @@ namespace bitprim.insight
 
             if(config_.WebsocketsMsgTxIncludeVout)
             {
-                var vouts = new object[newTransaction.Outputs.Count][];
+                var vouts = new object[newTransaction.Outputs.Count];
                 for(uint i =0; i<newTransaction.Outputs.Count; i++)
                 {
                     Output output = newTransaction.Outputs[i];
                     string addr = output.PaymentAddress(executor_.UseTestnetRules).Encoded;
-                    vouts[i] = new object[2]{addr, output.Value};
+                    var outputJson = new ExpandoObject() as IDictionary<string, object>;
+                    outputJson.Add(addr, output.Value);
+                    vouts[i] = outputJson;
                 }
                 tx.vout = vouts;
             }
