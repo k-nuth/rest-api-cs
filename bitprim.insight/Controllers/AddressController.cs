@@ -30,7 +30,7 @@ namespace bitprim.insight.Controllers
             public UInt64 Sent { get; set; }
         }
 
-        private readonly long[] stats = new long[8];
+        private readonly long[] statsGetAddressHistory = new long[8];
 
         /// <summary>
         /// Build this controller.
@@ -101,13 +101,13 @@ namespace bitprim.insight.Controllers
                 return BadRequest(paymentAddress + " is not a valid address");
             }
 
-            stats[0] = stopWatch.ElapsedMilliseconds;
+            statsGetAddressHistory[0] = stopWatch.ElapsedMilliseconds;
             
             Utils.CheckIfChainIsFresh(chain_, config_.AcceptStaleRequests);
             
             var balance = await GetBalance(paymentAddress, noTxList == 0, stopWatch);
 
-            stats[4] = stopWatch.ElapsedMilliseconds;
+            statsGetAddressHistory[4] = stopWatch.ElapsedMilliseconds;
             
             var historyJson = new GetAddressHistoryResponse
             {
@@ -124,7 +124,7 @@ namespace bitprim.insight.Controllers
 
             Tuple<uint, Int64> unconfirmedSummary = await GetUnconfirmedSummary(paymentAddress);
 
-            stats[5] = stopWatch.ElapsedMilliseconds;
+            statsGetAddressHistory[5] = stopWatch.ElapsedMilliseconds;
 
             historyJson.unconfirmedBalance = Utils.SatoshisToCoinUnits(unconfirmedSummary.Item2);
             historyJson.unconfirmedBalanceSat = unconfirmedSummary.Item2;
@@ -134,7 +134,7 @@ namespace bitprim.insight.Controllers
             if( noTxList == 0 )
             {
                 Tuple<string[], string> addressTxs = GetAddressTransactions(balance.Transactions, from, to);
-                stats[6] = stopWatch.ElapsedMilliseconds;
+                statsGetAddressHistory[6] = stopWatch.ElapsedMilliseconds;
                 
                 if(addressTxs.Item1 == null)
                 {
@@ -147,9 +147,9 @@ namespace bitprim.insight.Controllers
                 historyJson.transactions = new string[0];
             }
 
-            stats[7] = stopWatch.ElapsedMilliseconds;
-            logger_.LogDebug("Finish process addr request (ms): " + stats[0] + "\t" + stats[1] + "\t" + stats[2] + "\t" + stats[3] 
-                             + "\t" + stats[4] + "\t" + stats[5] + "\t" + stats[6] + "\t" + stats[7] );
+            statsGetAddressHistory[7] = stopWatch.ElapsedMilliseconds;
+            logger_.LogDebug("Finish process addr request (ms): " + statsGetAddressHistory[0] + "\t" + statsGetAddressHistory[1] + "\t" + statsGetAddressHistory[2] + "\t" + statsGetAddressHistory[3] 
+                             + "\t" + statsGetAddressHistory[4] + "\t" + statsGetAddressHistory[5] + "\t" + statsGetAddressHistory[6] + "\t" + statsGetAddressHistory[7] );
             return Json(historyJson);
         }
         
@@ -272,12 +272,12 @@ namespace bitprim.insight.Controllers
 
         private async Task<AddressBalance> GetBalance(string paymentAddress, bool includeTransactionIds, Stopwatch stopWatch = null)
         {
-            stats[1] =  stopWatch?.ElapsedMilliseconds ?? -1;
+            statsGetAddressHistory[1] =  stopWatch?.ElapsedMilliseconds ?? -1;
 
             using (var address = new PaymentAddress(paymentAddress))
             using (var getAddressHistoryResult = await chain_.FetchHistoryAsync(address, UInt64.MaxValue, 0))
             {
-                stats[2] =  stopWatch?.ElapsedMilliseconds ?? -1;
+                statsGetAddressHistory[2] =  stopWatch?.ElapsedMilliseconds ?? -1;
                 
                 Utils.CheckBitprimApiErrorCode(getAddressHistoryResult.ErrorCode, "FetchHistoryAsync(" + paymentAddress + ") failed, check error log.");
                 
@@ -328,7 +328,7 @@ namespace bitprim.insight.Controllers
                     }
                 }
                
-                stats[3] =  stopWatch?.ElapsedMilliseconds ?? -1;
+                statsGetAddressHistory[3] =  stopWatch?.ElapsedMilliseconds ?? -1;
 
                 UInt64 totalSent = received - addressBalance;
                 return new AddressBalance{ Balance = addressBalance, Received = received, Sent = totalSent, Transactions = txs };

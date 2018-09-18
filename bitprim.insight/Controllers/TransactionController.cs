@@ -6,6 +6,7 @@ using Microsoft.Extensions.Options;
 using Swashbuckle.AspNetCore.SwaggerGen;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Caching.Memory;
@@ -24,6 +25,8 @@ namespace bitprim.insight.Controllers
         private readonly IMemoryCache memoryCache_;
         private readonly NodeConfig config_;
         private static readonly TxPositionComparer txPositionComparer_ = new TxPositionComparer();
+
+        private readonly List<long> statsGetTransactions = new List<long>();
 
         /// <summary>
         /// Build this controller.
@@ -192,6 +195,8 @@ namespace bitprim.insight.Controllers
         [SwaggerResponse((int)System.Net.HttpStatusCode.BadRequest, typeof(string))]
         public async Task<ActionResult> GetTransactions(string block = null, string address = null, uint pageNum = 0)
         {
+            Stopwatch stopWatch = Stopwatch.StartNew();
+
             if(block == null && address == null)
             {
                 return BadRequest("Specify block or address");
@@ -216,13 +221,20 @@ namespace bitprim.insight.Controllers
                 return BadRequest(address + " is not a valid address");
             }
 
+            statsGetTransactions.Add(stopWatch.ElapsedMilliseconds);
+
             var pageSize = config_.TransactionsByAddressPageSize;
             var from = (int)(pageSize * pageNum);
             int to = (int)(from + pageSize - 1);
 
-            var result = await DoGetTransactionsForMultipleAddresses( new[] {address}, from, to, false, false, false);
+            var result = await DoGetTransactionsForMultipleAddresses( new[] {address}, from, to, stopWatch,false, false, false);
+
+            statsGetTransactions.Add(stopWatch.ElapsedMilliseconds);
 
             var pageCount = (UInt64) Math.Ceiling((double)result.Item2/(double)pageSize);
+
+
+            logger_.LogDebug("Finish process addr request (ms): " + String.Join("\t", statsGetTransactions) );
 
             return Json( new GetTransactionsResponse
             {
@@ -245,12 +257,14 @@ namespace bitprim.insight.Controllers
         [SwaggerResponse((int)System.Net.HttpStatusCode.BadRequest, typeof(string))]
         public async Task<ActionResult> GetTransactionsForMultipleAddresses([FromRoute] string paymentAddresses, [FromQuery] int from = 0, [FromQuery] int to = 10)
         {
+            Stopwatch stopWatch = Stopwatch.StartNew();
+
             var validationResult = ValidateGetTransactionsFromMultipleAddressesInput(paymentAddresses, from, to);
             if( !validationResult.Item1 )
             {
                 return BadRequest(validationResult.Item2);
             }
-            var result = await DoGetTransactionsForMultipleAddresses(validationResult.Item3, from, to, false, false, false);
+            var result = await DoGetTransactionsForMultipleAddresses(validationResult.Item3, from, to, stopWatch, false, false, false);
             return Json(new GetTransactionsForMultipleAddressesResponse
             {
                 totalItems = result.Item2,
@@ -272,6 +286,8 @@ namespace bitprim.insight.Controllers
         [SwaggerResponse((int)System.Net.HttpStatusCode.BadRequest, typeof(string))]
         public async Task<ActionResult> GetTransactionsForMultipleAddresses([FromBody] GetTxsForMultipleAddressesRequest request)
         {
+            Stopwatch stopWatch = Stopwatch.StartNew();
+
             if(request == null)
             {
                 //TODO Point user to documentation once docs include DTOs (RA-176)
@@ -287,7 +303,7 @@ namespace bitprim.insight.Controllers
                 return BadRequest(validationResult.Item2);
             }
 
-            var result = await DoGetTransactionsForMultipleAddresses(validationResult.Item3, request.from, request.to, request.noAsm == 1, request.noScriptSig == 1, request.noSpend == 1);
+            var result = await DoGetTransactionsForMultipleAddresses(validationResult.Item3, request.from, request.to, stopWatch ,request.noAsm == 1, request.noScriptSig == 1, request.noSpend == 1);
             return Json(new GetTransactionsForMultipleAddressesResponse
             {
                 totalItems = result.Item2,
@@ -350,7 +366,7 @@ namespace bitprim.insight.Controllers
         }
 
         private async Task<Tuple<List<TransactionSummary>, int, int>>
-        DoGetTransactionsForMultipleAddresses(string[] addresses, int from, int to,
+        DoGetTransactionsForMultipleAddresses(string[] addresses, int from, int to, Stopwatch stopWatch,
                                               bool noAsm = true, bool noScriptSig = true, bool noSpend = true)
         {
             var fromCache = false;
@@ -364,14 +380,18 @@ namespace bitprim.insight.Controllers
                 }
             }
 
+            statsGetTransactions.Add(stopWatch.ElapsedMilliseconds);
+
             if (!fromCache)
             {
                 txPositions = new SortedSet<Tuple<Int64, string>>( txPositionComparer_ );
                 foreach(string address in addresses)
                 {
-                    await GetTransactionPositionsBySingleAddress(address, false, 0, txPositions);
+                    await GetTransactionPositionsBySingleAddress(address, false, 0, txPositions, stopWatch);
                 }
             }
+
+            statsGetTransactions.Add(stopWatch.ElapsedMilliseconds);
 
             if (txPositions.Count > Constants.Cache.TXID_LIST_CACHE_MIN)
             {
@@ -381,6 +401,8 @@ namespace bitprim.insight.Controllers
                     ,Size = Constants.Cache.TXID_LIST_CACHE_ITEM_SIZE
                 });
             }
+
+            statsGetTransactions.Add(stopWatch.ElapsedMilliseconds);
 
             var finalTo = Math.Min(to, txPositions.Count);
 
@@ -394,6 +416,9 @@ namespace bitprim.insight.Controllers
                     txsDigest.Add( await TxToJSON(getTxResult.Result.Tx, (UInt64) txPosition.Item1, txPosition.Item1 > 0, noAsm, noScriptSig, noSpend) );
                 }
             }
+
+            statsGetTransactions.Add(stopWatch.ElapsedMilliseconds);
+
             return new Tuple<List<TransactionSummary>, int, int>(txsDigest, txPositions.Count, finalTo);
         }
 
@@ -465,17 +490,22 @@ namespace bitprim.insight.Controllers
         //}
 
         private async Task GetTransactionPositionsBySingleAddress(string paymentAddress, bool pageResults, uint pageNum,
-                                                                  SortedSet<Tuple<Int64, string>> txPositions)
+                                                                  SortedSet<Tuple<Int64, string>> txPositions, Stopwatch stopWatch)
         {
             Utils.CheckIfChainIsFresh(chain_, config_.AcceptStaleRequests);
 
             using (var address = new PaymentAddress(paymentAddress))
             using (var getTransactionResult = await chain_.FetchConfirmedTransactionsAsync(address, UInt64.MaxValue, 0))
             {
+
+                statsGetTransactions.Add(stopWatch.ElapsedMilliseconds);
+
                 Utils.CheckBitprimApiErrorCode(getTransactionResult.ErrorCode, "FetchConfirmedTransactionsAsync(" + paymentAddress + ") failed, check error log.");
 
                 //Unconfirmed first
                 GetUnconfirmedTransactionPositions(address, txPositions);    
+
+                statsGetTransactions.Add(stopWatch.ElapsedMilliseconds);
 
                 HashList confirmedTxIds = getTransactionResult.Result;
                 uint pageSize = pageResults ? config_.TransactionsByAddressPageSize : confirmedTxIds.Count;
@@ -490,6 +520,8 @@ namespace bitprim.insight.Controllers
                     bool confirmed = CheckIfTransactionIsConfirmed(getTxPosResult.Result);
                     txPositions.Add(new Tuple<Int64, string>(confirmed? (Int64) getTxPosResult.Result.BlockHeight : -1, txHashStr));
                 }
+
+                statsGetTransactions.Add(stopWatch.ElapsedMilliseconds);
             }
         }
 
