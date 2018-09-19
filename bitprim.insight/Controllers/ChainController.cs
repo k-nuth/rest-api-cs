@@ -54,22 +54,34 @@ namespace bitprim.insight.Controllers
         /// <summary>
         /// Get an estimate value for current block fee.
         /// </summary>
-        /// <param name="nbBlocks"> Number of blocks to consider for estimation; a higher number
+        /// <param name="nbBlocks"> Comma-separed list of block numbers to use for each estimation; a higher number
         /// implies higher precision, but will take longer to calculate.
         /// </param>
-        /// <returns> Current estimation for block fee. </returns>
+        /// <returns> Current estimations for block fee, for each block count requested. </returns>
         [HttpGet("utils/estimatefee")]
         [SwaggerOperation("GetEstimateFee")]
         [SwaggerResponse((int)System.Net.HttpStatusCode.OK, typeof(IDictionary<string, string>))]
-        public ActionResult GetEstimateFee([FromQuery] int nbBlocks = 2)
+        public ActionResult GetEstimateFee([FromQuery] string nbBlocks = "2")
         {
-            if( !ModelState.IsValid || nbBlocks <= 0)
+            if( !ModelState.IsValid || string.IsNullOrWhiteSpace(nbBlocks) )
             {
-                return BadRequest("nbBlocks must be an integer greater than zero");
+                return BadRequest("nbBlocks must be a string of comma-separated integers");
+            }
+            var nbBlocksStr = nbBlocks.Split(",");
+            foreach(string s in nbBlocksStr)
+            {
+                int a;
+                if( !int.TryParse(s, out a) )
+                {
+                    return BadRequest(s + " is not an integer");
+                }
             }
             var estimateFee = new ExpandoObject() as IDictionary<string, Object>;
             //TODO Check which algorithm to use (see bitcoin-abc's median, at src/policy/fees.cpp for an example)
-            estimateFee.Add(nbBlocks.ToString(), config_.EstimateFeeDefault.ToString("N8"));
+            foreach(string s in nbBlocksStr)
+            {
+                estimateFee.Add(s, config_.EstimateFeeDefault.ToString("N8"));
+            }
             return Json(estimateFee);
         }
 
