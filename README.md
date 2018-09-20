@@ -97,6 +97,7 @@ Eg.
   "ForwardUrl" : "http://localhost:1234",
   "InitializeNode" : true,
   "LongResponseCacheDurationInSeconds": 86400,
+  "MaxAddressesPerQuery": 10,
   "MaxBlockSummarySize": 500,
   "MaxCacheSize": 50000,
   "MaxSocketPublishRetries": 3,
@@ -203,6 +204,12 @@ http://blockdozer.com/[ApiPrefix]/blocks/
 * /rawblock 
 * /rawtx
 *Default value:86400* 
+
+**MaxAddressesPerQuery**: Define the max address allowed per query. Used in the following requests: 
+* /addrs/{paymentAddresses}/utxo 
+* /addrs/utxo
+* /addrs/{paymentAddresses}/txs
+*Default value:10* 
 
 **MaxBlockSummarySize**: Defines the max limit of the /blocks method.
 *Default value:500* 
