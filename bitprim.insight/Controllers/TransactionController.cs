@@ -172,7 +172,7 @@ namespace bitprim.insight.Controllers
             {
                 if (getTxResult.ErrorCode == ErrorCode.NotFound)
                 {
-                    throw new HttpStatusCodeException(HttpStatusCode.NotFound,"Not Found");
+                    throw new HttpStatusCodeException(HttpStatusCode.NotFound, "Not Found");
                 }
                 
                 Utils.CheckBitprimApiErrorCode(getTxResult.ErrorCode, "FetchTransactionAsync(" + hash + ") failed, check error log");
