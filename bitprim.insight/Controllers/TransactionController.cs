@@ -221,6 +221,7 @@ namespace bitprim.insight.Controllers
                 return BadRequest(address + " is not a valid address");
             }
 
+            //1
             statsGetTransactions.Add(stopWatch.ElapsedMilliseconds);
 
             var pageSize = config_.TransactionsByAddressPageSize;
@@ -229,6 +230,7 @@ namespace bitprim.insight.Controllers
 
             var result = await DoGetTransactionsForMultipleAddresses( new[] {address}, from, to, stopWatch,false, false, false);
 
+            //9
             statsGetTransactions.Add(stopWatch.ElapsedMilliseconds);
 
             var pageCount = (UInt64) Math.Ceiling((double)result.Item2/(double)pageSize);
@@ -379,7 +381,7 @@ namespace bitprim.insight.Controllers
                     fromCache = true;
                 }
             }
-
+            //2
             statsGetTransactions.Add(stopWatch.ElapsedMilliseconds);
 
             if (!fromCache)
@@ -387,10 +389,11 @@ namespace bitprim.insight.Controllers
                 txPositions = new SortedSet<Tuple<Int64, string>>( txPositionComparer_ );
                 foreach(string address in addresses)
                 {
-                    await GetTransactionPositionsBySingleAddress(address, false, 0, txPositions, stopWatch);
+                    await GetTransactionPositionsBySingleAddress(address, txPositions, stopWatch);
                 }
             }
 
+            //6
             statsGetTransactions.Add(stopWatch.ElapsedMilliseconds);
 
             if (txPositions.Count > Constants.Cache.TXID_LIST_CACHE_MIN)
@@ -402,6 +405,7 @@ namespace bitprim.insight.Controllers
                 });
             }
 
+            //7
             statsGetTransactions.Add(stopWatch.ElapsedMilliseconds);
 
             var finalTo = Math.Min(to, txPositions.Count);
@@ -417,6 +421,7 @@ namespace bitprim.insight.Controllers
                 }
             }
 
+            //8
             statsGetTransactions.Add(stopWatch.ElapsedMilliseconds);
 
             return new Tuple<List<TransactionSummary>, int, int>(txsDigest, txPositions.Count, finalTo);
@@ -453,94 +458,40 @@ namespace bitprim.insight.Controllers
             }
         }
 
-        //private async Task<List<TransactionSummary>> GetTransactionsBySingleAddress(string paymentAddress, uint pageNum, bool noAsm,
-        //                                                                            bool noScriptSig, bool noSpend)
-        //{
-        //    Utils.CheckIfChainIsFresh(chain_, config_.AcceptStaleRequests);
-
-        //    using (var address = new PaymentAddress(paymentAddress))
-        //    using (var getTransactionResult = await chain_.FetchConfirmedTransactionsAsync(address, UInt64.MaxValue, 0))
-        //    {
-        //        Utils.CheckBitprimApiErrorCode(getTransactionResult.ErrorCode, "FetchConfirmedTransactionsAsync(" + paymentAddress + ") failed, check error log.");
-
-        //        var txIds = getTransactionResult.Result;
-        //        var pageSize = config_.TransactionsByAddressPageSize;
-
-        //        //Unconfirmed first
-        //        List<TransactionSummary> txsJson = await GetUnconfirmedTransactions(address, noAsm, noScriptSig, noSpend);
-        //        if( pageNum * (pageSize + 1) < txsJson.Count )
-        //        {
-        //            return txsJson;
-        //        }
-
-        //        //Confirmed
-        //        for(uint i=0; i<pageSize && (pageNum * pageSize + i < txIds.Count); i++)
-        //        {
-        //            var txHash = txIds[(pageNum * pageSize + i)];
-        //            using(var getTxResult = await chain_.FetchTransactionAsync(txHash, true))
-        //            {
-        //                Utils.CheckBitprimApiErrorCode(getTxResult.ErrorCode, "FetchTransactionAsync(" + Binary.ByteArrayToHexString(txHash) + ") failed, check error log");
-        //                bool confirmed = CheckIfTransactionIsConfirmed(getTxResult.Result.TxPosition);
-        //                txsJson.Add( await TxToJSON(getTxResult.Result.Tx, getTxResult.Result.TxPosition.BlockHeight, confirmed, noAsm, noScriptSig, noSpend) );
-        //            }
-        //        }
-
-        //        return txsJson;
-        //    }
-        //}
-
-        private async Task GetTransactionPositionsBySingleAddress(string paymentAddress, bool pageResults, uint pageNum,
-                                                                  SortedSet<Tuple<Int64, string>> txPositions, Stopwatch stopWatch)
+        private async Task GetTransactionPositionsBySingleAddress(string paymentAddress, SortedSet<Tuple<Int64, string>> txPositions, Stopwatch stopWatch)
         {
             Utils.CheckIfChainIsFresh(chain_, config_.AcceptStaleRequests);
 
             using (var address = new PaymentAddress(paymentAddress))
-            using (var getTransactionResult = await chain_.FetchConfirmedTransactionsAsync(address, UInt64.MaxValue, 0))
             {
-
-                statsGetTransactions.Add(stopWatch.ElapsedMilliseconds);
-
-                Utils.CheckBitprimApiErrorCode(getTransactionResult.ErrorCode, "FetchConfirmedTransactionsAsync(" + paymentAddress + ") failed, check error log.");
-
                 //Unconfirmed first
                 GetUnconfirmedTransactionPositions(address, txPositions);    
-
+                //3
                 statsGetTransactions.Add(stopWatch.ElapsedMilliseconds);
 
-                HashList confirmedTxIds = getTransactionResult.Result;
-                uint pageSize = pageResults ? config_.TransactionsByAddressPageSize : confirmedTxIds.Count;
-
-                //Confirmed
-                for(uint i=0; i<pageSize && (pageNum * pageSize + i < confirmedTxIds.Count); i++)
+                using (var getTransactionResult = await chain_.FetchConfirmedTransactionsAsync(address, UInt64.MaxValue, 0))
                 {
-                    var txHash = confirmedTxIds[(pageNum * pageSize + i)];
-                    var getTxPosResult = await chain_.FetchTransactionPositionAsync(txHash, true);
-                    string txHashStr = Binary.ByteArrayToHexString(txHash);
-                    Utils.CheckBitprimApiErrorCode(getTxPosResult.ErrorCode, "FetchTransactionPositionAsync(" + txHashStr + ") failed, check error log");
-                    bool confirmed = CheckIfTransactionIsConfirmed(getTxPosResult.Result);
-                    txPositions.Add(new Tuple<Int64, string>(confirmed? (Int64) getTxPosResult.Result.BlockHeight : -1, txHashStr));
-                }
+                    Utils.CheckBitprimApiErrorCode(getTransactionResult.ErrorCode, "FetchConfirmedTransactionsAsync(" + paymentAddress + ") failed, check error log.");
 
-                statsGetTransactions.Add(stopWatch.ElapsedMilliseconds);
+                    //4
+                    statsGetTransactions.Add(stopWatch.ElapsedMilliseconds);
+
+                    HashList confirmedTxIds = getTransactionResult.Result;
+                   
+                    //Confirmed
+                    foreach (byte[] txHash in confirmedTxIds)
+                    {
+                        ApiCallResult<GetTxPositionResult> getTxPosResult = await chain_.FetchTransactionPositionAsync(txHash, true);
+                        string txHashStr = Binary.ByteArrayToHexString(txHash);
+                        Utils.CheckBitprimApiErrorCode(getTxPosResult.ErrorCode, "FetchTransactionPositionAsync(" + txHashStr + ") failed, check error log");
+                        txPositions.Add(new Tuple<Int64, string>((Int64) getTxPosResult.Result.BlockHeight , txHashStr)); 
+                    }
+                    
+                    //5
+                    statsGetTransactions.Add(stopWatch.ElapsedMilliseconds);
+                }
             }
         }
-
-        //private async Task<List<TransactionSummary>> GetUnconfirmedTransactions(PaymentAddress address, bool noAsm, bool noScriptSig, bool noSpend)
-        //{
-        //    var unconfirmedTxsJson = new List<TransactionSummary>();
-        //    using(MempoolTransactionList unconfirmedTxIds = chain_.GetMempoolTransactions(address, nodeExecutor_.UseTestnetRules))
-        //    {
-        //        foreach(MempoolTransaction unconfirmedTxId in unconfirmedTxIds)
-        //        {
-        //            using(var getTxResult = await chain_.FetchTransactionAsync(Binary.HexStringToByteArray(unconfirmedTxId.Hash), requireConfirmed: false))
-        //            {
-        //                Utils.CheckBitprimApiErrorCode(getTxResult.ErrorCode, "FetchTransactionAsync(" + unconfirmedTxId.Hash + ") failed, check error log");
-        //                unconfirmedTxsJson.Add( await TxToJSON(getTxResult.Result.Tx, 0, false, noAsm, noScriptSig, noSpend) );
-        //            }
-        //        }
-        //        return unconfirmedTxsJson;
-        //    }
-        //}
 
         private void GetUnconfirmedTransactionPositions(PaymentAddress address, SortedSet<Tuple<Int64, string>> txPositions)
         {
