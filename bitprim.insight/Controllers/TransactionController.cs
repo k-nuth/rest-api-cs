@@ -8,7 +8,9 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Net;
 using System.Threading.Tasks;
+using bitprim.insight.Exceptions;
 using Microsoft.Extensions.Caching.Memory;
 
 namespace bitprim.insight.Controllers
@@ -168,6 +170,11 @@ namespace bitprim.insight.Controllers
 
             using(var getTxResult = await chain_.FetchTransactionAsync(binaryHash, requireConfirmed == 1))
             {
+                if (getTxResult.ErrorCode == ErrorCode.NotFound)
+                {
+                    throw new HttpStatusCodeException(HttpStatusCode.NotFound,"Not Found");
+                }
+                
                 Utils.CheckBitprimApiErrorCode(getTxResult.ErrorCode, "FetchTransactionAsync(" + hash + ") failed, check error log");
                 bool confirmed = CheckIfTransactionIsConfirmed(getTxResult.Result.TxPosition);
                 return Json(await TxToJSON
