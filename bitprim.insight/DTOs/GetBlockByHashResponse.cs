@@ -51,7 +51,7 @@ namespace bitprim.insight.DTOs
         /// <summary>
         /// Packed/compressed representation of block difficulty.
         /// </summary>
-        public string bits { get; set; }
+        public UInt32 bits { get; set; }
 
         /// <summary>
         /// A representation of the computing power which was required to mine this block. 
