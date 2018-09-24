@@ -88,7 +88,7 @@ namespace bitprim.insight.Controllers
                 using(DisposableApiCallResult<GetTxDataResult> coinbase = await chain_.FetchTransactionAsync(getBlockResult.Result.TransactionHashes[0], true))
                 {
                     Utils.CheckBitprimApiErrorCode(coinbase.ErrorCode, "FetchTransactionAsync(" + getBlockResult.Result.TransactionHashes[0] + ") failed, check error log");
-                    blockReward = Math.Round(Utils.SatoshisToCoinUnits(coinbase.Result.Tx.TotalOutputValue),1);
+                    blockReward = Utils.SatoshisToCoinUnits(coinbase.Result.Tx.TotalOutputValue);
                     poolInfo = poolsInfo_.GetPoolInfo(coinbase.Result.Tx);
                 }
 

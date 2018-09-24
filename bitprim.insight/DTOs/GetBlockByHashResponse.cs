@@ -74,6 +74,11 @@ namespace bitprim.insight.DTOs
         public string previousblockhash { get; set; }
 
         /// <summary>
+        /// Next block hash as a 64-character (32 bytes) hex string; for the latest block, this field is left empty.
+        /// </summary>
+        public string nextblockhash { get; set; }
+
+        /// <summary>
         /// Fees earned by the miner who mined this block, in coin units.
         /// </summary>
         public decimal reward { get; set; }
@@ -88,13 +93,6 @@ namespace bitprim.insight.DTOs
         /// Refers to the pool to which the miner belongs (if applies).
         /// </summary>
         public PoolInfo poolInfo { get; set; }
-
-        
-        /// <summary>
-        /// Next block hash as a 64-character (32 bytes) hex string; for the latest block, this field is left empty.
-        /// </summary>
-        public string nextblockhash { get; set; }
-
 
         /// <summary>
         /// Block transaction length.
