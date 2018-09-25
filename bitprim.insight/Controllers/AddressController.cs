@@ -149,7 +149,7 @@ namespace bitprim.insight.Controllers
             }
 
             statsGetAddressHistory[7] = stopWatch.ElapsedMilliseconds;
-            logger_.LogDebug("Finish process addr request (ms): " + statsGetAddressHistory[0] + "\t" + statsGetAddressHistory[1] + "\t" + statsGetAddressHistory[2] + "\t" + statsGetAddressHistory[3]
+            logger_.LogDebug("Finished process addr request (ms): " + statsGetAddressHistory[0] + "\t" + statsGetAddressHistory[1] + "\t" + statsGetAddressHistory[2] + "\t" + statsGetAddressHistory[3]
                              + "\t" + statsGetAddressHistory[4] + "\t" + statsGetAddressHistory[5] + "\t" + statsGetAddressHistory[6] + "\t" + statsGetAddressHistory[7]);
             return Json(historyJson);
         }
