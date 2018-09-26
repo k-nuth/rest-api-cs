@@ -183,12 +183,13 @@ namespace bitprim.insight.Controllers
         /// Given a list of addresses, get their combined unspent outputs.
         /// </summary>
         /// <param name="paymentAddresses"> Comma separated list of addresses. For BCH, cashaddr format is accepted. </param>
+        /// <param name="returnLegacyAddresses"> If and only if true, return addresses in legacy format. By default, use cashaddr. </param>
         /// <returns> List of all utxos for address1, followed by all utxos for address2, and so on. </returns>
         [HttpGet("addrs/{paymentAddresses}/utxo")]
         [ResponseCache(CacheProfileName = Constants.Cache.SHORT_CACHE_PROFILE_NAME)]
         [SwaggerOperation("GetUtxoForMultipleAddresses")]
         [SwaggerResponse((int)System.Net.HttpStatusCode.OK, typeof(Utxo[]))]
-        public async Task<ActionResult> GetUtxoForMultipleAddresses(string paymentAddresses)
+        public async Task<ActionResult> GetUtxoForMultipleAddresses(string paymentAddresses, bool returnLegacyAddresses)
         {
             var utxo = new List<Utxo>();
             var addresses = paymentAddresses.Split(",");
@@ -205,7 +206,7 @@ namespace bitprim.insight.Controllers
             }
             foreach(var address in addresses)
             {
-                utxo.AddRange(await GetUtxo(address));
+                utxo.AddRange(await GetUtxo(address, returnLegacyAddresses));
             }
             return Json(utxo.ToArray());
         }
@@ -237,25 +238,27 @@ namespace bitprim.insight.Controllers
                     return BadRequest(address + " is not a valid address");
                 }
             }
-            return await GetUtxoForMultipleAddresses(requestParams.addrs);
+            return await GetUtxoForMultipleAddresses(requestParams.addrs, requestParams.legacy_addr);
         }
 
         /// <summary>
         /// Given an address, get all of its currently unspent outputs.
         /// </summary>
         /// <param name="paymentAddress"> The address of interest. For BCH, cashaddr format is accepted. </param>
+        /// <param name="legacyAddresFormat"> If and only if true, use legacy address format in returned object. By
+        /// default, cash addr is used. </param>
         /// <returns> A list of all utxos for the given address. </returns>
         [HttpGet("addr/{paymentAddress}/utxo")]
         [ResponseCache(CacheProfileName = Constants.Cache.SHORT_CACHE_PROFILE_NAME)]
         [SwaggerOperation("GetUtxoForSingleAddress")]
         [SwaggerResponse((int)System.Net.HttpStatusCode.OK, typeof(Utxo[]))]
-        public async Task<ActionResult> GetUtxoForSingleAddress(string paymentAddress)
+        public async Task<ActionResult> GetUtxoForSingleAddress(string paymentAddress, [FromQuery] bool legacyAddresFormat = false)
         {
             if( !Validations.IsValidPaymentAddress(paymentAddress) )
             {
                 return BadRequest(paymentAddress + " is not a valid address");
             }
-            var utxo = await GetUtxo(paymentAddress);
+            var utxo = await GetUtxo(paymentAddress, legacyAddresFormat);
             return Json(utxo.ToArray());
         }
 
@@ -335,7 +338,7 @@ namespace bitprim.insight.Controllers
             }
         }
 
-        private async Task<List<Utxo>> GetUtxo(string paymentAddress)
+        private async Task<List<Utxo>> GetUtxo(string paymentAddress, bool returnLegacyAddresses)
         {
             Utils.CheckIfChainIsFresh(chain_, config_.AcceptStaleRequests);
 
@@ -367,10 +370,10 @@ namespace bitprim.insight.Controllers
                                 using(var getTxResult = await chain_.FetchTransactionAsync(compact.Point.Hash, true))
                                 {
                                     Utils.CheckBitprimApiErrorCode(getTxResult.ErrorCode, "FetchTransactionAsync (" + Binary.ByteArrayToHexString(outPoint.Hash)  + ") failed, check error log");
-                                    utxo.Add(new Utxo(address, compact.Point, getTxResult.ErrorCode, getTxResult.Result.Tx, compact, topHeight));
+                                    utxo.Add(new Utxo(address, compact.Point, getTxResult.ErrorCode, getTxResult.Result.Tx, compact, topHeight, returnLegacyAddresses));
                                 }
                             }
-                        }                        
+                        }
                     }
                 }
                 utxo.AddRange(GetUnconfirmedUtxo(address));

@@ -35,5 +35,10 @@ namespace bitprim.insight.DTOs
         /// Choose whether or not to include spend information. (1 = include, 0 = don't include)
         /// </summary>
         public int noSpend { get; set; } = 1;
+
+        /// <summary>
+        /// If and only if true, return BCH addresses in legacy format.
+        /// </summary>
+        public bool legacyAddressFormat { get; set; } = false;
     }
 }
