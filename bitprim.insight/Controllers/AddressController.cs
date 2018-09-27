@@ -189,7 +189,7 @@ namespace bitprim.insight.Controllers
         [ResponseCache(CacheProfileName = Constants.Cache.SHORT_CACHE_PROFILE_NAME)]
         [SwaggerOperation("GetUtxoForMultipleAddresses")]
         [SwaggerResponse((int)System.Net.HttpStatusCode.OK, typeof(Utxo[]))]
-        public async Task<ActionResult> GetUtxoForMultipleAddresses(string paymentAddresses, bool returnLegacyAddresses)
+        public async Task<ActionResult> GetUtxoForMultipleAddresses([FromRoute] string paymentAddresses, [FromQuery] bool returnLegacyAddresses = false)
         {
             var utxo = new List<Utxo>();
             var addresses = paymentAddresses.Split(",");
