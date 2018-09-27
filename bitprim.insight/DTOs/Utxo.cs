@@ -28,7 +28,7 @@ namespace bitprim.insight.DTOs
                     bool useLegacyAddressFormat = false)
         {
             #if BCH
-                address = useLegacyAddressFormat? paymentAddress.Encoded : paymentAddress.ToCashAddr();
+                address = useLegacyAddressFormat? paymentAddress.Encoded : paymentAddress.ToCashAddr(includePrefix: false);
             #else
                 address = paymentAddress.Encoded;
             #endif
