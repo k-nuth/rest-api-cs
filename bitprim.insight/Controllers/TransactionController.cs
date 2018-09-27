@@ -317,7 +317,7 @@ namespace bitprim.insight.Controllers
             {
                 totalItems = result.Item2,
                 from = request.from,
-                to = request.to,
+                to = result.Item3,
                 items = result.Item1.ToArray()
             });
         }
