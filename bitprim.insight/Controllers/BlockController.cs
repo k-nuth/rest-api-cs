@@ -400,7 +400,7 @@ namespace bitprim.insight.Controllers
 
         private static GetBlockByHashResponse BlockToJSON(Header blockHeader, UInt64 blockHeight, HashList txHashes,
                                                           decimal blockReward, UInt64 currentHeight, byte[] nextBlockHash,
-                                                        UInt64 serializedBlockSize, PoolsInfo.PoolInfo poolInfo, bool includeTransactionIds)
+                                                          UInt64 serializedBlockSize, PoolsInfo.PoolInfo poolInfo, bool includeTransactionIds)
         {
             BigInteger.TryParse(blockHeader.ProofString, out var proof);
             var blockJson = new GetBlockByHashResponse
