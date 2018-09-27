@@ -17,15 +17,21 @@ namespace bitprim.insight.DTOs
         /// Constructor for all fields.
         /// </summary>
         /// <param name="paymentAddress"> Utxo destination address. </param>
+        /// <param name="useLegacyAddressFormat"> If and only if true,  </param>
         /// <param name="outputPoint"> Utxo reference (tx hash + output index). </param>
         /// <param name="getTxEc"> Containing transaction retrieval result. </param>
         /// <param name="tx"> Transaction containing this output. </param>
         /// <param name="compact"> History entry referencing this utxo. </param>
         /// <param name="topHeight"> Current blockchain height. </param>
         public Utxo(PaymentAddress paymentAddress, Point outputPoint, ErrorCode getTxEc,
-                    Transaction tx, HistoryCompact compact, UInt64 topHeight)
+                    Transaction tx, HistoryCompact compact, UInt64 topHeight,
+                    bool useLegacyAddressFormat = false)
         {
-            address = paymentAddress.Encoded;
+            #if BCH
+                address = useLegacyAddressFormat? paymentAddress.Encoded : paymentAddress.ToCashAddr(includePrefix: false);
+            #else
+                address = paymentAddress.Encoded;
+            #endif
             txid = Binary.ByteArrayToHexString(outputPoint.Hash);
             vout = outputPoint.Index;
             scriptPubKey = getTxEc == ErrorCode.Success ? GetOutputScript(tx.Outputs[outputPoint.Index]) : null;
