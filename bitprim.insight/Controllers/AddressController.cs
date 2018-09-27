@@ -385,7 +385,7 @@ namespace bitprim.insight.Controllers
                         }
                     }
                 }
-                utxo.AddRange(GetUnconfirmedUtxo(address));
+                utxo.AddRange(GetUnconfirmedUtxo(address, returnLegacyAddresses));
                 return utxo;
             }
         }
@@ -409,18 +409,23 @@ namespace bitprim.insight.Controllers
             }
         }
 
-        private List<Utxo> GetUnconfirmedUtxo(PaymentAddress address)
+        private List<Utxo> GetUnconfirmedUtxo(PaymentAddress address, bool returnLegacyAddresses)
         {
             var unconfirmedUtxo = new List<Utxo>();
             using (MempoolTransactionList unconfirmedTxs = chain_.GetMempoolTransactions(address, nodeExecutor_.UseTestnetRules))
             {
+                logger_.LogDebug("Unconfirmed utxo count: " + unconfirmedTxs.Count);
                 foreach (MempoolTransaction unconfirmedTx in unconfirmedTxs)
                 {
                     var satoshis = Int64.Parse(unconfirmedTx.Satoshis);
 
                     unconfirmedUtxo.Add(new Utxo
                     {
-                        address = address.Encoded,
+                        #if BCH
+                            address = address.Encoded,
+                        #else
+                            address = returnLegacyAddresses? address : address.ToCashAddr(includePrefix: false)
+                        #endif
                         txid = unconfirmedTx.Hash,
                         vout = unconfirmedTx.Index,
                         //scriptPubKey = getTxEc == ErrorCode.Success ? GetOutputScript(tx.Outputs[outputPoint.Index]) : null,
