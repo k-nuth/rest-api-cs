@@ -1,3 +1,4 @@
+using Newtonsoft.Json;
 using System;
 
 namespace bitprim.insight.DTOs
@@ -81,6 +82,7 @@ namespace bitprim.insight.DTOs
         /// <summary>
         /// Fees earned by the miner who mined this block, in coin units.
         /// </summary>
+        [JsonConverter(typeof(DecimalToJsonConverter))]
         public decimal reward { get; set; }
         
         /// <summary>
