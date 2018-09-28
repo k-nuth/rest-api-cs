@@ -545,7 +545,7 @@ namespace bitprim.insight.Controllers
             {
                 var output = outputs[i];
                 dynamic jsonOutput = new TransactionOutputSummary();
-                jsonOutput.value = Utils.SatoshisToCoinUnits(output.Value);
+                jsonOutput.value = Utils.SatoshisToCoinUnits(output.Value).ToString("0.00000000"); //Bitpay uses this format
                 jsonOutput.n = i;
                 jsonOutput.scriptPubKey = OutputScriptToJSON(output, noAsm);
                 if(!noSpend)
@@ -637,7 +637,14 @@ namespace bitprim.insight.Controllers
             var outputAddress = output.PaymentAddress(nodeExecutor_.UseTestnetRules);
             if(outputAddress.IsValid)
             {
-                result.addresses = new string[] { outputAddress.Encoded };
+                result.addresses = new string[]
+                {
+                    #if BCH
+                        outputAddress.ToCashAddr(includePrefix: false)
+                    #else
+                        outputAddress.Encoded
+                    #endif
+                };
             }
             result.type = GetScriptType(script.Type);
             return result;

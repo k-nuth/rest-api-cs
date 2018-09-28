@@ -79,11 +79,13 @@ namespace bitprim.insight.DTOs
         /// <summary>
         /// Sum of all inputs, in coin units.
         /// </summary>
+        [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
         public decimal valueIn { get; set; }
 
         /// <summary>
         /// Transaction fees, in coin units.
         /// </summary>
+        [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
         public decimal fees { get; set; }
 
     }
@@ -102,7 +104,7 @@ namespace bitprim.insight.DTOs
         /// <summary>
         /// References the input's previous output.
         /// </summary>
-        [JsonProperty(NullValueHandling=NullValueHandling.Ignore)]
+        [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
         public string txid { get; set; }
 
         /// <summary>
@@ -180,7 +182,7 @@ namespace bitprim.insight.DTOs
         /// <summary>
         /// Output value in coin units.
         /// </summary>
-        public decimal value { get; set; }
+        public string value { get; set; }
 
         /// <summary>
         /// Output index in transaction.
