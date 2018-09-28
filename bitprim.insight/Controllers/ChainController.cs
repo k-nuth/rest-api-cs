@@ -384,10 +384,10 @@ namespace bitprim.insight.Controllers
             syncStatus.status = synced ? "finished" : "synchronizing";
             syncStatus.blockChainHeight = currentHeight;
             syncStatus.syncPercentage = synced?
-                "100" :
-                 Math.Min((double)(lastBlockTimestamp - firstBlockTimestamp) / (double)(nowTimestamp - firstBlockTimestamp) * 100.0, 100).ToString("N2");
-            syncStatus.error = null;
+                100 :
+                 Math.Min(Math.Round((double)(lastBlockTimestamp - firstBlockTimestamp) / (double)(nowTimestamp - firstBlockTimestamp) * 100.0, 2), 100);
             syncStatus.height = currentHeight;
+            syncStatus.error = null;
             syncStatus.type = config_.NodeType;
             return syncStatus;
         }
