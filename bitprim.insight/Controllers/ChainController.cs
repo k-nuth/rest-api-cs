@@ -80,7 +80,7 @@ namespace bitprim.insight.Controllers
             //TODO Check which algorithm to use (see bitcoin-abc's median, at src/policy/fees.cpp for an example)
             foreach(string s in nbBlocksStr)
             {
-                estimateFee.Add(s, config_.EstimateFeeDefault.ToString("N8"));
+                estimateFee.Add(s, config_.EstimateFeeDefault);
             }
             return Json(estimateFee);
         }
