@@ -21,6 +21,7 @@ namespace bitprim.insight.Controllers
     [Route("[controller]")]
     public class TransactionController : Controller
     {
+        private readonly AsmFormatter asmFormatter_;
         private readonly Chain chain_;
         private readonly Executor nodeExecutor_;
         private readonly ILogger<TransactionController> logger_;
@@ -44,6 +45,7 @@ namespace bitprim.insight.Controllers
             chain_ = executor.Chain;
             logger_ = logger;
             memoryCache_ = memoryCache;
+            asmFormatter_ = new AsmFormatter();
         }
 
         /// <summary>
@@ -631,7 +633,7 @@ namespace bitprim.insight.Controllers
             dynamic result = new OutputScriptSummary();
             if(!noAsm)
             {
-                result.asm = script.ToString(0);
+                result.asm = asmFormatter_.Format(script.ToString(0));
             }
             result.hex = Binary.ByteArrayToHexString(scriptData);
             var outputAddress = output.PaymentAddress(nodeExecutor_.UseTestnetRules);
@@ -672,7 +674,7 @@ namespace bitprim.insight.Controllers
             }
             return result;
         }
-        
+
         private static string GetScriptType(string type)
         {
             if (type == "pay_key_hash")
