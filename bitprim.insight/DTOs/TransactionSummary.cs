@@ -23,6 +23,11 @@ namespace bitprim.insight.DTOs
         public UInt32 locktime { get; set; }
 
         /// <summary>
+        /// True if and only if this transaction is coinbase (i.e. generates new coins).
+        /// </summary>
+        public bool isCoinBase { get; set; }
+
+        /// <summary>
         /// Transaction inputs.
         /// </summary>
         public TransactionInputSummary[] vin { get; set; }
@@ -79,11 +84,6 @@ namespace bitprim.insight.DTOs
         /// Transaction fees, in coin units.
         /// </summary>
         public decimal fees { get; set; }
-
-        /// <summary>
-        /// True if and only if this transaction is coinbase (i.e. generates new coins).
-        /// </summary>
-        public bool isCoinBase { get; set; }
 
     }
 
