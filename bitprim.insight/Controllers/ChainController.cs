@@ -181,8 +181,7 @@ namespace bitprim.insight.Controllers
                 return BadRequest("minimumSync must be a floating point number");
             }
             dynamic syncStatus = await DoGetSyncStatus();
-            bool isNumeric = Double.TryParse(syncStatus.syncPercentage, out double syncPercentage);
-            bool isHealthy = isNumeric && syncPercentage > minimumSync;
+            bool isHealthy = syncStatus.syncPercentage > minimumSync;
             return isHealthy?
                 StatusCode((int)System.Net.HttpStatusCode.OK, "OK"):
                 StatusCode((int)System.Net.HttpStatusCode.PreconditionFailed, "NOK");
