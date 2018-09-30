@@ -14,8 +14,10 @@ namespace bitprim.insight
             tokenDictionary_ = new Dictionary<string, string>();
             tokenDictionary_["checksig"] = "OP_CHECKSIG";
             tokenDictionary_["dup"] = "OP_DUP";
+            tokenDictionary_["equal"] = "OP_EQUAL";
             tokenDictionary_["equalverify"] = "OP_EQUALVERIFY";
             tokenDictionary_["hash160"] = "OP_HASH160";
+            tokenDictionary_["return"] = "OP_RETURN";
         }
 
         /// <summary>

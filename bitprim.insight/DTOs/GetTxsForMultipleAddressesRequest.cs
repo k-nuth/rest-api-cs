@@ -39,6 +39,6 @@ namespace bitprim.insight.DTOs
         /// <summary>
         /// If and only if true, return BCH addresses in legacy format.
         /// </summary>
-        public bool legacyAddressFormat { get; set; } = false;
+        public bool returnLegacyAddresses { get; set; } = false;
     }
 }

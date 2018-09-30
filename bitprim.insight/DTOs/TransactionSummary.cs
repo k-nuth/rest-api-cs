@@ -25,13 +25,29 @@ namespace bitprim.insight.DTOs
 
         /// <summary>
         /// True if and only if this transaction is coinbase (i.e. generates new coins).
+        /// Not serialized when false (default value).
         /// </summary>
+        [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
         public bool isCoinBase { get; set; }
 
         /// <summary>
         /// Transaction inputs.
         /// </summary>
         public TransactionInputSummary[] vin { get; set; }
+
+        /// <summary>
+        /// Sum of all inputs, in coin units.
+        /// Not serialized when zero (default value).
+        /// </summary>
+        [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
+        public decimal valueIn { get; set; }
+
+        /// <summary>
+        /// Transaction fees, in coin units.
+        /// Not serialized when zero (default value).
+        /// </summary>
+        [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
+        public decimal fees { get; set; }
 
         /// <summary>
         /// Transaction outputs.
@@ -75,18 +91,6 @@ namespace bitprim.insight.DTOs
         /// Transaction serialized size in bytes.
         /// </summary>
         public UInt64 size { get; set; }
-
-        /// <summary>
-        /// Sum of all inputs, in coin units.
-        /// </summary>
-        [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
-        public decimal valueIn { get; set; }
-
-        /// <summary>
-        /// Transaction fees, in coin units.
-        /// </summary>
-        [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
-        public decimal fees { get; set; }
     }
 
 }
