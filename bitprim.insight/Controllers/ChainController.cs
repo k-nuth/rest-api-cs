@@ -80,7 +80,7 @@ namespace bitprim.insight.Controllers
             //TODO Check which algorithm to use (see bitcoin-abc's median, at src/policy/fees.cpp for an example)
             foreach(string s in nbBlocksStr)
             {
-                estimateFee.Add(s, config_.EstimateFeeDefault.ToString("N8"));
+                estimateFee.Add(s, config_.EstimateFeeDefault);
             }
             return Json(estimateFee);
         }
@@ -181,8 +181,7 @@ namespace bitprim.insight.Controllers
                 return BadRequest("minimumSync must be a floating point number");
             }
             dynamic syncStatus = await DoGetSyncStatus();
-            bool isNumeric = Double.TryParse(syncStatus.syncPercentage, out double syncPercentage);
-            bool isHealthy = isNumeric && syncPercentage > minimumSync;
+            bool isHealthy = syncStatus.syncPercentage > minimumSync;
             return isHealthy?
                 StatusCode((int)System.Net.HttpStatusCode.OK, "OK"):
                 StatusCode((int)System.Net.HttpStatusCode.PreconditionFailed, "NOK");
@@ -384,10 +383,10 @@ namespace bitprim.insight.Controllers
             syncStatus.status = synced ? "finished" : "synchronizing";
             syncStatus.blockChainHeight = currentHeight;
             syncStatus.syncPercentage = synced?
-                "100" :
-                 Math.Min((double)(lastBlockTimestamp - firstBlockTimestamp) / (double)(nowTimestamp - firstBlockTimestamp) * 100.0, 100).ToString("N2");
-            syncStatus.error = null;
+                100 :
+                 Math.Min(Math.Round((double)(lastBlockTimestamp - firstBlockTimestamp) / (double)(nowTimestamp - firstBlockTimestamp) * 100.0, 2), 100);
             syncStatus.height = currentHeight;
+            syncStatus.error = null;
             syncStatus.type = config_.NodeType;
             return syncStatus;
         }
