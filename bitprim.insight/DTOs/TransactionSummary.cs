@@ -58,6 +58,7 @@ namespace bitprim.insight.DTOs
         /// <summary>
         /// Identifies the transaction's block (only for confirmed transactions).
         /// </summary>
+        [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
         public string blockhash { get; set; }
 
 
@@ -66,7 +67,6 @@ namespace bitprim.insight.DTOs
         /// </summary>
         public Int64 blockheight { get; set; }
 
-        
         /// <summary>
         /// Amount of blocks on top of the transaction's block.
         /// </summary>
@@ -80,6 +80,7 @@ namespace bitprim.insight.DTOs
         /// <summary>
         /// Block mining timestamp.
         /// </summary>
+        [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
         public UInt32 blocktime { get; set; }
 
         /// <summary>
@@ -91,6 +92,16 @@ namespace bitprim.insight.DTOs
         /// Transaction serialized size in bytes.
         /// </summary>
         public UInt64 size { get; set; }
+
+        /// <summary>
+        /// Returns true if and only if blockheight should be serialized.
+        /// Naming convention is intentionally violated because Newtonsoft.Json relies
+        /// on the "ShouldSerialize" prefix before the exact property name.
+        /// </summary>
+        public bool ShouldSerializeblockheight()
+        {
+            return blockheight >= 0;
+        }
     }
 
 }

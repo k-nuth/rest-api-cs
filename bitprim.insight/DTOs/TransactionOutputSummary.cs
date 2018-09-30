@@ -17,7 +17,6 @@ namespace bitprim.insight.DTOs
         /// </summary>
         public uint n { get; set; }
 
-
         /// <summary>
         /// Output script.
         /// </summary>
@@ -28,7 +27,6 @@ namespace bitprim.insight.DTOs
         /// </summary>
         public string spentTxId { get; set; }
 
-        
         /// <summary>
         /// Previous output index inside its transaction.
         /// </summary>
