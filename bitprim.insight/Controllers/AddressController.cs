@@ -443,7 +443,7 @@ namespace bitprim.insight.Controllers
 
             if (to == 0)
             {
-                to = from + Constants.MAX_TX_COUNT_BY_ADDRESS;
+                to = Math.Min(transactionIds.Count, from + Constants.MAX_TX_COUNT_BY_ADDRESS);
             }
 
             var validationResult = ValidateParameters(from, to, transactionIds.Count);
