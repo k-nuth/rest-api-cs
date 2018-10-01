@@ -87,13 +87,15 @@ namespace bitprim.insight.Controllers
         /// <param name="noTxList"> If 0, include transaction id list; otherwise, do not include it. </param>
         /// <param name="from"> Allows selecting a subrange of transaction ids from the full list; starts in zero (0). </param>
         /// <param name="to"> Allows selecting a subrange of transactions from the full list; max value is (txCount - 1). </param>
+        /// <param name="returnLegacyAddresses"> If and only if true, use legacy address format in response (BCH only). </param>
         /// <returns> Confirmed balance, unconfirmed balance and transaction id list (if requested). </returns>
         [HttpGet("addr/{paymentAddress}")]
         [ResponseCache(CacheProfileName = Constants.Cache.SHORT_CACHE_PROFILE_NAME)]
         [SwaggerOperation("GetAddressHistory")]
         [SwaggerResponse((int)System.Net.HttpStatusCode.OK, typeof(GetAddressHistoryResponse))]
         [SwaggerResponse((int)System.Net.HttpStatusCode.BadRequest, typeof(string))]
-        public async Task<ActionResult> GetAddressHistory(string paymentAddress, int noTxList = 0, int from = 0, int to = 0)
+        public async Task<ActionResult> GetAddressHistory([FromRoute] string paymentAddress, [FromQuery] int noTxList = 0, [FromQuery] int from = 0,
+                                                          [FromQuery] int to = 0, [FromQuery] bool returnLegacyAddresses = false)
         {
             Stopwatch stopWatch = Stopwatch.StartNew();
 
@@ -110,9 +112,15 @@ namespace bitprim.insight.Controllers
 
             statsGetAddressHistory[4] = stopWatch.ElapsedMilliseconds;
 
+            string addrStr;
+            using(var paymentAddressObject = new PaymentAddress(paymentAddress))
+            {
+                addrStr = Utils.FormatAddress(paymentAddressObject, returnLegacyAddresses);
+            }
+
             var historyJson = new GetAddressHistoryResponse
             {
-                addrStr = paymentAddress,
+                addrStr = addrStr,
                 balance = Utils.SatoshisToCoinUnits(balance.Balance),
                 balanceSat = balance.Balance,
                 totalReceived = Utils.SatoshisToCoinUnits(balance.Received),
