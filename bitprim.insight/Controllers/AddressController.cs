@@ -99,7 +99,7 @@ namespace bitprim.insight.Controllers
         {
             Stopwatch stopWatch = Stopwatch.StartNew();
 
-            if (!Validations.IsValidPaymentAddress(paymentAddress))
+            if (!PaymentAddress.TryParsePaymentAddress(paymentAddress, out PaymentAddress paymentAddressObject))
             {
                 return BadRequest(paymentAddress + " is not a valid address");
             }
@@ -112,15 +112,9 @@ namespace bitprim.insight.Controllers
 
             statsGetAddressHistory[4] = stopWatch.ElapsedMilliseconds;
 
-            string addrStr;
-            using(var paymentAddressObject = new PaymentAddress(paymentAddress))
-            {
-                addrStr = Utils.FormatAddress(paymentAddressObject, returnLegacyAddresses);
-            }
-
             var historyJson = new GetAddressHistoryResponse
             {
-                addrStr = addrStr,
+                addrStr = Utils.FormatAddress(paymentAddressObject, returnLegacyAddresses),
                 balance = Utils.SatoshisToCoinUnits(balance.Balance),
                 balanceSat = balance.Balance,
                 totalReceived = Utils.SatoshisToCoinUnits(balance.Received),
