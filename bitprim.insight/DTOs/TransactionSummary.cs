@@ -44,9 +44,8 @@ namespace bitprim.insight.DTOs
 
         /// <summary>
         /// Transaction fees, in coin units.
-        /// Not serialized when zero (default value).
+        /// Not serialized when inputs == 0 (default value).
         /// </summary>
-        [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
         public decimal fees { get; set; }
 
         /// <summary>
@@ -101,6 +100,16 @@ namespace bitprim.insight.DTOs
         public bool ShouldSerializeblockheight()
         {
             return blockheight >= 0;
+        }
+
+        /// <summary>
+        /// Returns true if and only if fees should be serialized.
+        /// Naming convention is intentionally violated because Newtonsoft.Json relies
+        /// on the "ShouldSerialize" prefix before the exact property name.
+        /// </summary>
+        public bool ShouldSerializefees()
+        {
+            return valueIn > 0;
         }
     }
 

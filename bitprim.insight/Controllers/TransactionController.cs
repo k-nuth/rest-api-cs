@@ -297,7 +297,7 @@ namespace bitprim.insight.Controllers
             {
                 totalItems = result.Item2,
                 from = from,
-                to = to,
+                to = result.Item3,
                 items = result.Item1.ToArray()
             });
         }
@@ -341,7 +341,7 @@ namespace bitprim.insight.Controllers
             {
                 totalItems = result.Item2,
                 from = request.from,
-                to = request.to,
+                to = result.Item3,
                 items = result.Item1.ToArray()
             });
         }
@@ -442,7 +442,6 @@ namespace bitprim.insight.Controllers
 
             //7
             statsGetTransactions.Add(stopWatch.ElapsedMilliseconds);
-
             var finalTo = Math.Min(to, txPositions.Count);
 
             //Fetch selected range and convert to JSON
