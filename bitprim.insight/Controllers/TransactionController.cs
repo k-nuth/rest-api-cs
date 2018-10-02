@@ -101,8 +101,13 @@ namespace bitprim.insight.Controllers
                 (
                     new BroadcastTransactionResponse
                     {
-                         //TODO Check if this should be returned by organize call
-                        txid = Binary.ByteArrayToHexString(tx.Hash)
+                        txid = new BroadCastTransactionResult
+                        {
+                            //TODO Check if this should be returned by organize call
+                            result = Binary.ByteArrayToHexString(tx.Hash),
+                            error = null,
+                            id = 0
+                        }
                     }
                 );
             }
