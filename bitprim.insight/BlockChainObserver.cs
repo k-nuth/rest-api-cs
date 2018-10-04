@@ -50,9 +50,9 @@ namespace bitprim.insight
                 using(var getBlockResult = executor_.Chain.FetchBlockByHeightAsync(height).Result )
                 {
                     Utils.CheckBitprimApiErrorCode(getBlockResult.ErrorCode, "FetchBlockByHeightAsync(" + height + ") failed");
-                    Block newBlock = getBlockResult.Result.BlockData;
+                    IBlock newBlock = getBlockResult.Result.BlockData;
                     blockHash = Binary.ByteArrayToHexString(newBlock.Hash);
-                    Transaction coinbaseTx = newBlock.GetNthTransaction(0);
+                    ITransaction coinbaseTx = newBlock.GetNthTransaction(0);
                     coinbaseTxHash = Binary.ByteArrayToHexString(coinbaseTx.Hash);
                     destinationAddress = coinbaseTx.Outputs[0].PaymentAddress(executor_.UseTestnetRules).Encoded;
                 }

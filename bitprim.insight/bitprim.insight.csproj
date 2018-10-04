@@ -18,8 +18,8 @@
      <When Condition="'$(BTC)' == 'true' ">
      
           <ItemGroup>
-            <PackageReference Include="bitprim-btc" Version="0.5.4" />
-            <!-- <ProjectReference Include="../../bitprim-cs/bitprim/bitprim.csproj" /> -->
+            <PackageReference Include="bitprim-btc" Version="0.7.1-beta" />
+            <!-- <ProjectReference Include="../../bitprim-cs/bitprim-btc/bitprim-btc.csproj" /> -->
           </ItemGroup>
      
      </When>
@@ -29,8 +29,8 @@
             <DefineConstants>$(DefineConstants);BCH</DefineConstants>
           </PropertyGroup>
           <ItemGroup>
-            <PackageReference Include="bitprim-bch" Version="0.5.4" />
-            <!-- <ProjectReference Include="../../bitprim-cs/bitprim/bitprim.csproj" /> -->
+            <PackageReference Include="bitprim-bch" Version="0.7.1-beta" />
+            <!-- <ProjectReference Include="../../bitprim-cs/bitprim-bch/bitprim-bch.csproj" /> -->
           </ItemGroup>
      
      </When>
@@ -40,8 +40,8 @@
             <DefineConstants>$(DefineConstants);BCH</DefineConstants>
           </PropertyGroup>
           <ItemGroup>
-            <PackageReference Include="bitprim-bch" Version="0.5.4" />
-            <!-- <ProjectReference Include="../../bitprim-cs/bitprim/bitprim.csproj" /> -->
+            <PackageReference Include="bitprim-bch" Version="0.7.1-beta" />
+            <!-- <ProjectReference Include="../../bitprim-cs/bitprim-bch/bitprim-bch.csproj" /> -->
           </ItemGroup>
      
      </Otherwise>

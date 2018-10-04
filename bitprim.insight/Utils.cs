@@ -9,13 +9,18 @@ namespace bitprim.insight
 {
     internal static class Utils
     {
-        public static async Task<Int64> CalculateBalanceDelta(Transaction tx, string address, Chain chain, bool useTestnetRules)
+        public static async Task<Int64> CalculateBalanceDelta(ITransaction tx, PaymentAddress address, Chain chain, bool useTestnetRules)
+        {
+            Int64 inputsSum = (Int64) await SumAddressInputs(tx, address, chain, useTestnetRules);
+            Int64 outputsSum = (Int64) SumAddressOutputs(tx, address, useTestnetRules);
+            return outputsSum - inputsSum;
+        }
+
+        public static async Task<Int64> CalculateBalanceDelta(ITransaction tx, string address, Chain chain, bool useTestnetRules)
         {
             using(var paymentAddress = new PaymentAddress(address))
             {
-                Int64 inputsSum = (Int64) await SumAddressInputs(tx, paymentAddress, chain, useTestnetRules);
-                Int64 outputsSum = (Int64) SumAddressOutputs(tx, paymentAddress, useTestnetRules);
-                return outputsSum - inputsSum;
+                return await CalculateBalanceDelta(tx, paymentAddress, chain, useTestnetRules);
             }
         }
 
@@ -116,7 +121,7 @@ namespace bitprim.insight
             return ret;
         }
 
-        private static async Task<UInt64> SumAddressInputs(Transaction tx, PaymentAddress address, Chain chain, bool useTestnetRules)
+        private static async Task<UInt64> SumAddressInputs(ITransaction tx, PaymentAddress address, Chain chain, bool useTestnetRules)
         {
             UInt64 inputSum = 0;
             foreach(Input input in tx.Inputs)
@@ -157,7 +162,7 @@ namespace bitprim.insight
             return ret;
         }
 
-        private static UInt64 SumAddressOutputs(Transaction tx, PaymentAddress address, bool useTestnetRules)
+        private static UInt64 SumAddressOutputs(ITransaction tx, PaymentAddress address, bool useTestnetRules)
         {
             UInt64 outputSum = 0;
             foreach(Output output in tx.Outputs)

@@ -70,14 +70,14 @@ namespace bitprim.insight.DTOs
         /// Amount of distinct transactions (i.e. don't count the same tx more than once) involving this address.
         /// Correctly spelled version, for those who prefer it.
         /// </summary>
-        public uint txAppearances { get; set; }
+        public UInt64 txAppearances { get; set; }
 
         /// <summary>
         /// Amount of distinct transactions (i.e. don't count the same tx more than once) involving this address.
         /// The spelling error (apperances) is intentional, for compatibility with insight.
         /// TODO Remove this property as soon as no one uses it
         /// </summary>
-        public uint txApperances { get; set; }
+        public UInt64 txApperances { get; set; }
         
         /// <summary>
         /// Selected transaction ids (using from and to parameters) from the full history.

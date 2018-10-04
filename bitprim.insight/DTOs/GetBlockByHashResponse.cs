@@ -99,7 +99,7 @@ namespace bitprim.insight.DTOs
         /// <summary>
         /// Block transaction length.
         /// </summary>
-        public uint txCount { get; set; }
+        public UInt64 txCount { get; set; }
 
     }
 }

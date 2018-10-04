@@ -28,7 +28,7 @@ namespace bitprim.insight.Controllers
             public UInt64 Balance { get; set; }
             public UInt64 Received { get; set; }
             public UInt64 Sent { get; set; }
-            public uint TxCount { get; set; }
+            public UInt64 TxCount { get; set; }
         }
 
         private readonly long[] statsGetAddressHistory = new long[8];
@@ -58,11 +58,11 @@ namespace bitprim.insight.Controllers
         public async Task<ActionResult> GetUnconfirmedBalance(string paymentAddress)
         {
             Utils.CheckIfChainIsFresh(chain_, config_.AcceptStaleRequests);
-            if (!Validations.IsValidPaymentAddress(paymentAddress))
+            if( !PaymentAddress.TryParse(paymentAddress, out PaymentAddress paymentAddressObject) )
             {
                 return BadRequest(paymentAddress + " is not a valid address");
             }
-            var result = await GetUnconfirmedSummary(paymentAddress);
+            var result = await GetUnconfirmedSummary(paymentAddressObject);
             return Json(new { unconfirmedBalanceSat = result.Item2 });
         }
 
@@ -99,7 +99,7 @@ namespace bitprim.insight.Controllers
         {
             Stopwatch stopWatch = Stopwatch.StartNew();
 
-            if (!PaymentAddress.TryParsePaymentAddress(paymentAddress, out PaymentAddress paymentAddressObject))
+            if (!PaymentAddress.TryParse(paymentAddress, out PaymentAddress paymentAddressObject))
             {
                 return BadRequest(paymentAddress + " is not a valid address");
             }
@@ -125,7 +125,7 @@ namespace bitprim.insight.Controllers
                 txApperances = balance.TxCount
             };
 
-            Tuple<uint, Int64> unconfirmedSummary = await GetUnconfirmedSummary(paymentAddress);
+            Tuple<UInt64, Int64> unconfirmedSummary = await GetUnconfirmedSummary(paymentAddressObject);
 
             statsGetAddressHistory[5] = stopWatch.ElapsedMilliseconds;
 
@@ -392,50 +392,54 @@ namespace bitprim.insight.Controllers
             }
         }
 
-        private async Task<Tuple<uint, Int64>> GetUnconfirmedSummary(string address)
+        private async Task<Tuple<UInt64, Int64>> GetUnconfirmedSummary(PaymentAddress paymentAddress)
         {
-            using (var paymentAddress = new PaymentAddress(address))
-            using (MempoolTransactionList unconfirmedTxs = chain_.GetMempoolTransactions(paymentAddress, nodeExecutor_.UseTestnetRules))
+            using (var paymentAddresses = new PaymentAddressList())
             {
-                Int64 unconfirmedBalance = 0;
-                foreach (MempoolTransaction unconfirmedTx in unconfirmedTxs)
+                paymentAddresses.Add(paymentAddress);
+                using (INativeList<ITransaction> unconfirmedTxs = chain_.GetMempoolTransactions(paymentAddresses, nodeExecutor_.UseTestnetRules))
                 {
-                    using (var getTxResult = await chain_.FetchTransactionAsync(Binary.HexStringToByteArray(unconfirmedTx.Hash), requireConfirmed: false))
+                    Int64 unconfirmedBalance = 0;
+                    foreach (ITransaction unconfirmedTx in unconfirmedTxs)
                     {
-                        Utils.CheckBitprimApiErrorCode(getTxResult.ErrorCode, "FetchTransactionAsync(" + unconfirmedTx.Hash + ") failed, check error log");
-                        Transaction tx = getTxResult.Result.Tx;
-                        unconfirmedBalance += await Utils.CalculateBalanceDelta(tx, address, chain_, nodeExecutor_.UseTestnetRules);
+                        using (var getTxResult = await chain_.FetchTransactionAsync(unconfirmedTx.Hash, requireConfirmed: false))
+                        {
+                            Utils.CheckBitprimApiErrorCode(getTxResult.ErrorCode, "FetchTransactionAsync(" + Binary.ByteArrayToHexString(unconfirmedTx.Hash) + ") failed, check error log");
+                            ITransaction tx = getTxResult.Result.Tx;
+                            unconfirmedBalance += await Utils.CalculateBalanceDelta(tx, paymentAddress, chain_, nodeExecutor_.UseTestnetRules);
+                        }
                     }
+                    return new Tuple<UInt64, Int64>(unconfirmedTxs.Count, unconfirmedBalance);
                 }
-                return new Tuple<uint, Int64>(unconfirmedTxs.Count, unconfirmedBalance);
             }
         }
 
         private List<Utxo> GetUnconfirmedUtxo(PaymentAddress address, bool returnLegacyAddresses)
         {
             var unconfirmedUtxo = new List<Utxo>();
-            using (MempoolTransactionList unconfirmedTxs = chain_.GetMempoolTransactions(address, nodeExecutor_.UseTestnetRules))
+            using (var paymentAddresses = new PaymentAddressList())
             {
-                logger_.LogDebug("Unconfirmed utxo count: " + unconfirmedTxs.Count);
-                foreach (MempoolTransaction unconfirmedTx in unconfirmedTxs)
+                //TODO Use new unconfirmed utxo function
+                paymentAddresses.Add(address);
+                using (INativeList<ITransaction> unconfirmedTxs = chain_.GetMempoolTransactions(paymentAddresses, nodeExecutor_.UseTestnetRules))
                 {
-                    var satoshis = Int64.Parse(unconfirmedTx.Satoshis);
-
-                    unconfirmedUtxo.Add(new Utxo
+                    logger_.LogDebug("Unconfirmed utxo count: " + unconfirmedTxs.Count);
+                    foreach (ITransaction unconfirmedTx in unconfirmedTxs)
                     {
-                        #if BCH
-                            address = address.Encoded,
-                        #else
-                            address = returnLegacyAddresses? address : address.ToCashAddr(includePrefix: false)
-                        #endif
-                        txid = unconfirmedTx.Hash,
-                        vout = unconfirmedTx.Index,
-                        //scriptPubKey = getTxEc == ErrorCode.Success ? GetOutputScript(tx.Outputs[outputPoint.Index]) : null,
-                        amount = Utils.SatoshisToCoinUnits(satoshis),
-                        satoshis = satoshis,
-                        height = -1,
-                        confirmations = 0
-                    });
+                        /*var satoshis = Int64.Parse(unconfirmedTx.Satoshis);
+
+                        unconfirmedUtxo.Add(new Utxo
+                        {
+                            address = Utils.FormatAddress(address, returnLegacyAddresses),
+                            txid = Binary.ByteArrayToHexString(unconfirmedTx.Hash),
+                            vout = unconfirmedTx.Index,
+                            scriptPubKey = GetOutputScript(unconfirmedTx.Outputs[outputPoint.Index]) : null,
+                            amount = Utils.SatoshisToCoinUnits(satoshis),
+                            satoshis = satoshis,
+                            height = -1,
+                            confirmations = 0
+                        });*/
+                    }
                 }
             }
             return unconfirmedUtxo;

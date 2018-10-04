@@ -23,8 +23,8 @@ namespace bitprim.insight.DTOs
         /// <param name="compact"> History entry referencing this utxo. </param>
         /// <param name="topHeight"> Current blockchain height. </param>
         /// <param name="returnLegacyAddresses"> If and only if true,  </param>
-        public Utxo(PaymentAddress paymentAddress, Point outputPoint, ErrorCode getTxEc,
-                    Transaction tx, HistoryCompact compact, UInt64 topHeight,
+        public Utxo(PaymentAddress paymentAddress, IPoint outputPoint, ErrorCode getTxEc,
+                    ITransaction tx, HistoryCompact compact, UInt64 topHeight,
                     bool returnLegacyAddresses = false)
         {
             address = Utils.FormatAddress(paymentAddress, returnLegacyAddresses);

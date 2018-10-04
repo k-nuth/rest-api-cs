@@ -87,7 +87,7 @@ namespace bitprim.insight
         /// <returns> If tx contains pool info and it matches a pool defined in the pools file, return its info;
         /// otherwise, return the Empty PollInfo instance
         /// </returns>
-        public PoolInfo GetPoolInfo(Transaction tx)
+        public PoolInfo GetPoolInfo(ITransaction tx)
         {
             if (tx == null)
             {
