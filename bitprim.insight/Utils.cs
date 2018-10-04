@@ -61,6 +61,15 @@ namespace bitprim.insight
             return Convert.ToString(number, 16);
         }
 
+        public static string FormatAddress(PaymentAddress address, bool useLegacyFormat)
+        {
+            #if BCH
+                return useLegacyFormat? address.Encoded : address.ToCashAddr(includePrefix: false);
+            #else
+                return outputAddress.Encoded;
+            #endif
+        }
+
         public static void CheckBitprimApiErrorCode(ErrorCode errorCode, string errorMsg)
         {
             if(errorCode != ErrorCode.Success)
