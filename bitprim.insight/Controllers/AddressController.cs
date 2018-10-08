@@ -8,6 +8,7 @@ using Microsoft.Extensions.Options;
 using Swashbuckle.AspNetCore.SwaggerGen;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
+using System.Numerics;
 
 namespace bitprim.insight.Controllers
 {
@@ -191,25 +192,32 @@ namespace bitprim.insight.Controllers
         [HttpGet("addrs/{paymentAddresses}/utxo")]
         [ResponseCache(CacheProfileName = Constants.Cache.SHORT_CACHE_PROFILE_NAME)]
         [SwaggerOperation("GetUtxoForMultipleAddresses")]
-        [SwaggerResponse((int)System.Net.HttpStatusCode.OK, typeof(Utxo[]))]
+        [SwaggerResponse((int)System.Net.HttpStatusCode.OK, typeof(DTOs.Utxo[]))]
         public async Task<ActionResult> GetUtxoForMultipleAddresses([FromRoute] string paymentAddresses, [FromQuery] bool returnLegacyAddresses = false)
         {
-            var utxo = new List<Utxo>();
+            var utxo = new List<DTOs.Utxo>();
             var addresses = paymentAddresses.Split(",");
             if (addresses.Length > config_.MaxAddressesPerQuery)
             {
                 return BadRequest("Max addresses per query: " + config_.MaxAddressesPerQuery + " (" + addresses.Length + " requested)");
             }
+            var addressesList = new List<PaymentAddress>();
             foreach (var address in addresses)
             {
-                if (!Validations.IsValidPaymentAddress(address))
+                if (!PaymentAddress.TryParse(address, out PaymentAddress paymentAddressObject))
                 {
                     return BadRequest(address + " is not a valid address");
                 }
+                addressesList.Add(paymentAddressObject);
             }
-            foreach (var address in addresses)
+
+            var getLastHeightResult = await chain_.FetchLastHeightAsync();
+            Utils.CheckBitprimApiErrorCode(getLastHeightResult.ErrorCode, "FetchLastHeightAsync() failed, check error log");
+            var topHeight = getLastHeightResult.Result;
+
+            foreach (var address in addressesList)
             {
-                utxo.AddRange(await GetUtxo(address, returnLegacyAddresses));
+                utxo.AddRange(GetUtxo(address, topHeight, returnLegacyAddresses));
             }
             return Json(utxo.ToArray());
         }
@@ -222,7 +230,7 @@ namespace bitprim.insight.Controllers
         [HttpPost("addrs/utxo")]
         [ResponseCache(CacheProfileName = Constants.Cache.SHORT_CACHE_PROFILE_NAME)]
         [SwaggerOperation("GetUtxoForMultipleAddressesPost")]
-        [SwaggerResponse((int)System.Net.HttpStatusCode.OK, typeof(Utxo[]))]
+        [SwaggerResponse((int)System.Net.HttpStatusCode.OK, typeof(DTOs.Utxo[]))]
         public async Task<ActionResult> GetUtxoForMultipleAddressesPost([FromBody]GetUtxosForMultipleAddressesRequest requestParams)
         {
             if (requestParams == null || string.IsNullOrWhiteSpace(requestParams.addrs))
@@ -254,14 +262,19 @@ namespace bitprim.insight.Controllers
         [HttpGet("addr/{paymentAddress}/utxo")]
         [ResponseCache(CacheProfileName = Constants.Cache.SHORT_CACHE_PROFILE_NAME)]
         [SwaggerOperation("GetUtxoForSingleAddress")]
-        [SwaggerResponse((int)System.Net.HttpStatusCode.OK, typeof(Utxo[]))]
+        [SwaggerResponse((int)System.Net.HttpStatusCode.OK, typeof(DTOs.Utxo[]))]
         public async Task<ActionResult> GetUtxoForSingleAddress(string paymentAddress, [FromQuery] bool legacyAddresFormat = false)
         {
-            if (!Validations.IsValidPaymentAddress(paymentAddress))
+            if (!PaymentAddress.TryParse(paymentAddress, out PaymentAddress paymentAddressObject))
             {
                 return BadRequest(paymentAddress + " is not a valid address");
             }
-            var utxo = await GetUtxo(paymentAddress, legacyAddresFormat);
+
+            var getLastHeightResult = await chain_.FetchLastHeightAsync();
+            Utils.CheckBitprimApiErrorCode(getLastHeightResult.ErrorCode, "FetchLastHeightAsync() failed, check error log");
+            var topHeight = getLastHeightResult.Result;
+
+            var utxo = GetUtxo(paymentAddressObject, topHeight, legacyAddresFormat);
             return Json(utxo.ToArray());
         }
 
@@ -349,47 +362,30 @@ namespace bitprim.insight.Controllers
             }
         }
 
-        private async Task<List<Utxo>> GetUtxo(string paymentAddress, bool returnLegacyAddresses)
+        private List<DTOs.Utxo> GetUtxo(PaymentAddress paymentAddress, UInt64 topHeight, bool returnLegacyAddresses)
         {
             Utils.CheckIfChainIsFresh(chain_, config_.AcceptStaleRequests);
 
-            using (var address = new PaymentAddress(paymentAddress))
-            using (var getAddressHistoryResult = await chain_.FetchHistoryAsync(address, UInt64.MaxValue, 0))
+            INativeList<IUtxo> utxos = chain_.GetUtxos(paymentAddress, nodeExecutor_.UseTestnetRules);
+            var utxosDto = new List<DTOs.Utxo>();
+            foreach(IUtxo utxo in utxos)
             {
-                Utils.CheckBitprimApiErrorCode(getAddressHistoryResult.ErrorCode, "FetchHistoryAsync(" + paymentAddress + ") failed, check error log.");
-
-                var history = getAddressHistoryResult.Result;
-
-                var utxo = new List<Utxo>();
-
-                var getLastHeightResult = await chain_.FetchLastHeightAsync();
-                Utils.CheckBitprimApiErrorCode(getLastHeightResult.ErrorCode, "FetchLastHeightAsync failed, check error log");
-
-                var topHeight = getLastHeightResult.Result;
-
-                foreach (HistoryCompact compact in history)
+                var blockHeight = utxo.BlockHeight == UInt64.MaxValue? new BigInteger(-1) : new BigInteger(utxo.BlockHeight);
+                byte[] scriptData = utxo.Script.ToData(false);
+                Array.Reverse(scriptData, 0, scriptData.Length);
+                utxosDto.Add(new DTOs.Utxo 
                 {
-                    if (compact.PointKind == PointKind.Output)
-                    {
-                        using (var outPoint = new OutputPoint(compact.Point.Hash, compact.Point.Index))
-                        {
-                            var getSpendResult = await chain_.FetchSpendAsync(outPoint);
-
-                            if (getSpendResult.ErrorCode == ErrorCode.NotFound) //Unspent = it's an utxo
-                            {
-                                //Get the tx to get the script
-                                using (var getTxResult = await chain_.FetchTransactionAsync(compact.Point.Hash, true))
-                                {
-                                    Utils.CheckBitprimApiErrorCode(getTxResult.ErrorCode, "FetchTransactionAsync (" + Binary.ByteArrayToHexString(outPoint.Hash)  + ") failed, check error log");
-                                    utxo.Add(new Utxo(address, compact.Point, getTxResult.ErrorCode, getTxResult.Result.Tx, compact, topHeight, returnLegacyAddresses));
-                                }
-                            }
-                        }
-                    }
-                }
-                utxo.AddRange(GetUnconfirmedUtxo(address, returnLegacyAddresses));
-                return utxo;
+                    address = Utils.FormatAddress(paymentAddress, returnLegacyAddresses),
+                    txid = Binary.ByteArrayToHexString(utxo.TxHash),
+                    vout = utxo.Index,
+                    scriptPubKey = Binary.ByteArrayToHexString(scriptData),
+                    amount = Utils.SatoshisToCoinUnits(utxo.Amount),
+                    satoshis = (long) utxo.Amount,
+                    height = blockHeight,
+                    confirmations = topHeight - ((UInt64)blockHeight) + 1
+                });
             }
+            return utxosDto;
         }
 
         private async Task<Tuple<UInt64, Int64>> GetUnconfirmedSummary(PaymentAddress paymentAddress)
@@ -412,37 +408,6 @@ namespace bitprim.insight.Controllers
                     return new Tuple<UInt64, Int64>(unconfirmedTxs.Count, unconfirmedBalance);
                 }
             }
-        }
-
-        private List<Utxo> GetUnconfirmedUtxo(PaymentAddress address, bool returnLegacyAddresses)
-        {
-            var unconfirmedUtxo = new List<Utxo>();
-            using (var paymentAddresses = new PaymentAddressList())
-            {
-                //TODO Use new unconfirmed utxo function
-                paymentAddresses.Add(address);
-                using (INativeList<ITransaction> unconfirmedTxs = chain_.GetMempoolTransactions(paymentAddresses, nodeExecutor_.UseTestnetRules))
-                {
-                    logger_.LogDebug("Unconfirmed utxo count: " + unconfirmedTxs.Count);
-                    foreach (ITransaction unconfirmedTx in unconfirmedTxs)
-                    {
-                        /*var satoshis = Int64.Parse(unconfirmedTx.Satoshis);
-
-                        unconfirmedUtxo.Add(new Utxo
-                        {
-                            address = Utils.FormatAddress(address, returnLegacyAddresses),
-                            txid = Binary.ByteArrayToHexString(unconfirmedTx.Hash),
-                            vout = unconfirmedTx.Index,
-                            scriptPubKey = GetOutputScript(unconfirmedTx.Outputs[outputPoint.Index]) : null,
-                            amount = Utils.SatoshisToCoinUnits(satoshis),
-                            satoshis = satoshis,
-                            height = -1,
-                            confirmations = 0
-                        });*/
-                    }
-                }
-            }
-            return unconfirmedUtxo;
         }
 
         private static Tuple<string[], string> GetAddressTransactions(OrderedSet<string> transactionIds, int from, int to)

@@ -1,5 +1,6 @@
 using Bitprim;
 using System;
+using System.Numerics;
 
 namespace bitprim.insight.DTOs
 {
@@ -57,8 +58,6 @@ namespace bitprim.insight.DTOs
         /// </summary>
         public string scriptPubKey { get; set; }
 
-
-
         /// <summary>
         /// Total unspent money for this output, in coin units.
         /// </summary>
@@ -73,7 +72,7 @@ namespace bitprim.insight.DTOs
         /// <summary>
         /// Height of the block which contains the transaction which contains this utxo.
         /// </summary>
-        public Int64 height { get; set; }
+        public BigInteger height { get; set; }
 
         /// <summary>
         /// For the block which contains this output.
