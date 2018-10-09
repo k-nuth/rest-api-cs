@@ -15,30 +15,6 @@ namespace bitprim.insight.DTOs
         public Utxo() {}
 
         /// <summary>
-        /// Constructor for all fields.
-        /// </summary>
-        /// <param name="paymentAddress"> Utxo destination address. </param>
-        /// <param name="outputPoint"> Utxo reference (tx hash + output index). </param>
-        /// <param name="getTxEc"> Containing transaction retrieval result. </param>
-        /// <param name="tx"> Transaction containing this output. </param>
-        /// <param name="compact"> History entry referencing this utxo. </param>
-        /// <param name="topHeight"> Current blockchain height. </param>
-        /// <param name="returnLegacyAddresses"> If and only if true,  </param>
-        public Utxo(PaymentAddress paymentAddress, IPoint outputPoint, ErrorCode getTxEc,
-                    ITransaction tx, HistoryCompact compact, UInt64 topHeight,
-                    bool returnLegacyAddresses = false)
-        {
-            address = Utils.FormatAddress(paymentAddress, returnLegacyAddresses);
-            txid = Binary.ByteArrayToHexString(outputPoint.Hash);
-            vout = outputPoint.Index;
-            scriptPubKey = getTxEc == ErrorCode.Success ? GetOutputScript(tx.Outputs[outputPoint.Index]) : null;
-            amount = Utils.SatoshisToCoinUnits(compact.ValueOrChecksum);
-            satoshis = (Int64) compact.ValueOrChecksum;
-            height = compact.Height;
-            confirmations = topHeight - compact.Height + 1;
-        }
-
-        /// <summary>
         /// Destination address for this output.
         /// </summary>
         public string address { get; set; }
@@ -68,7 +44,6 @@ namespace bitprim.insight.DTOs
         /// </summary>
         public Int64 satoshis { get; set; }
 
-
         /// <summary>
         /// Height of the block which contains the transaction which contains this utxo.
         /// </summary>
@@ -78,13 +53,15 @@ namespace bitprim.insight.DTOs
         /// For the block which contains this output.
         /// </summary>
         public UInt64 confirmations { get; set; }
-        
-        private static string GetOutputScript(Output output)
+
+        /// <summary>
+        /// Returns true if and only if blockheight should be serialized.
+        /// Naming convention is intentionally violated because Newtonsoft.Json relies
+        /// on the "ShouldSerialize" prefix before the exact property name.
+        /// </summary>
+        public bool ShouldSerializeheight()
         {
-            var script = output.Script;
-            var scriptData = script.ToData(false);
-            Array.Reverse(scriptData, 0, scriptData.Length);
-            return Binary.ByteArrayToHexString(scriptData);
+            return height >= 0;
         }
     }
 }

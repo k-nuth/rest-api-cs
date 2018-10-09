@@ -370,7 +370,7 @@ namespace bitprim.insight.Controllers
             var utxosDto = new List<DTOs.Utxo>();
             foreach(IUtxo utxo in utxos)
             {
-                var blockHeight = utxo.BlockHeight == UInt64.MaxValue? new BigInteger(-1) : new BigInteger(utxo.BlockHeight);
+                bool txConfirmed = (utxo.BlockHeight != UInt64.MaxValue);
                 byte[] scriptData = utxo.Script.ToData(false);
                 Array.Reverse(scriptData, 0, scriptData.Length);
                 utxosDto.Add(new DTOs.Utxo 
@@ -381,8 +381,8 @@ namespace bitprim.insight.Controllers
                     scriptPubKey = Binary.ByteArrayToHexString(scriptData),
                     amount = Utils.SatoshisToCoinUnits(utxo.Amount),
                     satoshis = (long) utxo.Amount,
-                    height = blockHeight,
-                    confirmations = topHeight - ((UInt64)blockHeight) + 1
+                    height = txConfirmed? new BigInteger(utxo.BlockHeight) : new BigInteger(-1),
+                    confirmations = txConfirmed? (topHeight - utxo.BlockHeight + 1) : 0
                 });
             }
             return utxosDto;
