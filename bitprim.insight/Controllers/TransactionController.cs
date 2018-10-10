@@ -781,14 +781,18 @@ namespace bitprim.insight.Controllers
     {
         public int Compare(Tuple<Int64, string> lv, Tuple<Int64, string> rv)
         {
-            if(lv.Item1 != rv.Item1)
+            // For equal block height, order by ascending txId
+            if(lv.Item1 == rv.Item1)
             {
-                //When sorting by block height, we want descending order, so we invert the comparison
-                return rv.Item1.CompareTo( lv.Item1 );
+                return string.Compare( lv.Item2, rv.Item2, StringComparison.Ordinal );    
             }
-
-            //For equal block height, order by ascending txId
-            return string.Compare( lv.Item2, rv.Item2, StringComparison.Ordinal );
+            // If one of the txs is unconfirmed (block_height == -1), it goes first
+            if(lv.Item1 < 0 || rv.Item1 < 0)
+            {
+                return lv.Item1.CompareTo( rv.Item1 );
+            }
+            // When sorting by positive block height, we want descending order, so we invert the comparison
+            return rv.Item1.CompareTo( lv.Item1 );
         }
     }
 }
