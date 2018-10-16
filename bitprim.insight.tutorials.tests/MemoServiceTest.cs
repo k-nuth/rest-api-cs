@@ -1,4 +1,5 @@
-﻿using bitprim.insight.DTOs;
+﻿using System.Globalization;
+using bitprim.insight.DTOs;
 using Moq;
 using Xunit;
 
@@ -20,7 +21,7 @@ namespace bitprim.tutorials.tests
                 txid = "4a69a310ce5cade43a12308101822dd9e2988f4be17c53c20785d7060688157d",
                 vin = new TransactionInputSummary[]
                 {
-                    new TransactionInputSummary
+                    new NonCoinbaseTransactionInputSummary
                     {
                         value = 0.00385287M,
                         scriptSig = new InputScriptSummary
@@ -42,7 +43,7 @@ namespace bitprim.tutorials.tests
                 {
                     new TransactionOutputSummary
                     {
-                        value = 0.00384891M,
+                        value = 0.00384891M.ToString("0.00000000"),
                         scriptPubKey = new OutputScriptSummary
                         {
                             asm = "dup hash160 [cba6a1b91eda58e77ff5f265037326699625dfa0] equalverify checksig",
@@ -54,7 +55,7 @@ namespace bitprim.tutorials.tests
                     },
                     new TransactionOutputSummary
                     {
-                        value = 0,
+                        value = 0.ToString("0.00000000"),
                         scriptPubKey = new OutputScriptSummary
                         {
                             asm = "return [6d0c] [6d656d6f] [596573746572646179203135303633322d3134383539303d32303432206d656d6f207472616e73616374696f6e732e204e756d626572206f66207472616e73616374696f6e73f09f93883230252e2043686172747320617661696c61626c652061742068747470733a2f2f6d656d6f2e636173682f636861727473202e20636f6e7369646572696e6720776865746865722073686f756c6420492073746f702074686973207265636f7264696e673f3f3f]",
@@ -71,7 +72,7 @@ namespace bitprim.tutorials.tests
                 txid = "2a2c1b00ec5ed7beb31244d054f5401dbcae1faf22d4ce5c6bcbf9b3bdfb5e1e",
                 vin = new TransactionInputSummary[]
                 {
-                    new TransactionInputSummary
+                    new NonCoinbaseTransactionInputSummary
                     {
                         value = 0.00290733M,
                         scriptSig = new InputScriptSummary
@@ -93,7 +94,7 @@ namespace bitprim.tutorials.tests
                 {
                     new TransactionOutputSummary
                     {
-                        value = 0.00290449M,
+                        value = 0.00290449M.ToString("0.00000000"),
                         scriptPubKey = new OutputScriptSummary
                         {
                             asm = "dup hash160 [5a528d9d036d74279f7f969682b95e2c537d3714] equalverify checksig",
@@ -105,7 +106,7 @@ namespace bitprim.tutorials.tests
                     },
                     new TransactionOutputSummary
                     {
-                        value = 0M,
+                        value = 0M.ToString("0.00000000"),
                         scriptPubKey = new OutputScriptSummary
                         {
                             asm = "return [6d03] [6c4efe072f542bf4bc58d8e0f2924be90b5d588da4fea58b9d75180e2a04c78d] [4243486a6565706e657920616e642073747265737374657374626974636f696e2e63617368]",
@@ -164,7 +165,7 @@ namespace bitprim.tutorials.tests
                     locktime = 0,
                     vin = new TransactionInputSummary[]
                     {
-                        new TransactionInputSummary
+                        new CoinbaseTransactionInputSummary
                         {
                             coinbase = "03e83a08152f5669614254432f636f696e6765656b2e636f6d2f2cfabe6d6dad844921def544424cb2ed351c5654924c882f630e9a4f4cac8c007b4b86c0fe040000000000000010ba9c1e0c951780acdefefd6a91050000",
                             sequence = 4294967295,
@@ -175,7 +176,7 @@ namespace bitprim.tutorials.tests
                     {
                         new TransactionOutputSummary
                         {
-                            value = 12.5085271M,
+                            value = 12.5085271M.ToString("0.00000000"),
                             n = 0,
                             scriptPubKey = new OutputScriptSummary
                             {

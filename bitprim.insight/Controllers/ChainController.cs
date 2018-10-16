@@ -54,22 +54,34 @@ namespace bitprim.insight.Controllers
         /// <summary>
         /// Get an estimate value for current block fee.
         /// </summary>
-        /// <param name="nbBlocks"> Number of blocks to consider for estimation; a higher number
+        /// <param name="nbBlocks"> Comma-separed list of block numbers to use for each estimation; a higher number
         /// implies higher precision, but will take longer to calculate.
         /// </param>
-        /// <returns> Current estimation for block fee. </returns>
+        /// <returns> Current estimations for block fee, for each block count requested. </returns>
         [HttpGet("utils/estimatefee")]
         [SwaggerOperation("GetEstimateFee")]
         [SwaggerResponse((int)System.Net.HttpStatusCode.OK, typeof(IDictionary<string, string>))]
-        public ActionResult GetEstimateFee([FromQuery] int nbBlocks = 2)
+        public ActionResult GetEstimateFee([FromQuery] string nbBlocks = "2")
         {
-            if( !ModelState.IsValid || nbBlocks <= 0)
+            if( !ModelState.IsValid || string.IsNullOrWhiteSpace(nbBlocks) )
             {
-                return BadRequest("nbBlocks must be an integer greater than zero");
+                return BadRequest("nbBlocks must be a string of comma-separated integers");
+            }
+            var nbBlocksStr = nbBlocks.Split(",");
+            foreach(string s in nbBlocksStr)
+            {
+                int a;
+                if( !int.TryParse(s, out a) )
+                {
+                    return BadRequest(s + " is not an integer");
+                }
             }
             var estimateFee = new ExpandoObject() as IDictionary<string, Object>;
             //TODO Check which algorithm to use (see bitcoin-abc's median, at src/policy/fees.cpp for an example)
-            estimateFee.Add(nbBlocks.ToString(), config_.EstimateFeeDefault.ToString("N8"));
+            foreach(string s in nbBlocksStr)
+            {
+                estimateFee.Add(s, config_.EstimateFeeDefault);
+            }
             return Json(estimateFee);
         }
 
@@ -169,8 +181,7 @@ namespace bitprim.insight.Controllers
                 return BadRequest("minimumSync must be a floating point number");
             }
             dynamic syncStatus = await DoGetSyncStatus();
-            bool isNumeric = Double.TryParse(syncStatus.syncPercentage, out double syncPercentage);
-            bool isHealthy = isNumeric && syncPercentage > minimumSync;
+            bool isHealthy = syncStatus.syncPercentage > minimumSync;
             return isHealthy?
                 StatusCode((int)System.Net.HttpStatusCode.OK, "OK"):
                 StatusCode((int)System.Net.HttpStatusCode.PreconditionFailed, "NOK");
@@ -372,10 +383,10 @@ namespace bitprim.insight.Controllers
             syncStatus.status = synced ? "finished" : "synchronizing";
             syncStatus.blockChainHeight = currentHeight;
             syncStatus.syncPercentage = synced?
-                "100" :
-                 Math.Min((double)(lastBlockTimestamp - firstBlockTimestamp) / (double)(nowTimestamp - firstBlockTimestamp) * 100.0, 100).ToString("N2");
-            syncStatus.error = null;
+                100 :
+                 Math.Min(Math.Round((double)(lastBlockTimestamp - firstBlockTimestamp) / (double)(nowTimestamp - firstBlockTimestamp) * 100.0, 2), 100);
             syncStatus.height = currentHeight;
+            syncStatus.error = null;
             syncStatus.type = config_.NodeType;
             return syncStatus;
         }

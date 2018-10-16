@@ -3,10 +3,12 @@ using System.IO;
 using System.Net.Http;
 using System.Text;
 using System.Threading.Tasks;
+using bitprim.insight.DTOs;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Newtonsoft.Json;
 using Polly;
 
 namespace bitprim.insight.Middlewares
@@ -75,6 +77,16 @@ namespace bitprim.insight.Middlewares
                 applicationBuilder.Run(async context =>
                 {
                     await context.Response.WriteAsync("OK");
+                });
+            });
+
+
+            builder.Map("/forwardermemstats", applicationBuilder =>
+            {
+                applicationBuilder.Run(async context =>
+                {
+                    var stats = new MemoryStatsDto();
+                    await context.Response.WriteAsync(JsonConvert.SerializeObject(stats));
                 });
             });
 

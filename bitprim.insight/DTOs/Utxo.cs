@@ -22,10 +22,12 @@ namespace bitprim.insight.DTOs
         /// <param name="tx"> Transaction containing this output. </param>
         /// <param name="compact"> History entry referencing this utxo. </param>
         /// <param name="topHeight"> Current blockchain height. </param>
+        /// <param name="returnLegacyAddresses"> If and only if true,  </param>
         public Utxo(PaymentAddress paymentAddress, Point outputPoint, ErrorCode getTxEc,
-                    Transaction tx, HistoryCompact compact, UInt64 topHeight)
+                    Transaction tx, HistoryCompact compact, UInt64 topHeight,
+                    bool returnLegacyAddresses = false)
         {
-            address = paymentAddress.Encoded;
+            address = Utils.FormatAddress(paymentAddress, returnLegacyAddresses);
             txid = Binary.ByteArrayToHexString(outputPoint.Hash);
             vout = outputPoint.Index;
             scriptPubKey = getTxEc == ErrorCode.Success ? GetOutputScript(tx.Outputs[outputPoint.Index]) : null;
@@ -36,29 +38,9 @@ namespace bitprim.insight.DTOs
         }
 
         /// <summary>
-        /// Total unspent money for this output, in coin units.
-        /// </summary>
-        public decimal amount { get; set; }
-
-        /// <summary>
-        /// Height of the block which contains the transaction which contains this utxo.
-        /// </summary>
-        public Int64 height { get; set; }
-
-        /// <summary>
-        /// Total unspent money for this output, in Satoshis.
-        /// </summary>
-        public Int64 satoshis { get; set; }
-
-        /// <summary>
         /// Destination address for this output.
         /// </summary>
         public string address { get; set; }
-
-        /// <summary>
-        /// Output script.
-        /// </summary>
-        public string scriptPubKey { get; set; }
 
         /// <summary>
         /// Transaction hash as 64-character (32 bytes) hex string.
@@ -66,15 +48,38 @@ namespace bitprim.insight.DTOs
         public string txid { get; set; }
 
         /// <summary>
-        /// For the block which contains this output.
-        /// </summary>
-        public UInt64 confirmations { get; set; }
-
-        /// <summary>
         /// Total unspent money for this output, in Satoshis.
         /// </summary>
         public UInt64 vout { get; set; }
 
+        /// <summary>
+        /// Output script.
+        /// </summary>
+        public string scriptPubKey { get; set; }
+
+
+
+        /// <summary>
+        /// Total unspent money for this output, in coin units.
+        /// </summary>
+        public decimal amount { get; set; }
+
+        /// <summary>
+        /// Total unspent money for this output, in Satoshis.
+        /// </summary>
+        public Int64 satoshis { get; set; }
+
+
+        /// <summary>
+        /// Height of the block which contains the transaction which contains this utxo.
+        /// </summary>
+        public Int64 height { get; set; }
+
+        /// <summary>
+        /// For the block which contains this output.
+        /// </summary>
+        public UInt64 confirmations { get; set; }
+        
         private static string GetOutputScript(Output output)
         {
             var script = output.Script;
