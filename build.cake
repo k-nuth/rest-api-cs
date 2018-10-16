@@ -4,6 +4,7 @@ var target = Argument("target", "Default");
 var configuration = Argument("configuration", "Release");
 
 var solutionName = "bitprim.insight.sln";
+var solutionTutorialsName = "bitprim.insight.tutorials.sln";
 
 var platform = "/property:Platform=x64";
 
@@ -12,11 +13,14 @@ Task("Clean")
         Information("Cleaning... ");
         CleanDirectory("./bitprim.insight/bin");
         CleanDirectory("./bitprim.insight.tests/bin");
+        CleanDirectory("./bitprim.insight.tutorials/bin");
+        CleanDirectory("./bitprim.insight.tutorials.tests/bin");
     });
 
 Task("Restore")
     .Does(() => {
         DotNetCoreRestore(solutionName);
+        DotNetCoreRestore(solutionTutorialsName);
     });
 
 GitVersion versionInfo = null;
@@ -44,6 +48,11 @@ Task("Build")
             ArgumentCustomization = args => args.Append(platform + " /p:BCH=true"),        
             Configuration = configuration
         });
+
+        MSBuild(solutionTutorialsName, new MSBuildSettings {
+            ArgumentCustomization = args => args.Append(platform + " /p:BCH=true"),        
+            Configuration = configuration
+        });
     });
 
 Task("Test")
@@ -57,6 +66,7 @@ Task("Test")
             };
         
         DotNetCoreTest("./bitprim.insight.tests",settings);
+        DotNetCoreTest("./bitprim.insight.tutorials.tests",settings);
     });
 
 
