@@ -292,48 +292,26 @@ namespace bitprim.insight.Controllers
                 UInt64 received = 0;
                 UInt64 addressBalance = 0;
                 var txs = new OrderedSet<string>();
-                var txCount = history.Count;
-
-                if (includeTransactionIds)
+                
+                foreach (HistoryCompact compact in history)
                 {
-                    foreach (HistoryCompact compact in history)
+                    if (compact.PointKind == PointKind.Output)
                     {
-                        if (compact.PointKind == PointKind.Output)
-                        {
-                            received += compact.ValueOrChecksum;
+                        received += compact.ValueOrChecksum;
 
-                            using (var outPoint = new OutputPoint(compact.Point.Hash, compact.Point.Index))
+                        using (var outPoint = new OutputPoint(compact.Point.Hash, compact.Point.Index))
+                        {
+                            var getSpendResult = await chain_.FetchSpendAsync(outPoint);
+                            if (getSpendResult.ErrorCode == ErrorCode.NotFound)
                             {
-                                var getSpendResult = await chain_.FetchSpendAsync(outPoint);
-                                if (getSpendResult.ErrorCode == ErrorCode.NotFound)
-                                {
-                                    addressBalance += compact.ValueOrChecksum;
-                                }
+                                addressBalance += compact.ValueOrChecksum;
                             }
                         }
-                        txs.Add(Binary.ByteArrayToHexString(compact.Point.Hash));
                     }
+                    txs.Add(Binary.ByteArrayToHexString(compact.Point.Hash));
                 }
-                else
-                {
-                    foreach (HistoryCompact compact in history)
-                    {
-                        if (compact.PointKind == PointKind.Output)
-                        {
-                            received += compact.ValueOrChecksum;
 
-                            using (var outPoint = new OutputPoint(compact.Point.Hash, compact.Point.Index))
-                            {
-                                var getSpendResult = await chain_.FetchSpendAsync(outPoint);
-                                if (getSpendResult.ErrorCode == ErrorCode.NotFound)
-                                {
-                                    addressBalance += compact.ValueOrChecksum;
-                                }
-                            }
-                        }
-
-                    }
-                }
+                
 
                 statsGetAddressHistory[3] = stopWatch?.ElapsedMilliseconds ?? -1;
 
@@ -343,8 +321,8 @@ namespace bitprim.insight.Controllers
                     Balance = addressBalance,
                     Received = received,
                     Sent = totalSent,
-                    Transactions = txs,
-                    TxCount = txCount
+                    Transactions = includeTransactionIds ? txs : null,
+                    TxCount = (uint)txs.Count
                 };
             }
         }
