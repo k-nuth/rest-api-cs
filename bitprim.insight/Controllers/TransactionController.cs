@@ -478,7 +478,7 @@ namespace bitprim.insight.Controllers
             {
                 Utils.CheckBitprimApiErrorCode(getBlockResult.ErrorCode, "FetchBlockByHashAsync(" + blockHash + ") failed, check error log");
                 
-                Block fullBlock = getBlockResult.Result.BlockData;
+                IBlock fullBlock = getBlockResult.Result.BlockData;
                 UInt64 blockHeight = getBlockResult.Result.BlockHeight;
                 UInt64 pageSize = (UInt64) config_.TransactionsByAddressPageSize;
                 UInt64 pageCount = (UInt64) Math.Ceiling((double)fullBlock.TransactionCount/(double)pageSize);
@@ -525,7 +525,7 @@ namespace bitprim.insight.Controllers
                     //4
                     statsGetTransactions.Add(stopWatch.ElapsedMilliseconds);
 
-                    HashList confirmedTxIds = getTransactionResult.Result;
+                    INativeList<byte[]>  confirmedTxIds = getTransactionResult.Result;
                    
                     //Confirmed
                     foreach (byte[] txHash in confirmedTxIds)
@@ -544,16 +544,16 @@ namespace bitprim.insight.Controllers
 
         private void GetUnconfirmedTransactionPositions(PaymentAddress address, SortedSet<Tuple<Int64, string>> txPositions)
         {
-            using(MempoolTransactionList unconfirmedTxIds = chain_.GetMempoolTransactions(address, nodeExecutor_.UseTestnetRules))
+            using(INativeList<IMempoolTransaction> unconfirmedTxIds = chain_.GetMempoolTransactions(address, nodeExecutor_.UseTestnetRules))
             {
-                foreach(MempoolTransaction unconfirmedTxId in unconfirmedTxIds)
+                foreach(IMempoolTransaction unconfirmedTxId in unconfirmedTxIds)
                 {
                     txPositions.Add( new Tuple<Int64, string>(-1, unconfirmedTxId.Hash) );
                 }
             }
         }
 
-        private async Task<TransactionInputSummary[]> TxInputsToJSON(Transaction tx, bool returnLegacyAddresses, bool noAsm,
+        private async Task<TransactionInputSummary[]> TxInputsToJSON(ITransaction tx, bool returnLegacyAddresses, bool noAsm,
                                                                      bool noScriptSig)
         {
             var inputs = tx.Inputs;
@@ -585,7 +585,7 @@ namespace bitprim.insight.Controllers
             return jsonInputs.ToArray();
         }
 
-        private async Task<TransactionOutputSummary[]> TxOutputsToJSON(Transaction tx, bool returnLegacyAddresses, bool noAsm,
+        private async Task<TransactionOutputSummary[]> TxOutputsToJSON(ITransaction tx, bool returnLegacyAddresses, bool noAsm,
                                                                        bool noSpend)
         {
             var outputs = tx.Outputs;
@@ -599,14 +599,14 @@ namespace bitprim.insight.Controllers
                 jsonOutput.scriptPubKey = OutputScriptToJSON(output, returnLegacyAddresses, noAsm);
                 if(!noSpend)
                 {
-                    await SetOutputSpendInfo(jsonOutput, tx.Hash, (UInt32)i);
+                    await SetOutputSpendInfo(jsonOutput, tx.Hash, i);
                 }
                 jsonOutputs.Add(jsonOutput);
             }
             return jsonOutputs.ToArray();
         }
 
-        private async Task<TransactionSummary> TxToJSON(Transaction tx, UInt64 blockHeight, bool confirmed,
+        private async Task<TransactionSummary> TxToJSON(ITransaction tx, UInt64 blockHeight, bool confirmed,
                                                         bool returnLegacyAddresses, bool noAsm, bool noScriptSig,
                                                         bool noSpend)
         {
@@ -617,7 +617,7 @@ namespace bitprim.insight.Controllers
                 using(var getBlockHeaderResult = await chain_.FetchBlockHeaderByHeightAsync(blockHeight))
                 {
                     Utils.CheckBitprimApiErrorCode(getBlockHeaderResult.ErrorCode, "FetchBlockHeaderByHeightAsync(" + blockHeight + ") failed, check error log");
-                    Header blockHeader = getBlockHeaderResult.Result.BlockData;
+                    IHeader blockHeader = getBlockHeaderResult.Result.BlockData;
                     blockTimestamp = blockHeader.Timestamp;
                     blockHash = Binary.ByteArrayToHexString(blockHeader.Hash);
                 }    
@@ -656,7 +656,7 @@ namespace bitprim.insight.Controllers
             return txJson;
         }
 
-        private async Task<UInt64> ManuallyCalculateInputsTotal(Transaction tx)
+        private async Task<UInt64> ManuallyCalculateInputsTotal(ITransaction tx)
         {
             UInt64 inputs_total = 0;
             foreach(Input txInput in tx.Inputs)
