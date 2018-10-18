@@ -122,4 +122,5 @@ install:
 script:
   - |
     chmod +x build.sh
-    ./build.sh
+    ./build.sh --coin="BTC"
+    ./build.sh --coin="BCH"
