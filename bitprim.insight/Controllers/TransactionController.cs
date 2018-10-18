@@ -661,7 +661,7 @@ namespace bitprim.insight.Controllers
             UInt64 inputs_total = 0;
             foreach(Input txInput in tx.Inputs)
             {
-                using(var getTxResult = await chain_.FetchTransactionAsync(txInput.PreviousOutput.Hash, false))
+                using(var getTxResult = await chain_.FetchTransactionAsync(txInput.PreviousOutput.Hash, true))
                 {
                     if(getTxResult.ErrorCode != ErrorCode.NotFound)
                     {
