@@ -74,7 +74,7 @@ namespace bitprim.insight.Controllers
                 var getLastHeightResult = await chain_.FetchLastHeightAsync();
                 Utils.CheckBitprimApiErrorCode(getLastHeightResult.ErrorCode, "FetchLastHeightAsync() failed, check error log");
                 
-                var blockHeight = getBlockResult.Result.Block.BlockHeight;
+                var blockHeight = getBlockResult.Result.Header.BlockHeight;
 
                 ApiCallResult<GetBlockHashTimestampResult> getNextBlockResult = null;
                 if(blockHeight != getLastHeightResult.Result)
@@ -94,7 +94,7 @@ namespace bitprim.insight.Controllers
 
                 JsonResult blockJson = Json(BlockToJSON
                 (
-                    getBlockResult.Result.Block.BlockData, blockHeight, getBlockResult.Result.TransactionHashes,
+                    getBlockResult.Result.Header.BlockData, blockHeight, getBlockResult.Result.TransactionHashes,
                     blockReward, getLastHeightResult.Result, getNextBlockResult?.Result.BlockHash,
                     getBlockResult.Result.SerializedBlockSize, poolInfo, noTxList == 0)
                 );
@@ -293,7 +293,7 @@ namespace bitprim.insight.Controllers
             return low;
         }
 
-        private async Task<BlockSummary> GetBlockSummary(Header header, UInt64 height, UInt64 topHeight)
+        private async Task<BlockSummary> GetBlockSummary(IHeader header, UInt64 height, UInt64 topHeight)
         {
             var hashStr = Binary.ByteArrayToHexString(header.Hash);
             var key = "blockSummary" + hashStr;
@@ -398,7 +398,7 @@ namespace bitprim.insight.Controllers
             };
         }
 
-        private static GetBlockByHashResponse BlockToJSON(Header blockHeader, UInt64 blockHeight, HashList txHashes,
+        private static GetBlockByHashResponse BlockToJSON(IHeader blockHeader, UInt64 blockHeight, INativeList<byte[]> txHashes,
                                                           decimal blockReward, UInt64 currentHeight, byte[] nextBlockHash,
                                                           UInt64 serializedBlockSize, PoolsInfo.PoolInfo poolInfo, bool includeTransactionIds)
         {
@@ -433,7 +433,7 @@ namespace bitprim.insight.Controllers
             return blockJson;
         }
 
-        private static string[] BlockTxsToJSON(HashList txHashes)
+        private static string[] BlockTxsToJSON(INativeList<byte[]> txHashes)
         {
             var txs = new List<string>();
             for(uint i = 0; i<txHashes.Count; i++)

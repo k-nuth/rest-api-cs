@@ -9,7 +9,7 @@ namespace bitprim.insight
 {
     internal static class Utils
     {
-        public static async Task<Int64> CalculateBalanceDelta(Transaction tx, string address, Chain chain, bool useTestnetRules)
+        public static async Task<Int64> CalculateBalanceDelta(ITransaction tx, string address, Chain chain, bool useTestnetRules)
         {
             using(var paymentAddress = new PaymentAddress(address))
             {
@@ -19,7 +19,7 @@ namespace bitprim.insight
             }
         }
 
-        public static async Task<HashSet<string>> GetTransactionAddresses(Executor executor,Transaction tx)
+        public static async Task<HashSet<string>> GetTransactionAddresses(Executor executor,ITransaction tx)
         {
             var ret = new HashSet<string>();
             ret.UnionWith(await GetAddressFromInput(executor,tx));
@@ -86,7 +86,7 @@ namespace bitprim.insight
             }
         }
 
-        private static async Task<HashSet<string>> GetAddressFromInput(Executor executor, Transaction tx)
+        private static async Task<HashSet<string>> GetAddressFromInput(Executor executor, ITransaction tx)
         {
             var ret = new HashSet<string>();
 
@@ -116,7 +116,7 @@ namespace bitprim.insight
             return ret;
         }
 
-        private static async Task<UInt64> SumAddressInputs(Transaction tx, PaymentAddress address, Chain chain, bool useTestnetRules)
+        private static async Task<UInt64> SumAddressInputs(ITransaction tx, PaymentAddress address, Chain chain, bool useTestnetRules)
         {
             UInt64 inputSum = 0;
             foreach(Input input in tx.Inputs)
@@ -142,7 +142,7 @@ namespace bitprim.insight
             return inputSum;
         }
 
-        private static HashSet<string> GetAddressFromOutput(Executor executor, Transaction tx)
+        private static HashSet<string> GetAddressFromOutput(Executor executor, ITransaction tx)
         {
             var ret = new HashSet<string>();
             foreach (Output output in tx.Outputs)
@@ -157,7 +157,7 @@ namespace bitprim.insight
             return ret;
         }
 
-        private static UInt64 SumAddressOutputs(Transaction tx, PaymentAddress address, bool useTestnetRules)
+        private static UInt64 SumAddressOutputs(ITransaction tx, PaymentAddress address, bool useTestnetRules)
         {
             UInt64 outputSum = 0;
             foreach(Output output in tx.Outputs)
