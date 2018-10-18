@@ -102,15 +102,15 @@ namespace bitprim.insight.DTOs
             return blockheight >= 0;
         }
 
-        /// <summary>
-        /// Returns true if and only if fees should be serialized.
-        /// Naming convention is intentionally violated because Newtonsoft.Json relies
-        /// on the "ShouldSerialize" prefix before the exact property name.
-        /// </summary>
-        public bool ShouldSerializefees()
-        {
-            return valueIn > 0;
-        }
+        ///// <summary>
+        ///// Returns true if and only if fees should be serialized.
+        ///// Naming convention is intentionally violated because Newtonsoft.Json relies
+        ///// on the "ShouldSerialize" prefix before the exact property name.
+        ///// </summary>
+        //public bool ShouldSerializefees()
+        //{
+        //    return valueIn > 0;
+        //}
     }
 
 }
