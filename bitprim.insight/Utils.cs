@@ -66,7 +66,7 @@ namespace bitprim.insight
             #if BCH
                 return useLegacyFormat? address.Encoded : address.ToCashAddr(includePrefix: false);
             #else
-                return outputAddress.Encoded;
+                return address.Encoded;
             #endif
         }
 
