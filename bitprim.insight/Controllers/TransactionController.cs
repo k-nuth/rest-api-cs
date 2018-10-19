@@ -21,8 +21,8 @@ namespace bitprim.insight.Controllers
     [Route("[controller]")]
     public class TransactionController : Controller
     {
+        private readonly IChain chain_;
         private readonly AsmFormatter asmFormatter_;
-        private readonly Chain chain_;
         private readonly Executor nodeExecutor_;
         private readonly ILogger<TransactionController> logger_;
         private readonly IMemoryCache memoryCache_;

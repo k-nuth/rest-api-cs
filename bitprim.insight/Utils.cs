@@ -9,7 +9,7 @@ namespace bitprim.insight
 {
     internal static class Utils
     {
-        public static async Task<Int64> CalculateBalanceDelta(ITransaction tx, string address, Chain chain, bool useTestnetRules)
+        public static async Task<Int64> CalculateBalanceDelta(ITransaction tx, string address, IChain chain, bool useTestnetRules)
         {
             using(var paymentAddress = new PaymentAddress(address))
             {
@@ -78,7 +78,7 @@ namespace bitprim.insight
             }
         }
         
-        public static void CheckIfChainIsFresh(Chain chain, bool acceptStaleRequests)
+        public static void CheckIfChainIsFresh(IChain chain, bool acceptStaleRequests)
         {
             if(!acceptStaleRequests && chain.IsStale)
             {
@@ -116,7 +116,7 @@ namespace bitprim.insight
             return ret;
         }
 
-        private static async Task<UInt64> SumAddressInputs(ITransaction tx, PaymentAddress address, Chain chain, bool useTestnetRules)
+        private static async Task<UInt64> SumAddressInputs(ITransaction tx, PaymentAddress address, IChain chain, bool useTestnetRules)
         {
             UInt64 inputSum = 0;
             foreach(Input input in tx.Inputs)

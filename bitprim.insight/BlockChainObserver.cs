@@ -11,6 +11,7 @@ namespace bitprim.insight
 {
     internal class BlockChainObserver
     {
+        private IChain chain_;
         private readonly Executor.BlockHandler blockHandler_;
         private readonly Executor.TransactionHandler txHandler_;
         private readonly Executor executor_;
@@ -21,6 +22,7 @@ namespace bitprim.insight
         public BlockChainObserver(Executor executor, WebSocketHandler webSocketHandler, NodeConfig config, ILogger<BlockChainObserver> logger)
         {
             executor_ = executor;
+            chain_ = executor.Chain;
             webSocketHandler_ = webSocketHandler;
             config_ = config;
             logger_ = logger;

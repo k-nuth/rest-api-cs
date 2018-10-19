@@ -18,8 +18,8 @@ namespace bitprim.insight.Controllers
     [Route("[controller]")]
     public class AddressController : Controller
     {
-        private readonly Chain chain_;
         private readonly Executor nodeExecutor_;
+        private readonly IChain chain_;
         private readonly NodeConfig config_;
         private readonly ILogger<AddressController> logger_;
 

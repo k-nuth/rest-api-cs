@@ -11,7 +11,7 @@ namespace bitprim.insight
     /// <summary>
     /// Miner pools info; this is used to recognize any block mined by a pool.
     /// </summary>
-    public class PoolsInfo
+    public class PoolsInfo : IPoolsInfo
     {
         private class RootObject
         {
@@ -22,27 +22,6 @@ namespace bitprim.insight
 
         private readonly string poolsFile_;
         private readonly Dictionary<Regex, PoolInfo> data_ = new Dictionary<Regex, PoolInfo>();
-
-        /// <summary>
-        /// Specific pool info.
-        /// </summary>
-        public class PoolInfo
-        {
-            /// <summary>
-            /// Pool well-known name.
-            /// </summary>
-            public string Name { get; set; }
-
-            /// <summary>
-            /// Pool url.
-            /// </summary>
-            public string Url { get; set; }
-
-            /// <summary>
-            /// Empty pool instance.
-            /// </summary>
-            public static PoolInfo Empty = new PoolInfo {Name = "",Url = ""};
-        }
 
         /// <summary>
         /// Only constructor.
