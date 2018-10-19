@@ -8,7 +8,6 @@ using Microsoft.Extensions.Options;
 using Swashbuckle.AspNetCore.SwaggerGen;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
-using SharpCashAddr;
 
 namespace bitprim.insight.Controllers
 {
@@ -113,19 +112,9 @@ namespace bitprim.insight.Controllers
 
             statsGetAddressHistory[4] = stopWatch.ElapsedMilliseconds;
 
-            string convertedAddress;
-            try
-            {
-                convertedAddress = Utils.FormatAddress(paymentAddressObject, returnLegacyAddresses);
-            }
-            catch (CashAddrConversionException)
-            {
-                convertedAddress = paymentAddressObject.Encoded;
-            }
-
             var historyJson = new GetAddressHistoryResponse
             {
-                addrStr = convertedAddress,
+                addrStr = Utils.FormatAddress(paymentAddressObject, returnLegacyAddresses),
                 balance = Utils.SatoshisToCoinUnits(balance.Balance),
                 balanceSat = balance.Balance,
                 totalReceived = Utils.SatoshisToCoinUnits(balance.Received),
