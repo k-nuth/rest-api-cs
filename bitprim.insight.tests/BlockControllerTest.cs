@@ -78,6 +78,20 @@ namespace bitprim.insight.tests
                         Tx = transactionMock.Object
                     }
                 }));
+
+            
+            chainMock.Setup(x => x.FetchBlockHeaderByHeightAsync(It.IsAny<ulong>()))
+                .Returns(Task.FromResult(new DisposableApiCallResult<GetBlockDataResult<IHeader>>
+                {
+                    ErrorCode = ErrorCode.Success,
+                    Result = new GetBlockDataResult<IHeader>()
+                    {
+                        BlockData = headerMock.Object
+                    }
+                }));
+
+            
+            
             
 
             var memoryCache = new MemoryCache(new MemoryCacheOptions());
