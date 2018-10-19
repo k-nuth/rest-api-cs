@@ -6,8 +6,11 @@ using Microsoft.Extensions.Options;
 using Swashbuckle.AspNetCore.SwaggerGen;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
+using System.Net;
 using System.Threading.Tasks;
+using bitprim.insight.Exceptions;
 using Microsoft.Extensions.Caching.Memory;
 
 namespace bitprim.insight.Controllers
@@ -19,11 +22,14 @@ namespace bitprim.insight.Controllers
     public class TransactionController : Controller
     {
         private readonly IChain chain_;
+        private readonly AsmFormatter asmFormatter_;
         private readonly Executor nodeExecutor_;
         private readonly ILogger<TransactionController> logger_;
         private readonly IMemoryCache memoryCache_;
         private readonly NodeConfig config_;
         private static readonly TxPositionComparer txPositionComparer_ = new TxPositionComparer();
+
+        private readonly List<long> statsGetTransactions = new List<long>();
 
         /// <summary>
         /// Build this controller.
@@ -39,6 +45,7 @@ namespace bitprim.insight.Controllers
             chain_ = executor.Chain;
             logger_ = logger;
             memoryCache_ = memoryCache;
+            asmFormatter_ = new AsmFormatter();
         }
 
         /// <summary>
@@ -94,8 +101,13 @@ namespace bitprim.insight.Controllers
                 (
                     new BroadcastTransactionResponse
                     {
-                         //TODO Check if this should be returned by organize call
-                        txid = Binary.ByteArrayToHexString(tx.Hash)
+                        txid = new BroadCastTransactionResult
+                        {
+                            //TODO Check if this should be returned by organize call
+                            result = Binary.ByteArrayToHexString(tx.Hash),
+                            error = null,
+                            id = 0
+                        }
                     }
                 );
             }
@@ -144,13 +156,17 @@ namespace bitprim.insight.Controllers
         /// </summary>
         /// <param name="hash"> 64-character (32 bytes) hex string which univocally identifies the transaction in the network. </param>
         /// <param name="requireConfirmed"> 1 = only confirmed transactions, otherwise include unconfirmed as well. </param>
+        /// <param name="returnLegacyAddresses"> If and only if true, return addresses in legacy format for BCH. </param>
         /// <returns> See TransactionSummary DTO. </returns>
         [HttpGet("tx/{hash}")]
         [ResponseCache(CacheProfileName = Constants.Cache.SHORT_CACHE_PROFILE_NAME)]
         [SwaggerOperation("GetTransactionByHash")]
         [SwaggerResponse((int)System.Net.HttpStatusCode.OK, typeof(TransactionSummary))]
         [SwaggerResponse((int)System.Net.HttpStatusCode.BadRequest, typeof(string))]
-        public async Task<ActionResult> GetTransactionByHash([FromRoute] string hash, [FromQuery] int requireConfirmed)
+        public async Task<ActionResult> GetTransactionByHash
+        (
+            [FromRoute] string hash, [FromQuery] int requireConfirmed, [FromQuery] bool returnLegacyAddresses = false
+        )
         {
             if( !ModelState.IsValid )
             {
@@ -165,11 +181,18 @@ namespace bitprim.insight.Controllers
 
             using(var getTxResult = await chain_.FetchTransactionAsync(binaryHash, requireConfirmed == 1))
             {
+                if (getTxResult.ErrorCode == ErrorCode.NotFound)
+                {
+                    throw new HttpStatusCodeException(HttpStatusCode.NotFound, "Not Found");
+                }
+                
                 Utils.CheckBitprimApiErrorCode(getTxResult.ErrorCode, "FetchTransactionAsync(" + hash + ") failed, check error log");
                 bool confirmed = CheckIfTransactionIsConfirmed(getTxResult.Result.TxPosition);
                 return Json(await TxToJSON
                 (
-                    getTxResult.Result.Tx, getTxResult.Result.TxPosition.BlockHeight, confirmed, noAsm: false, noScriptSig: false, noSpend: false)
+                    getTxResult.Result.Tx, getTxResult.Result.TxPosition.BlockHeight, confirmed,
+                    returnLegacyAddresses: returnLegacyAddresses, noAsm: false, noScriptSig: false,
+                    noSpend: false)
                 );
             }
         }
@@ -184,14 +207,18 @@ namespace bitprim.insight.Controllers
         /// <param name="pageNum"> Results page number to select; starts in zero. Page size is configurable via
         /// appsettings.json and command line. By default, page size is 10 transactions. See TransactionsByAddressPageSize key.
         /// </param>
+        /// <param name="returnLegacyAddresses"> If and only if true, return legacy addresses in BCH. </param>
         /// <returns> See GetTransactionsResponse DTO. </returns>
         [HttpGet("txs")]
         [ResponseCache(CacheProfileName = Constants.Cache.SHORT_CACHE_PROFILE_NAME)]
         [SwaggerOperation("GetTransactions")]
         [SwaggerResponse((int)System.Net.HttpStatusCode.OK, typeof(GetTransactionsResponse))]
         [SwaggerResponse((int)System.Net.HttpStatusCode.BadRequest, typeof(string))]
-        public async Task<ActionResult> GetTransactions(string block = null, string address = null, uint pageNum = 0)
+        public async Task<ActionResult> GetTransactions([FromQuery] string block = null, [FromQuery] string address = null, [FromQuery] uint pageNum = 0,
+                                                        [FromQuery] bool returnLegacyAddresses = false)
         {
+            Stopwatch stopWatch = Stopwatch.StartNew();
+
             if(block == null && address == null)
             {
                 return BadRequest("Specify block or address");
@@ -208,7 +235,7 @@ namespace bitprim.insight.Controllers
                 {
                     return BadRequest(block + " is not a valid block hash");
                 }
-                return await GetTransactionsByBlockHash(block, pageNum);
+                return await GetTransactionsByBlockHash(block, pageNum, returnLegacyAddresses);
             }
             
             if( !Validations.IsValidPaymentAddress(address) )
@@ -216,13 +243,21 @@ namespace bitprim.insight.Controllers
                 return BadRequest(address + " is not a valid address");
             }
 
+            //1
+            statsGetTransactions.Add(stopWatch.ElapsedMilliseconds);
+
             var pageSize = config_.TransactionsByAddressPageSize;
             var from = (int)(pageSize * pageNum);
             int to = (int)(from + pageSize - 1);
 
-            var result = await DoGetTransactionsForMultipleAddresses( new[] {address}, from, to, false, false, false);
+            var result = await DoGetTransactionsForMultipleAddresses( new[] {address}, from, to, stopWatch, returnLegacyAddresses, false, false, false);
+
+            //9
+            statsGetTransactions.Add(stopWatch.ElapsedMilliseconds);
 
             var pageCount = (UInt64) Math.Ceiling((double)result.Item2/(double)pageSize);
+
+            logger_.LogDebug("Finish process addr request (ms): " + String.Join("\t", statsGetTransactions) );
 
             return Json( new GetTransactionsResponse
             {
@@ -237,25 +272,37 @@ namespace bitprim.insight.Controllers
         /// The maximum amount of addresses is determined by the MaxAddressesPerQuery configuration key. </param>
         /// <param name="from"> Results selection starting point; first item is 0 (zero). Default to said value. </param>
         /// <param name="to"> Results selection ending point. Default to 10.</param>
+        /// <param name="returnLegacyAddresses"> If and only if true, return addresses in legacy format for BCH. </param>
         /// <returns> See GetTransactionsForMultipleAddressesResponse DTO. </returns>
         [HttpGet("addrs/{paymentAddresses}/txs")]
         [ResponseCache(CacheProfileName = Constants.Cache.SHORT_CACHE_PROFILE_NAME)]
         [SwaggerOperation("GetTransactionsForMultipleAddresses")]
         [SwaggerResponse((int)System.Net.HttpStatusCode.OK, typeof(GetTransactionsForMultipleAddressesResponse))]
         [SwaggerResponse((int)System.Net.HttpStatusCode.BadRequest, typeof(string))]
-        public async Task<ActionResult> GetTransactionsForMultipleAddresses([FromRoute] string paymentAddresses, [FromQuery] int from = 0, [FromQuery] int to = 10)
+        public async Task<ActionResult> GetTransactionsForMultipleAddresses
+        (
+            [FromRoute] string paymentAddresses, [FromQuery] int from = 0, [FromQuery] int to = 10,
+            [FromQuery] bool returnLegacyAddresses = false
+        )
         {
+            Stopwatch stopWatch = Stopwatch.StartNew();
+
             var validationResult = ValidateGetTransactionsFromMultipleAddressesInput(paymentAddresses, from, to);
             if( !validationResult.Item1 )
             {
                 return BadRequest(validationResult.Item2);
             }
-            var result = await DoGetTransactionsForMultipleAddresses(validationResult.Item3, from, to, false, false, false);
+            var result = await DoGetTransactionsForMultipleAddresses
+            (
+                validationResult.Item3, from, to,
+                stopWatch, returnLegacyAddresses, false,
+                false, false
+            );
             return Json(new GetTransactionsForMultipleAddressesResponse
             {
                 totalItems = result.Item2,
                 from = from,
-                to = to,
+                to = result.Item3,
                 items = result.Item1.ToArray()
             });
         }
@@ -272,6 +319,8 @@ namespace bitprim.insight.Controllers
         [SwaggerResponse((int)System.Net.HttpStatusCode.BadRequest, typeof(string))]
         public async Task<ActionResult> GetTransactionsForMultipleAddresses([FromBody] GetTxsForMultipleAddressesRequest request)
         {
+            Stopwatch stopWatch = Stopwatch.StartNew();
+
             if(request == null)
             {
                 //TODO Point user to documentation once docs include DTOs (RA-176)
@@ -287,18 +336,25 @@ namespace bitprim.insight.Controllers
                 return BadRequest(validationResult.Item2);
             }
 
-            var result = await DoGetTransactionsForMultipleAddresses(validationResult.Item3, request.from, request.to, request.noAsm == 1, request.noScriptSig == 1, request.noSpend == 1);
+            var result = await DoGetTransactionsForMultipleAddresses
+            (
+                validationResult.Item3, request.from, request.to,
+                stopWatch, request.returnLegacyAddresses, request.noAsm == 1,
+                request.noScriptSig == 1, request.noSpend == 1 
+            );
             return Json(new GetTransactionsForMultipleAddressesResponse
             {
                 totalItems = result.Item2,
                 from = request.from,
-                to = request.to,
+                to = result.Item3,
                 items = result.Item1.ToArray()
             });
         }
 
-        private async Task SetInputNonCoinbaseFields(TransactionInputSummary jsonInput, Input input, bool noAsm, bool noScriptSig)
+        private async Task<NonCoinbaseTransactionInputSummary> NonCoinbaseInputToJSON(Input input, bool returnLegacyAddresses, bool noAsm,
+                                                                                      bool noScriptSig)
         {
+            var jsonInput = new NonCoinbaseTransactionInputSummary();
             var previousOutput = input.PreviousOutput;
             jsonInput.txid = Binary.ByteArrayToHexString(previousOutput.Hash);
             jsonInput.vout = previousOutput.Index;
@@ -314,12 +370,13 @@ namespace bitprim.insight.Controllers
                 var outputAddress = output.PaymentAddress(nodeExecutor_.UseTestnetRules);
                 if(outputAddress.IsValid)
                 {
-                    jsonInput.addr =  outputAddress.Encoded;
+                    jsonInput.addr = Utils.FormatAddress(outputAddress, returnLegacyAddresses);
                 }
                 jsonInput.valueSat = output.Value;
                 jsonInput.value = Utils.SatoshisToCoinUnits(output.Value);
                 jsonInput.doubleSpentTxID = null; //We don't handle double spent transactions
             }
+            return jsonInput;
         }
 
         private async Task SetOutputSpendInfo(TransactionOutputSummary jsonOutput, byte[] txHash, UInt32 index)
@@ -350,8 +407,9 @@ namespace bitprim.insight.Controllers
         }
 
         private async Task<Tuple<List<TransactionSummary>, int, int>>
-        DoGetTransactionsForMultipleAddresses(string[] addresses, int from, int to,
-                                              bool noAsm = true, bool noScriptSig = true, bool noSpend = true)
+        DoGetTransactionsForMultipleAddresses(string[] addresses, int from, int to, Stopwatch stopWatch,
+                                              bool returnLegacyAddresses, bool noAsm = true, bool noScriptSig = true,
+                                              bool noSpend = true)
         {
             var fromCache = false;
             string cacheKey = string.Join("",addresses);
@@ -363,15 +421,20 @@ namespace bitprim.insight.Controllers
                     fromCache = true;
                 }
             }
+            //2
+            statsGetTransactions.Add(stopWatch.ElapsedMilliseconds);
 
             if (!fromCache)
             {
                 txPositions = new SortedSet<Tuple<Int64, string>>( txPositionComparer_ );
                 foreach(string address in addresses)
                 {
-                    await GetTransactionPositionsBySingleAddress(address, false, 0, txPositions);
+                    await GetTransactionPositionsBySingleAddress(address, txPositions, stopWatch);
                 }
             }
+
+            //6
+            statsGetTransactions.Add(stopWatch.ElapsedMilliseconds);
 
             if (txPositions.Count > Constants.Cache.TXID_LIST_CACHE_MIN)
             {
@@ -382,6 +445,8 @@ namespace bitprim.insight.Controllers
                 });
             }
 
+            //7
+            statsGetTransactions.Add(stopWatch.ElapsedMilliseconds);
             var finalTo = Math.Min(to, txPositions.Count);
 
             //Fetch selected range and convert to JSON
@@ -391,13 +456,22 @@ namespace bitprim.insight.Controllers
                 using(var getTxResult = await chain_.FetchTransactionAsync( Binary.HexStringToByteArray(txPosition.Item2), false))
                 {
                     Utils.CheckBitprimApiErrorCode(getTxResult.ErrorCode, "FetchTransactionAsync(" + txPosition.Item2 + ") failed, check error log");
-                    txsDigest.Add( await TxToJSON(getTxResult.Result.Tx, (UInt64) txPosition.Item1, txPosition.Item1 > 0, noAsm, noScriptSig, noSpend) );
+                    txsDigest.Add( await TxToJSON
+                    (
+                        getTxResult.Result.Tx, (UInt64) txPosition.Item1, txPosition.Item1 > 0,
+                        returnLegacyAddresses, noAsm, noScriptSig,
+                        noSpend
+                    ));
                 }
             }
+
+            //8
+            statsGetTransactions.Add(stopWatch.ElapsedMilliseconds);
+
             return new Tuple<List<TransactionSummary>, int, int>(txsDigest, txPositions.Count, finalTo);
         }
 
-        private async Task<ActionResult> GetTransactionsByBlockHash(string blockHash, UInt64 pageNum)
+        private async Task<ActionResult> GetTransactionsByBlockHash(string blockHash, UInt64 pageNum, bool returnLegacyAddresses)
         {
             Utils.CheckIfChainIsFresh(chain_, config_.AcceptStaleRequests);
             using(var getBlockResult = await chain_.FetchBlockByHashAsync(Binary.HexStringToByteArray(blockHash)))
@@ -417,7 +491,12 @@ namespace bitprim.insight.Controllers
                 for(UInt64 i=0; i<pageSize && pageNum * pageSize + i < fullBlock.TransactionCount; i++)
                 {
                     var tx = fullBlock.GetNthTransaction(pageNum * pageSize + i);
-                    txs.Add(await TxToJSON(tx, blockHeight, confirmed: true, noAsm: false, noScriptSig: false, noSpend: false));
+                    txs.Add(await TxToJSON
+                    (
+                        tx, blockHeight, confirmed: true,
+                        returnLegacyAddresses: returnLegacyAddresses, noAsm: false, noScriptSig: false,
+                        noSpend: false
+                    ));
                 }
                 
                 return Json(new GetTransactionsResponse
@@ -428,100 +507,54 @@ namespace bitprim.insight.Controllers
             }
         }
 
-        //private async Task<List<TransactionSummary>> GetTransactionsBySingleAddress(string paymentAddress, uint pageNum, bool noAsm,
-        //                                                                            bool noScriptSig, bool noSpend)
-        //{
-        //    Utils.CheckIfChainIsFresh(chain_, config_.AcceptStaleRequests);
-
-        //    using (var address = new PaymentAddress(paymentAddress))
-        //    using (var getTransactionResult = await chain_.FetchConfirmedTransactionsAsync(address, UInt64.MaxValue, 0))
-        //    {
-        //        Utils.CheckBitprimApiErrorCode(getTransactionResult.ErrorCode, "FetchConfirmedTransactionsAsync(" + paymentAddress + ") failed, check error log.");
-
-        //        var txIds = getTransactionResult.Result;
-        //        var pageSize = config_.TransactionsByAddressPageSize;
-
-        //        //Unconfirmed first
-        //        List<TransactionSummary> txsJson = await GetUnconfirmedTransactions(address, noAsm, noScriptSig, noSpend);
-        //        if( pageNum * (pageSize + 1) < txsJson.Count )
-        //        {
-        //            return txsJson;
-        //        }
-
-        //        //Confirmed
-        //        for(uint i=0; i<pageSize && (pageNum * pageSize + i < txIds.Count); i++)
-        //        {
-        //            var txHash = txIds[(pageNum * pageSize + i)];
-        //            using(var getTxResult = await chain_.FetchTransactionAsync(txHash, true))
-        //            {
-        //                Utils.CheckBitprimApiErrorCode(getTxResult.ErrorCode, "FetchTransactionAsync(" + Binary.ByteArrayToHexString(txHash) + ") failed, check error log");
-        //                bool confirmed = CheckIfTransactionIsConfirmed(getTxResult.Result.TxPosition);
-        //                txsJson.Add( await TxToJSON(getTxResult.Result.Tx, getTxResult.Result.TxPosition.BlockHeight, confirmed, noAsm, noScriptSig, noSpend) );
-        //            }
-        //        }
-
-        //        return txsJson;
-        //    }
-        //}
-
-        private async Task GetTransactionPositionsBySingleAddress(string paymentAddress, bool pageResults, uint pageNum,
-                                                                  SortedSet<Tuple<Int64, string>> txPositions)
+        private async Task GetTransactionPositionsBySingleAddress(string paymentAddress, SortedSet<Tuple<Int64, string>> txPositions, Stopwatch stopWatch)
         {
             Utils.CheckIfChainIsFresh(chain_, config_.AcceptStaleRequests);
 
             using (var address = new PaymentAddress(paymentAddress))
-            using (var getTransactionResult = await chain_.FetchConfirmedTransactionsAsync(address, UInt64.MaxValue, 0))
             {
-                Utils.CheckBitprimApiErrorCode(getTransactionResult.ErrorCode, "FetchConfirmedTransactionsAsync(" + paymentAddress + ") failed, check error log.");
-
                 //Unconfirmed first
                 GetUnconfirmedTransactionPositions(address, txPositions);    
+                //3
+                statsGetTransactions.Add(stopWatch.ElapsedMilliseconds);
 
-                var confirmedTxIds = getTransactionResult.Result;
-                var pageSize = pageResults ? config_.TransactionsByAddressPageSize : confirmedTxIds.Count;
-
-                //Confirmed
-                for(uint i=0; i<pageSize && (pageNum * pageSize + i < confirmedTxIds.Count); i++)
+                using (var getTransactionResult = await chain_.FetchConfirmedTransactionsAsync(address, UInt64.MaxValue, 0))
                 {
-                    var txHash = confirmedTxIds[(pageNum * pageSize + i)];
-                    var getTxPosResult = await chain_.FetchTransactionPositionAsync(txHash, true);
-                    string txHashStr = Binary.ByteArrayToHexString(txHash);
-                    Utils.CheckBitprimApiErrorCode(getTxPosResult.ErrorCode, "FetchTransactionPositionAsync(" + txHashStr + ") failed, check error log");
-                    bool confirmed = CheckIfTransactionIsConfirmed(getTxPosResult.Result);
-                    txPositions.Add(new Tuple<Int64, string>(confirmed? (Int64) getTxPosResult.Result.BlockHeight : -1, txHashStr));
+                    Utils.CheckBitprimApiErrorCode(getTransactionResult.ErrorCode, "FetchConfirmedTransactionsAsync(" + paymentAddress + ") failed, check error log.");
+
+                    //4
+                    statsGetTransactions.Add(stopWatch.ElapsedMilliseconds);
+
+                    INativeList<byte[]>  confirmedTxIds = getTransactionResult.Result;
+                   
+                    //Confirmed
+                    foreach (byte[] txHash in confirmedTxIds)
+                    {
+                        ApiCallResult<GetTxPositionResult> getTxPosResult = await chain_.FetchTransactionPositionAsync(txHash, true);
+                        string txHashStr = Binary.ByteArrayToHexString(txHash);
+                        Utils.CheckBitprimApiErrorCode(getTxPosResult.ErrorCode, "FetchTransactionPositionAsync(" + txHashStr + ") failed, check error log");
+                        txPositions.Add(new Tuple<Int64, string>((Int64) getTxPosResult.Result.BlockHeight , txHashStr)); 
+                    }
+                    
+                    //5
+                    statsGetTransactions.Add(stopWatch.ElapsedMilliseconds);
                 }
             }
         }
 
-        //private async Task<List<TransactionSummary>> GetUnconfirmedTransactions(PaymentAddress address, bool noAsm, bool noScriptSig, bool noSpend)
-        //{
-        //    var unconfirmedTxsJson = new List<TransactionSummary>();
-        //    using(MempoolTransactionList unconfirmedTxIds = chain_.GetMempoolTransactions(address, nodeExecutor_.UseTestnetRules))
-        //    {
-        //        foreach(MempoolTransaction unconfirmedTxId in unconfirmedTxIds)
-        //        {
-        //            using(var getTxResult = await chain_.FetchTransactionAsync(Binary.HexStringToByteArray(unconfirmedTxId.Hash), requireConfirmed: false))
-        //            {
-        //                Utils.CheckBitprimApiErrorCode(getTxResult.ErrorCode, "FetchTransactionAsync(" + unconfirmedTxId.Hash + ") failed, check error log");
-        //                unconfirmedTxsJson.Add( await TxToJSON(getTxResult.Result.Tx, 0, false, noAsm, noScriptSig, noSpend) );
-        //            }
-        //        }
-        //        return unconfirmedTxsJson;
-        //    }
-        //}
-
         private void GetUnconfirmedTransactionPositions(PaymentAddress address, SortedSet<Tuple<Int64, string>> txPositions)
         {
-            using(var unconfirmedTxIds = chain_.GetMempoolTransactions(address, nodeExecutor_.UseTestnetRules))
+            using(INativeList<IMempoolTransaction> unconfirmedTxIds = chain_.GetMempoolTransactions(address, nodeExecutor_.UseTestnetRules))
             {
-                foreach(var unconfirmedTxId in unconfirmedTxIds)
+                foreach(IMempoolTransaction unconfirmedTxId in unconfirmedTxIds)
                 {
                     txPositions.Add( new Tuple<Int64, string>(-1, unconfirmedTxId.Hash) );
                 }
             }
         }
 
-        private async Task<TransactionInputSummary[]> TxInputsToJSON(ITransaction tx, bool noAsm, bool noScriptSig)
+        private async Task<TransactionInputSummary[]> TxInputsToJSON(ITransaction tx, bool returnLegacyAddresses, bool noAsm,
+                                                                     bool noScriptSig)
         {
             var inputs = tx.Inputs;
             var jsonInputs = new List<TransactionInputSummary>();
@@ -529,25 +562,31 @@ namespace bitprim.insight.Controllers
             {
                 var input = inputs[i];
                 
-                dynamic jsonInput = new TransactionInputSummary();
+                TransactionInputSummary jsonInput;
                 if(tx.IsCoinbase)
                 {
+                    var coinbaseInput = new CoinbaseTransactionInputSummary();
                     byte[] scriptData = input.Script.ToData(false);
                     Array.Reverse(scriptData, 0, scriptData.Length);
-                    jsonInput.coinbase = Binary.ByteArrayToHexString(scriptData);
+                    coinbaseInput.coinbase = Binary.ByteArrayToHexString(scriptData);
+                    coinbaseInput.sequence = input.Sequence;
+                    coinbaseInput.n = i;
+                    jsonInput = coinbaseInput;
                 }
                 else
                 {
-                    await SetInputNonCoinbaseFields(jsonInput, input, noAsm, noScriptSig);
+                    var nonCoinbaseInput = await NonCoinbaseInputToJSON(input, returnLegacyAddresses, noAsm, noScriptSig);
+                    nonCoinbaseInput.sequence = input.Sequence;
+                    nonCoinbaseInput.n = i;
+                    jsonInput = nonCoinbaseInput;
                 }
-                jsonInput.sequence = input.Sequence;
-                jsonInput.n = i;
                 jsonInputs.Add(jsonInput);
             }
             return jsonInputs.ToArray();
         }
 
-        private async Task<TransactionOutputSummary[]> TxOutputsToJSON(ITransaction tx, bool noAsm, bool noSpend)
+        private async Task<TransactionOutputSummary[]> TxOutputsToJSON(ITransaction tx, bool returnLegacyAddresses, bool noAsm,
+                                                                       bool noSpend)
         {
             var outputs = tx.Outputs;
             var jsonOutputs = new List<TransactionOutputSummary>();
@@ -555,12 +594,12 @@ namespace bitprim.insight.Controllers
             {
                 var output = outputs[i];
                 dynamic jsonOutput = new TransactionOutputSummary();
-                jsonOutput.value = Utils.SatoshisToCoinUnits(output.Value);
+                jsonOutput.value = Utils.SatoshisToCoinUnits(output.Value).ToString("0.00000000"); //Bitpay uses this format
                 jsonOutput.n = i;
-                jsonOutput.scriptPubKey = OutputScriptToJSON(output, noAsm);
+                jsonOutput.scriptPubKey = OutputScriptToJSON(output, returnLegacyAddresses, noAsm);
                 if(!noSpend)
                 {
-                    await SetOutputSpendInfo(jsonOutput, tx.Hash, (UInt32)i);
+                    await SetOutputSpendInfo(jsonOutput, tx.Hash, i);
                 }
                 jsonOutputs.Add(jsonOutput);
             }
@@ -568,7 +607,8 @@ namespace bitprim.insight.Controllers
         }
 
         private async Task<TransactionSummary> TxToJSON(ITransaction tx, UInt64 blockHeight, bool confirmed,
-                                                        bool noAsm, bool noScriptSig, bool noSpend)
+                                                        bool returnLegacyAddresses, bool noAsm, bool noScriptSig,
+                                                        bool noSpend)
         {
             UInt32 blockTimestamp = 0;
             string blockHash = "";
@@ -589,8 +629,8 @@ namespace bitprim.insight.Controllers
             txJson.txid = Binary.ByteArrayToHexString(tx.Hash);
             txJson.version = tx.Version;
             txJson.locktime = tx.Locktime;
-            txJson.vin = await TxInputsToJSON(tx, noAsm, noScriptSig);
-            txJson.vout = await TxOutputsToJSON(tx, noAsm, noSpend);
+            txJson.vin = await TxInputsToJSON(tx, returnLegacyAddresses, noAsm, noScriptSig);
+            txJson.vout = await TxOutputsToJSON(tx, returnLegacyAddresses, noAsm, noSpend);
             txJson.confirmations = confirmed? getLastHeightResult.Result - blockHeight + 1 : 0;
             txJson.isCoinBase = tx.IsCoinbase;
             txJson.valueOut = Utils.SatoshisToCoinUnits(tx.TotalOutputValue);
@@ -621,7 +661,7 @@ namespace bitprim.insight.Controllers
             UInt64 inputs_total = 0;
             foreach(Input txInput in tx.Inputs)
             {
-                using(var getTxResult = await chain_.FetchTransactionAsync(txInput.PreviousOutput.Hash, true))
+                using(var getTxResult = await chain_.FetchTransactionAsync(txInput.PreviousOutput.Hash, false))
                 {
                     if(getTxResult.ErrorCode != ErrorCode.NotFound)
                     {
@@ -633,7 +673,7 @@ namespace bitprim.insight.Controllers
             return inputs_total;
         }
 
-        private OutputScriptSummary OutputScriptToJSON(Output output, bool noAsm)
+        private OutputScriptSummary OutputScriptToJSON(Output output, bool returnLegacyAddresses, bool noAsm)
         {
             var script = output.Script;
             var scriptData = script.ToData(false);
@@ -641,13 +681,16 @@ namespace bitprim.insight.Controllers
             dynamic result = new OutputScriptSummary();
             if(!noAsm)
             {
-                result.asm = script.ToString(0);
+                result.asm = asmFormatter_.Format(script.ToString(0));
             }
             result.hex = Binary.ByteArrayToHexString(scriptData);
             var outputAddress = output.PaymentAddress(nodeExecutor_.UseTestnetRules);
             if(outputAddress.IsValid)
             {
-                result.addresses = new string[] { outputAddress.Encoded };
+                result.addresses = new string[]
+                {
+                    Utils.FormatAddress(outputAddress, returnLegacyAddresses)
+                };
             }
             result.type = GetScriptType(script.Type);
             return result;
@@ -663,7 +706,7 @@ namespace bitprim.insight.Controllers
             }
         }
 
-        private static InputScriptSummary InputScriptToJSON(Script inputScript, bool noAsm)
+        private InputScriptSummary InputScriptToJSON(Script inputScript, bool noAsm)
         {
             byte[] scriptData = inputScript.ToData(false);
             Array.Reverse(scriptData, 0, scriptData.Length);
@@ -671,11 +714,11 @@ namespace bitprim.insight.Controllers
             result.hex = Binary.ByteArrayToHexString(scriptData);
             if(!noAsm)
             {
-                result.asm = inputScript.ToString(0);
+                result.asm = asmFormatter_.Format(inputScript.ToString(0));
             }
             return result;
         }
-        
+
         private static string GetScriptType(string type)
         {
             if (type == "pay_key_hash")

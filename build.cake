@@ -2,8 +2,10 @@
 
 var target = Argument("target", "Default");
 var configuration = Argument("configuration", "Release");
+var coin = Argument("coin", "BCH");
 
 var solutionName = "bitprim.insight.sln";
+var solutionTutorialsName = "bitprim.insight.tutorials.sln";
 
 var platform = "/property:Platform=x64";
 
@@ -12,11 +14,14 @@ Task("Clean")
         Information("Cleaning... ");
         CleanDirectory("./bitprim.insight/bin");
         CleanDirectory("./bitprim.insight.tests/bin");
+        CleanDirectory("./bitprim.insight.tutorials/bin");
+        CleanDirectory("./bitprim.insight.tutorials.tests/bin");
     });
 
 Task("Restore")
     .Does(() => {
         DotNetCoreRestore(solutionName);
+        DotNetCoreRestore(solutionTutorialsName);
     });
 
 GitVersion versionInfo = null;
@@ -40,7 +45,14 @@ Task("Build")
     .IsDependentOn("Restore")
     .Does(() => {
 
+        Information("Building " + coin);
+
         MSBuild(solutionName, new MSBuildSettings {
+            ArgumentCustomization = args => args.Append(platform + " /p:" + coin + "=true"),        
+            Configuration = configuration
+        });
+
+        MSBuild(solutionTutorialsName, new MSBuildSettings {
             ArgumentCustomization = args => args.Append(platform + " /p:BCH=true"),        
             Configuration = configuration
         });
@@ -50,13 +62,17 @@ Task("Test")
     .IsDependentOn("Build")
     .Does(() => {
         
-         var settings = new DotNetCoreTestSettings
+        DotNetCoreTest("./bitprim.insight.tests",new DotNetCoreTestSettings
+            {
+                ArgumentCustomization = args=> args.Append(platform + " /p:" + coin + "=true"),
+                Configuration = configuration
+            });
+
+        DotNetCoreTest("./bitprim.insight.tutorials.tests",new DotNetCoreTestSettings
             {
                 ArgumentCustomization = args=> args.Append(platform + " /p:BCH=true"),
                 Configuration = configuration
-            };
-        
-        DotNetCoreTest("./bitprim.insight.tests",settings);
+            });
     });
 
 

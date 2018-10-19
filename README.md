@@ -97,6 +97,7 @@ Eg.
   "ForwardUrl" : "http://localhost:1234",
   "InitializeNode" : true,
   "LongResponseCacheDurationInSeconds": 86400,
+  "MaxAddressesPerQuery": 10,
   "MaxBlockSummarySize": 500,
   "MaxCacheSize": 50000,
   "MaxSocketPublishRetries": 3,
@@ -115,6 +116,7 @@ Eg.
   "WebsocketsEnabled": true,
   "WebsocketsMsgBlockEnabled": true,
   "WebsocketsMsgTxEnabled": true,
+  "WebsocketsMsgTxIncludeVout": false,
   "WebsocketsMsgAddressTxEnabled": true,
   "WebsocketsForwarderClientRetryDelay": 10,
   "Serilog":
@@ -203,6 +205,12 @@ http://blockdozer.com/[ApiPrefix]/blocks/
 * /rawtx
 *Default value:86400* 
 
+**MaxAddressesPerQuery**: Define the max address allowed per query. Used in the following requests: 
+* /addrs/{paymentAddresses}/utxo 
+* /addrs/utxo
+* /addrs/{paymentAddresses}/txs
+*Default value:10* 
+
 **MaxBlockSummarySize**: Defines the max limit of the /blocks method.
 *Default value:500* 
 
@@ -280,6 +288,10 @@ http://blockdozer.com/[ApiPrefix]/blocks/
 
 **WebsocketsMsgTxEnabled**: Define if the node sends tx messages.
 *Default value:true*
+
+**WebsocketsMsgTxIncludeVout**: If and only if true, include transaction outputs in tx web socket message.
+If included, outputs will be represented as an array of (address, amount) pairs.
+*Default value:false*
 
 **WebsocketsMsgAddressTxEnabled**: Define if the node sends addresstx messages.
 *Default value:true*

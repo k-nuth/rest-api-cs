@@ -47,5 +47,7 @@ namespace bitprim.insight
         public const string GET_LAST_BLOCK_HASH = "getLastBlockHash";
 
         public const int WIN_HTTP_EXCEPTION_ERR_NUMBER = -2147012865;
+
+        public const int MAX_TX_COUNT_BY_ADDRESS = 1000;
     }
 }

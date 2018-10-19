@@ -88,7 +88,7 @@ namespace bitprim.insight.Controllers
                 using(DisposableApiCallResult<GetTxDataResult> coinbase = await chain_.FetchTransactionAsync(getBlockResult.Result.TransactionHashes[0], true))
                 {
                     Utils.CheckBitprimApiErrorCode(coinbase.ErrorCode, "FetchTransactionAsync(" + getBlockResult.Result.TransactionHashes[0] + ") failed, check error log");
-                    blockReward = Math.Round(Utils.SatoshisToCoinUnits(coinbase.Result.Tx.TotalOutputValue),1);
+                    blockReward = Utils.SatoshisToCoinUnits(coinbase.Result.Tx.TotalOutputValue);
                     poolInfo = poolsInfo_.GetPoolInfo(coinbase.Result.Tx);
                 }
 
@@ -400,7 +400,7 @@ namespace bitprim.insight.Controllers
 
         private static GetBlockByHashResponse BlockToJSON(IHeader blockHeader, UInt64 blockHeight, INativeList<byte[]> txHashes,
                                                           decimal blockReward, UInt64 currentHeight, byte[] nextBlockHash,
-                                                        UInt64 serializedBlockSize, PoolInfo poolInfo, bool includeTransactionIds)
+                                                          UInt64 serializedBlockSize, PoolInfo poolInfo, bool includeTransactionIds)
         {
             BigInteger.TryParse(blockHeader.ProofString, out var proof);
             var blockJson = new GetBlockByHashResponse
@@ -409,12 +409,13 @@ namespace bitprim.insight.Controllers
                 size = serializedBlockSize,
                 height = blockHeight,
                 version = blockHeader.Version,
-                merkleroot = Binary.ByteArrayToHexString(blockHeader.Merkle),
+                // We reverse this field to match the way bitpay-insight displays it
+                merkleroot = Binary.ByteArrayToHexString(blockHeader.Merkle, reverse: true),
                 tx = includeTransactionIds ? BlockTxsToJSON(txHashes) : new string[0],
                 txCount = txHashes.Count,
                 time = blockHeader.Timestamp,
                 nonce = blockHeader.Nonce,
-                bits = Utils.EncodeInBase16(blockHeader.Bits),
+                bits = blockHeader.Bits,
                 difficulty = Utils.BitsToDifficulty(blockHeader.Bits),
                 chainwork = (proof * 2).ToString("X64"),
                 confirmations = currentHeight - blockHeight + 1,
@@ -432,7 +433,7 @@ namespace bitprim.insight.Controllers
             return blockJson;
         }
 
-        private static string[] BlockTxsToJSON( INativeList<byte[]> txHashes)
+        private static string[] BlockTxsToJSON(INativeList<byte[]> txHashes)
         {
             var txs = new List<string>();
             for(uint i = 0; i<txHashes.Count; i++)

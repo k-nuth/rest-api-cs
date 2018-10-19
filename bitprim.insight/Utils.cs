@@ -19,7 +19,7 @@ namespace bitprim.insight
             }
         }
 
-        public static async Task<HashSet<string>> GetTransactionAddresses(Executor executor,Transaction tx)
+        public static async Task<HashSet<string>> GetTransactionAddresses(Executor executor,ITransaction tx)
         {
             var ret = new HashSet<string>();
             ret.UnionWith(await GetAddressFromInput(executor,tx));
@@ -61,6 +61,15 @@ namespace bitprim.insight
             return Convert.ToString(number, 16);
         }
 
+        public static string FormatAddress(PaymentAddress address, bool useLegacyFormat)
+        {
+            #if BCH
+                return useLegacyFormat? address.Encoded : address.ToCashAddr(includePrefix: false);
+            #else
+                return address.Encoded;
+            #endif
+        }
+
         public static void CheckBitprimApiErrorCode(ErrorCode errorCode, string errorMsg)
         {
             if(errorCode != ErrorCode.Success)
@@ -77,7 +86,7 @@ namespace bitprim.insight
             }
         }
 
-        private static async Task<HashSet<string>> GetAddressFromInput(Executor executor, Transaction tx)
+        private static async Task<HashSet<string>> GetAddressFromInput(Executor executor, ITransaction tx)
         {
             var ret = new HashSet<string>();
 
@@ -133,7 +142,7 @@ namespace bitprim.insight
             return inputSum;
         }
 
-        private static HashSet<string> GetAddressFromOutput(Executor executor, Transaction tx)
+        private static HashSet<string> GetAddressFromOutput(Executor executor, ITransaction tx)
         {
             var ret = new HashSet<string>();
             foreach (Output output in tx.Outputs)

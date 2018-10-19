@@ -18,19 +18,24 @@ namespace bitprim.insight
         public bool InitializeNode { get; set; } = true;
 
         /// <summary>
-        /// If and only if true, the node accepts websockets requests
+        /// If and only if true, the node accepts websockets requests.
         /// </summary>
         public bool WebsocketsEnabled { get; set; } = true;
         /// <summary>
-        /// If and only if true, the node send block messages
+        /// If and only if true, the node sends block messages.
         /// </summary>
         public bool WebsocketsMsgBlockEnabled { get; set; } = true;
         /// <summary>
-        /// If and only if true, the node send tx messages
+        /// If and only if true, the node sends tx messages.
         /// </summary>
         public bool WebsocketsMsgTxEnabled { get; set; } = true;
         /// <summary>
-        /// If and only if true, the node send addresstx messages
+        /// If and only if true, include transaction outputs in tx web socket message.
+        /// If included, outputs will be represented as an array of (address, amount) pairs.
+        /// </summary>
+        public bool WebsocketsMsgTxIncludeVout { get; set; } = false;
+        /// <summary>
+        /// If and only if true, the node sends addresstx messages.
         /// </summary>
         public bool WebsocketsMsgAddressTxEnabled { get; set; } = true;
 
