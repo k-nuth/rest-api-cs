@@ -5,6 +5,11 @@ using System.Threading.Tasks;
 using bitprim.insight.Exceptions;
 using Bitprim;
 
+#if BCH
+using SharpCashAddr;    
+#endif
+
+
 namespace bitprim.insight
 {
     internal static class Utils
@@ -64,7 +69,14 @@ namespace bitprim.insight
         public static string FormatAddress(PaymentAddress address, bool useLegacyFormat)
         {
             #if BCH
-                return useLegacyFormat? address.Encoded : address.ToCashAddr(includePrefix: false);
+                try
+                {
+                    return useLegacyFormat ? address.Encoded : address.ToCashAddr(includePrefix: false);
+                }
+                catch (CashAddrConversionException)
+                {
+                    return address.Encoded;
+                }
             #else
                 return address.Encoded;
             #endif
