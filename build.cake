@@ -2,6 +2,7 @@
 
 var target = Argument("target", "Default");
 var configuration = Argument("configuration", "Release");
+var coin = Argument("coin", "BCH");
 
 var solutionName = "bitprim.insight.sln";
 var solutionTutorialsName = "bitprim.insight.tutorials.sln";
@@ -44,8 +45,10 @@ Task("Build")
     .IsDependentOn("Restore")
     .Does(() => {
 
+        Information("Building " + coin);
+
         MSBuild(solutionName, new MSBuildSettings {
-            ArgumentCustomization = args => args.Append(platform + " /p:BCH=true"),        
+            ArgumentCustomization = args => args.Append(platform + " /p:" + coin + "=true"),        
             Configuration = configuration
         });
 
@@ -59,14 +62,17 @@ Task("Test")
     .IsDependentOn("Build")
     .Does(() => {
         
-         var settings = new DotNetCoreTestSettings
+        DotNetCoreTest("./bitprim.insight.tests",new DotNetCoreTestSettings
+            {
+                ArgumentCustomization = args=> args.Append(platform + " /p:" + coin + "=true"),
+                Configuration = configuration
+            });
+
+        DotNetCoreTest("./bitprim.insight.tutorials.tests",new DotNetCoreTestSettings
             {
                 ArgumentCustomization = args=> args.Append(platform + " /p:BCH=true"),
                 Configuration = configuration
-            };
-        
-        DotNetCoreTest("./bitprim.insight.tests",settings);
-        DotNetCoreTest("./bitprim.insight.tutorials.tests",settings);
+            });
     });
 
 
