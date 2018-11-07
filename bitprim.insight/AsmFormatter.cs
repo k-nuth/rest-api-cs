@@ -41,7 +41,23 @@ namespace bitprim.insight
                 }
                 string token = script.Substring(tokenStart, tokenEnd-tokenStart);
                 bool replace = tokenDictionary_.TryGetValue(token, out string tokenReplacement);
-                formatted += replace? (tokenReplacement + " ") : token.Substring(1, token.Length - 2) + " ";
+
+                if (replace)
+                {
+                    formatted += tokenReplacement + " ";
+                }
+                else
+                {
+                    if (token.StartsWith("[") && token.EndsWith("]"))
+                    {
+                        formatted += token.Substring(1, token.Length - 2) + " ";
+                    }
+                    else
+                    {
+                        formatted += token + " ";
+                    }
+                }
+                    
             }
             formatted = formatted.TrimEnd();
             return formatted;

@@ -4,10 +4,11 @@ namespace bitprim.insight.tests
 {
     public class AsmFormatterTests
     {
+        readonly AsmFormatter asmFormatter = new AsmFormatter();
+
         [Fact]
         public void Coinbase()
         {
-            var asmFormatter = new AsmFormatter();
             Assert.Equal
             (
                 "304402201465bc1f92884134dc5b660c2655dbdc555d9a6eeea50c89d3b6c25082917d5d0220687d6a7b2442f162e34493b13b56d71" + 
@@ -35,7 +36,6 @@ namespace bitprim.insight.tests
         [Fact]
         public void OutputScript()
         {
-            var asmFormatter = new AsmFormatter();
             Assert.Equal
             (
                 "OP_HASH160 5c253d296fafb232d99dcec34dd709590b71656a OP_EQUAL",
@@ -46,7 +46,6 @@ namespace bitprim.insight.tests
         [Fact]
         public void ScriptPubKey()
         {
-            var asmFormatter = new AsmFormatter();
             Assert.Equal
             (
                 "OP_DUP OP_HASH160 10a4b9226d4d923927ba85d9009ef469e459ecf1 OP_EQUALVERIFY OP_CHECKSIG",
@@ -54,5 +53,35 @@ namespace bitprim.insight.tests
             );
         }
 
+        [Fact]
+        public void Empty()
+        {   
+            Assert.Equal
+            (
+                "",
+                asmFormatter.Format("")
+            );
+        }
+
+        [Fact]
+        public void Spaces()
+        {   
+            Assert.Equal
+            (
+                "",
+                asmFormatter.Format("    ")
+            );
+        }
+
+        [Fact]
+        public void Invalid()
+        {   
+            Assert.Equal
+            (
+                "aaaa bbbb cccc",
+                asmFormatter.Format("aaaa bbbb cccc")
+            );
+        }
     }
+
 }
