@@ -4,7 +4,7 @@ namespace bitprim.insight.tests
 {
     public class AsmFormatterTests
     {
-        readonly AsmFormatter asmFormatter = new AsmFormatter();
+        private readonly AsmFormatter asmFormatter_ = new AsmFormatter();
 
         [Fact]
         public void Coinbase()
@@ -13,7 +13,7 @@ namespace bitprim.insight.tests
             (
                 "304402201465bc1f92884134dc5b660c2655dbdc555d9a6eeea50c89d3b6c25082917d5d0220687d6a7b2442f162e34493b13b56d71" + 
                 "6acfe7f0852fee33fe26e0098cef0aa0641 03758d7df1e4f797e0e68303deb91c06eebcaae2b5bab5151f8e2008990c957b0f",
-                asmFormatter.Format
+                asmFormatter_.Format
                 (
                     "[304402201465bc1f92884134dc5b660c2655dbdc555d9a6eeea50c89d3b6c25082917d5d0220687d6a7b2442f162e34493b13b56d71" + 
                     "6acfe7f0852fee33fe26e0098cef0aa0641] [03758d7df1e4f797e0e68303deb91c06eebcaae2b5bab5151f8e2008990c957b0f]"
@@ -39,7 +39,7 @@ namespace bitprim.insight.tests
             Assert.Equal
             (
                 "OP_HASH160 5c253d296fafb232d99dcec34dd709590b71656a OP_EQUAL",
-                asmFormatter.Format("hash160 [5c253d296fafb232d99dcec34dd709590b71656a] equal")
+                asmFormatter_.Format("hash160 [5c253d296fafb232d99dcec34dd709590b71656a] equal")
             );
         }
 
@@ -49,7 +49,7 @@ namespace bitprim.insight.tests
             Assert.Equal
             (
                 "OP_DUP OP_HASH160 10a4b9226d4d923927ba85d9009ef469e459ecf1 OP_EQUALVERIFY OP_CHECKSIG",
-                asmFormatter.Format("dup hash160 [10a4b9226d4d923927ba85d9009ef469e459ecf1] equalverify checksig")
+                asmFormatter_.Format("dup hash160 [10a4b9226d4d923927ba85d9009ef469e459ecf1] equalverify checksig")
             );
         }
 
@@ -59,7 +59,7 @@ namespace bitprim.insight.tests
             Assert.Equal
             (
                 "",
-                asmFormatter.Format("")
+                asmFormatter_.Format("")
             );
         }
 
@@ -69,7 +69,7 @@ namespace bitprim.insight.tests
             Assert.Equal
             (
                 "",
-                asmFormatter.Format("    ")
+                asmFormatter_.Format("    ")
             );
         }
 
@@ -79,7 +79,7 @@ namespace bitprim.insight.tests
             Assert.Equal
             (
                 "aaaa bbbb cccc",
-                asmFormatter.Format("aaaa bbbb cccc")
+                asmFormatter_.Format("aaaa bbbb cccc")
             );
         }
     }
