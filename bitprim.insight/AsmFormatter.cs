@@ -11,13 +11,15 @@ namespace bitprim.insight
 
         static AsmFormatter()
         {
-            tokenDictionary_ = new Dictionary<string, string>();
-            tokenDictionary_["checksig"] = "OP_CHECKSIG";
-            tokenDictionary_["dup"] = "OP_DUP";
-            tokenDictionary_["equal"] = "OP_EQUAL";
-            tokenDictionary_["equalverify"] = "OP_EQUALVERIFY";
-            tokenDictionary_["hash160"] = "OP_HASH160";
-            tokenDictionary_["return"] = "OP_RETURN";
+            tokenDictionary_ = new Dictionary<string, string>
+            {
+                ["checksig"] = "OP_CHECKSIG",
+                ["dup"] = "OP_DUP",
+                ["equal"] = "OP_EQUAL",
+                ["equalverify"] = "OP_EQUALVERIFY",
+                ["hash160"] = "OP_HASH160",
+                ["return"] = "OP_RETURN"
+            };
         }
 
         /// <summary>
@@ -26,13 +28,12 @@ namespace bitprim.insight
         /// <param name="script"> Script string (not raw). </param>
         public string Format(string script)
         {
-            string formatted = "";
-            int tokenStart = 0;
+            var formatted = "";
             int tokenEnd = -1;
-            bool keepParsing = true;
+            var keepParsing = true;
             while(keepParsing)
             {
-                tokenStart = tokenEnd + 1;
+                int tokenStart = tokenEnd + 1;
                 tokenEnd = script.IndexOf(' ', tokenStart);
                 if(tokenEnd < 0) //Last token
                 {
@@ -41,7 +42,23 @@ namespace bitprim.insight
                 }
                 string token = script.Substring(tokenStart, tokenEnd-tokenStart);
                 bool replace = tokenDictionary_.TryGetValue(token, out string tokenReplacement);
-                formatted += replace? (tokenReplacement + " ") : token.Substring(1, token.Length - 2) + " ";
+
+                if (replace)
+                {
+                    formatted += tokenReplacement + " ";
+                }
+                else
+                {
+                    if (token.StartsWith("[") && token.EndsWith("]"))
+                    {
+                        formatted += token.Substring(1, token.Length - 2) + " ";
+                    }
+                    else
+                    {
+                        formatted += token + " ";
+                    }
+                }
+                    
             }
             formatted = formatted.TrimEnd();
             return formatted;
