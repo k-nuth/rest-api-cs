@@ -544,11 +544,15 @@ namespace bitprim.insight.Controllers
 
         private void GetUnconfirmedTransactionPositions(PaymentAddress address, SortedSet<Tuple<Int64, string>> txPositions)
         {
-            using(INativeList<IMempoolTransaction> unconfirmedTxIds = chain_.GetMempoolTransactions(address, nodeExecutor_.UseTestnetRules))
+            using (var addresslist = new PaymentAddressList())
             {
-                foreach(IMempoolTransaction unconfirmedTxId in unconfirmedTxIds)
+                addresslist.Add(address);
+                using(var unconfirmedTxIds = chain_.GetMempoolTransactions(addresslist, nodeExecutor_.UseTestnetRules))
                 {
-                    txPositions.Add( new Tuple<Int64, string>(-1, unconfirmedTxId.Hash) );
+                    foreach(var unconfirmedTxId in unconfirmedTxIds)
+                    {
+                        txPositions.Add( new Tuple<Int64, string>(-1, Binary.ByteArrayToHexString(unconfirmedTxId.Hash) ) );
+                    }
                 }
             }
         }
