@@ -80,7 +80,7 @@ namespace bitprim.insight
             
             var poolInfo = new PoolsInfo(nodeConfig_.PoolsFile);
             poolInfo.Load();
-            services.AddSingleton(poolInfo);
+            services.AddSingleton<IPoolsInfo>(poolInfo);
 
             StartNode(services, serviceProvider);
         }
@@ -251,9 +251,9 @@ namespace bitprim.insight
             {
                 throw new ApplicationException("Executor::InitAndRunAsync failed; error code: " + result);
             }
-
+            
             services.AddSingleton<Executor>(exec_);
-            services.AddSingleton<Chain>(exec_.Chain);
+            services.AddSingleton<IChain>(exec_.Chain);
 
             if (nodeConfig_.WebsocketsEnabled)
             {
