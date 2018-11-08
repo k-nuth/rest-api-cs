@@ -22,17 +22,17 @@ namespace bitprim.insight.Controllers
     [Route("[controller]")]
     public class ChainController : Controller
     {
-        private readonly Chain chain_;
         private readonly Executor nodeExecutor_;
-        private static readonly HttpClient httpClient_ = new HttpClient();
-        private readonly NodeConfig config_;
+        private readonly IChain chain_;
         private readonly ILogger<ChainController> logger_;
         private readonly IMemoryCache memoryCache_;
+        private readonly NodeConfig config_;
         private readonly Policy breakerPolicy_ = Policy.Handle<Exception>().CircuitBreakerAsync(2, TimeSpan.FromMinutes(1));
+        private readonly Policy execPolicy_;
         private readonly Policy retryPolicy_ = Policy.Handle<Exception>()
             .WaitAndRetryAsync(RetryUtils.DecorrelatedJitter
                 (Constants.MAX_RETRIES, TimeSpan.FromMilliseconds(Constants.SEED_DELAY), TimeSpan.FromSeconds(Constants.MAX_DELAY)));
-        private readonly Policy execPolicy_;
+        private static readonly HttpClient httpClient_ = new HttpClient();
 
         /// <summary>
         /// Build this controller.

@@ -17,8 +17,8 @@ namespace bitprim.insight.Controllers
     [Route("[controller]")]
     public class AddressController : Controller
     {
-        private readonly Chain chain_;
         private readonly Executor nodeExecutor_;
+        private readonly IChain chain_;
         private readonly NodeConfig config_;
         private readonly ILogger<AddressController> logger_;
 
@@ -125,7 +125,7 @@ namespace bitprim.insight.Controllers
                 txApperances = balance.TxCount
             };
 
-            Tuple<uint, Int64> unconfirmedSummary = await GetUnconfirmedSummary(paymentAddress);
+            Tuple<ulong, Int64> unconfirmedSummary = await GetUnconfirmedSummary(paymentAddress);
 
             statsGetAddressHistory[5] = stopWatch.ElapsedMilliseconds;
 
@@ -293,7 +293,7 @@ namespace bitprim.insight.Controllers
                 UInt64 addressBalance = 0;
                 var txs = new OrderedSet<string>();
                 
-                foreach (HistoryCompact compact in history)
+                foreach (IHistoryCompact compact in history)
                 {
                     if (compact.PointKind == PointKind.Output)
                     {
@@ -345,7 +345,7 @@ namespace bitprim.insight.Controllers
 
                 var topHeight = getLastHeightResult.Result;
 
-                foreach (HistoryCompact compact in history)
+                foreach (IHistoryCompact compact in history)
                 {
                     if (compact.PointKind == PointKind.Output)
                     {
@@ -370,31 +370,31 @@ namespace bitprim.insight.Controllers
             }
         }
 
-        private async Task<Tuple<uint, Int64>> GetUnconfirmedSummary(string address)
+        private async Task<Tuple<ulong, Int64>> GetUnconfirmedSummary(string address)
         {
             using (var paymentAddress = new PaymentAddress(address))
-            using (MempoolTransactionList unconfirmedTxs = chain_.GetMempoolTransactions(paymentAddress, nodeExecutor_.UseTestnetRules))
+            using (INativeList<IMempoolTransaction> unconfirmedTxs = chain_.GetMempoolTransactions(paymentAddress, nodeExecutor_.UseTestnetRules))
             {
                 Int64 unconfirmedBalance = 0;
-                foreach (MempoolTransaction unconfirmedTx in unconfirmedTxs)
+                foreach (IMempoolTransaction unconfirmedTx in unconfirmedTxs)
                 {
                     using (var getTxResult = await chain_.FetchTransactionAsync(Binary.HexStringToByteArray(unconfirmedTx.Hash), requireConfirmed: false))
                     {
                         Utils.CheckBitprimApiErrorCode(getTxResult.ErrorCode, "FetchTransactionAsync(" + unconfirmedTx.Hash + ") failed, check error log");
-                        Transaction tx = getTxResult.Result.Tx;
+                        ITransaction tx = getTxResult.Result.Tx;
                         unconfirmedBalance += await Utils.CalculateBalanceDelta(tx, address, chain_, nodeExecutor_.UseTestnetRules);
                     }
                 }
-                return new Tuple<uint, Int64>(unconfirmedTxs.Count, unconfirmedBalance);
+                return new Tuple<ulong, Int64>(unconfirmedTxs.Count, unconfirmedBalance);
             }
         }
 
         private List<Utxo> GetUnconfirmedUtxo(PaymentAddress address)
         {
             var unconfirmedUtxo = new List<Utxo>();
-            using (MempoolTransactionList unconfirmedTxs = chain_.GetMempoolTransactions(address, nodeExecutor_.UseTestnetRules))
+            using (INativeList<IMempoolTransaction> unconfirmedTxs = chain_.GetMempoolTransactions(address, nodeExecutor_.UseTestnetRules))
             {
-                foreach (MempoolTransaction unconfirmedTx in unconfirmedTxs)
+                foreach (IMempoolTransaction unconfirmedTx in unconfirmedTxs)
                 {
                     var satoshis = Int64.Parse(unconfirmedTx.Satoshis);
 
