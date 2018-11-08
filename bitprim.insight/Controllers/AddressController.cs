@@ -409,7 +409,7 @@ namespace bitprim.insight.Controllers
                         {                            
                             address = address.Encoded,
                             txid = Binary.ByteArrayToHexString(unconfirmedTx.Hash),
-                            vout = unconfirmedTx.TotalOutputValue,
+                            vout = 0, //TODO FIX replace with proper tx index
                             amount = Utils.SatoshisToCoinUnits(unconfirmedTx.TotalOutputValue),
                             satoshis =  (long)unconfirmedTx.TotalOutputValue,
                             height = -1,
