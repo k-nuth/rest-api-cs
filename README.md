@@ -92,6 +92,7 @@ Eg.
   "AcceptStaleRequests" : true,
   "AllowedOrigins": "http://localhost:1549",
   "Connections": 8,
+  "CacheEnabled" : true, 
   "DateInputFormat": "yyyy-MM-dd",
   "EstimateFeeDefault": "0.00001000",
   "ForwardUrl" : "http://localhost:1234",
@@ -184,6 +185,9 @@ http://blockdozer.com/[ApiPrefix]/blocks/
 
 **AllowedOrigins**: Configure the allowed CORS origins. For multiple origins, separate them with semicolon (;).
 *Default value:**
+
+**CacheEnabled**: Define if insight use the internal cache to speed up some requests.
+*Default value:true*
 
 **Connections**: Configures the value returned in the *connection* element of the /status request. 
 *Default value:8*
