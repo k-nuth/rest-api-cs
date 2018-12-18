@@ -186,7 +186,7 @@ http://blockdozer.com/[ApiPrefix]/blocks/
 **AllowedOrigins**: Configure the allowed CORS origins. For multiple origins, separate them with semicolon (;).
 *Default value:**
 
-**CacheEnabled**: Define if insight use the internal cache to speed up some requests.
+**CacheEnabled**: Defines if insight uses the internal cache to speed up some requests.
 *Default value:true*
 
 **Connections**: Configures the value returned in the *connection* element of the /status request. 
