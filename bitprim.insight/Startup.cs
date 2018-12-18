@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using Bitprim;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
@@ -13,6 +14,8 @@ using System.Reflection;
 using bitprim.insight.Middlewares;
 using bitprim.insight.Websockets;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Primitives;
 
 namespace bitprim.insight
 {
@@ -120,16 +123,34 @@ namespace bitprim.insight
         {
             services.AddMvcCore(opt =>
                 {
-                    opt.CacheProfiles.Add(Constants.Cache.SHORT_CACHE_PROFILE_NAME,
-                        new CacheProfile
-                        {
-                            Duration = nodeConfig_.ShortResponseCacheDurationInSeconds
-                        });
-                    opt.CacheProfiles.Add(Constants.Cache.LONG_CACHE_PROFILE_NAME,
-                        new CacheProfile
-                        {
-                            Duration = nodeConfig_.LongResponseCacheDurationInSeconds
-                        });
+                   if (nodeConfig_.CacheEnabled)
+                    {
+                        opt.CacheProfiles.Add(Constants.Cache.SHORT_CACHE_PROFILE_NAME,
+                            new CacheProfile
+                            {
+                                Duration = nodeConfig_.ShortResponseCacheDurationInSeconds
+                            });
+                        opt.CacheProfiles.Add(Constants.Cache.LONG_CACHE_PROFILE_NAME,
+                            new CacheProfile
+                            {
+                                Duration = nodeConfig_.LongResponseCacheDurationInSeconds
+                            });
+                    }
+                    else
+                    {
+                        opt.CacheProfiles.Add(Constants.Cache.SHORT_CACHE_PROFILE_NAME,
+                            new CacheProfile
+                            {
+                                Duration = null, NoStore = true
+                            });
+                        opt.CacheProfiles.Add(Constants.Cache.LONG_CACHE_PROFILE_NAME,
+                            new CacheProfile
+                            {
+                                Duration = null,  NoStore = true
+                            });
+
+
+                    }
                     opt.RespectBrowserAcceptHeader = true;
                     opt.Conventions.Insert(0, new RouteConvention(new RouteAttribute(nodeConfig_.ApiPrefix)));
                 })
@@ -138,11 +159,18 @@ namespace bitprim.insight
             .AddJsonFormatters()
             .AddCors();
 
-            services.AddMemoryCache(opt =>
-               {
-                   opt.SizeLimit = nodeConfig_.MaxCacheSize;
-               }
-            );
+            if (nodeConfig_.CacheEnabled)
+            {
+                services.AddMemoryCache(opt =>
+                    {
+                        opt.SizeLimit = nodeConfig_.MaxCacheSize;
+                    }
+                );
+            }
+            else
+            {
+                services.AddSingleton<IMemoryCache>(new DummyMemoryCache());
+            }
 
             services.AddResponseCompression();
         }
@@ -291,5 +319,47 @@ namespace bitprim.insight
             System.Threading.Thread.Sleep(TimeSpan.FromSeconds(30)); //TODO Temporary workaround to node-cint shutdown issue
             Log.Information("Node shutdown OK!");
         }
+    }
+
+     class DummyMemoryCache : IMemoryCache
+    {
+        public void Dispose()
+        {
+
+        }
+
+        public bool TryGetValue(object key, out object value)
+        {
+            value = null;
+            return false;
+        }
+
+        public ICacheEntry CreateEntry(object key)
+        {
+            return new DummyCacheEntry();
+        }
+
+        public void Remove(object key)
+        {
+
+        }
+    }
+
+    class DummyCacheEntry : ICacheEntry
+    {
+        public void Dispose()
+        {
+
+        }
+
+        public object Key { get; }
+        public object Value { get; set; }
+        public DateTimeOffset? AbsoluteExpiration { get; set; }
+        public TimeSpan? AbsoluteExpirationRelativeToNow { get; set; }
+        public TimeSpan? SlidingExpiration { get; set; }
+        public IList<IChangeToken> ExpirationTokens { get; }
+        public IList<PostEvictionCallbackRegistration> PostEvictionCallbacks { get; }
+        public CacheItemPriority Priority { get; set; }
+        public long? Size { get; set; }
     }
 }

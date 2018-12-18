@@ -18,6 +18,11 @@ namespace bitprim.insight
         public bool InitializeNode { get; set; } = true;
 
         /// <summary>
+        /// If and only if true, enabled all the internal caches to speed up some queries to the database.
+        /// </summary>
+        public bool CacheEnabled { get; set; } = true;
+        
+        /// <summary>
         /// If and only if true, the node accepts websockets requests.
         /// </summary>
         public bool WebsocketsEnabled { get; set; } = true;
