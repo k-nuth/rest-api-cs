@@ -123,7 +123,7 @@ namespace bitprim.insight
         {
             services.AddMvcCore(opt =>
                 {
-                   if (nodeConfig_.CacheEnabled)
+                    if (nodeConfig_.CacheEnabled)
                     {
                         opt.CacheProfiles.Add(Constants.Cache.SHORT_CACHE_PROFILE_NAME,
                             new CacheProfile
@@ -151,6 +151,7 @@ namespace bitprim.insight
 
 
                     }
+                                        
                     opt.RespectBrowserAcceptHeader = true;
                     opt.Conventions.Insert(0, new RouteConvention(new RouteAttribute(nodeConfig_.ApiPrefix)));
                 })
@@ -171,7 +172,7 @@ namespace bitprim.insight
             {
                 services.AddSingleton<IMemoryCache>(new DummyMemoryCache());
             }
-
+            
             services.AddResponseCompression();
         }
 
@@ -321,11 +322,11 @@ namespace bitprim.insight
         }
     }
 
-     class DummyMemoryCache : IMemoryCache
+    class DummyMemoryCache : IMemoryCache
     {
         public void Dispose()
         {
-
+            
         }
 
         public bool TryGetValue(object key, out object value)
@@ -341,7 +342,7 @@ namespace bitprim.insight
 
         public void Remove(object key)
         {
-
+            
         }
     }
 
@@ -349,7 +350,7 @@ namespace bitprim.insight
     {
         public void Dispose()
         {
-
+            
         }
 
         public object Key { get; }

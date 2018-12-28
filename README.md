@@ -93,6 +93,7 @@ Eg.
   "AllowedOrigins": "http://localhost:1549",
   "CacheEnabled" : true,
   "Connections": 8,
+  "CacheEnabled" : true, 
   "DateInputFormat": "yyyy-MM-dd",
   "EstimateFeeDefault": "0.00001000",
   "ForwardUrl" : "http://localhost:1234",
