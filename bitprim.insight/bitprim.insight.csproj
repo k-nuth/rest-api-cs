@@ -29,7 +29,7 @@
             <DefineConstants>$(DefineConstants);BCH</DefineConstants>
           </PropertyGroup>
           <ItemGroup>
-            <PackageReference Include="bitprim-bch" Version="0.10.0" />
+            <PackageReference Include="bitprim-bch" Version="0.19.0" />
             <!-- <ProjectReference Include="../../bitprim-cs/bitprim/bitprim.csproj" /> -->
           </ItemGroup>
      
@@ -40,7 +40,7 @@
             <DefineConstants>$(DefineConstants);BCH</DefineConstants>
           </PropertyGroup>
           <ItemGroup>
-            <PackageReference Include="bitprim-bch" Version="0.10.0" />
+            <PackageReference Include="bitprim-bch" Version="0.19.0" />
             <!-- <ProjectReference Include="../../bitprim-cs/bitprim/bitprim.csproj" /> -->
           </ItemGroup>
      
