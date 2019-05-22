@@ -1,3 +1,4 @@
+using bitprim.insight.DTOs;
 using System;
 using System.Collections.Generic;
 using System.Dynamic;
@@ -10,26 +11,36 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Newtonsoft.Json;
 using Polly;
-using System.Linq;
+using Swashbuckle.AspNetCore.SwaggerGen;
 using System.Globalization;
 
 namespace bitprim.insight.Controllers
 {
+    /// <summary>
+    /// Blockchain related operations.
+    /// </summary>
     [Route("[controller]")]
     public class ChainController : Controller
     {
-        private readonly Chain chain_;
         private readonly Executor nodeExecutor_;
-        private static readonly HttpClient httpClient_ = new HttpClient();
-        private readonly NodeConfig config_;
+        private readonly IChain chain_;
         private readonly ILogger<ChainController> logger_;
         private readonly IMemoryCache memoryCache_;
+        private readonly NodeConfig config_;
         private readonly Policy breakerPolicy_ = Policy.Handle<Exception>().CircuitBreakerAsync(2, TimeSpan.FromMinutes(1));
+        private readonly Policy execPolicy_;
         private readonly Policy retryPolicy_ = Policy.Handle<Exception>()
             .WaitAndRetryAsync(RetryUtils.DecorrelatedJitter
                 (Constants.MAX_RETRIES, TimeSpan.FromMilliseconds(Constants.SEED_DELAY), TimeSpan.FromSeconds(Constants.MAX_DELAY)));
-        private readonly Policy execPolicy_;
+        private static readonly HttpClient httpClient_ = new HttpClient();
 
+        /// <summary>
+        /// Build this controller.
+        /// </summary>
+        /// <param name="config"> Higher level API configuration. </param>
+        /// <param name="executor"> Node executor from bitprim-cs library. </param>
+        /// <param name="logger"> Abstract logger. </param>
+        /// <param name="memoryCache"> Abstract memory cache. </param>
         public ChainController(IOptions<NodeConfig> config, Executor executor, ILogger<ChainController> logger, IMemoryCache memoryCache)
         {
             config_ = config.Value;
@@ -40,26 +51,212 @@ namespace bitprim.insight.Controllers
             logger_ = logger;
         }
 
-        [HttpGet("healthcheck")]
-        public async Task<ActionResult> GetHealthCheck(float minimumSync)
+        /// <summary>
+        /// Get an estimate value for current block fee.
+        /// </summary>
+        /// <param name="nbBlocks"> Comma-separed list of block numbers to use for each estimation; a higher number
+        /// implies higher precision, but will take longer to calculate.
+        /// </param>
+        /// <returns> Current estimations for block fee, for each block count requested. </returns>
+        [HttpGet("utils/estimatefee")]
+        [SwaggerOperation("GetEstimateFee")]
+        [SwaggerResponse((int)System.Net.HttpStatusCode.OK, typeof(IDictionary<string, string>))]
+        public ActionResult GetEstimateFee([FromQuery] string nbBlocks = "2")
         {
+            if( !ModelState.IsValid || string.IsNullOrWhiteSpace(nbBlocks) )
+            {
+                return BadRequest("nbBlocks must be a string of comma-separated integers");
+            }
+            var nbBlocksStr = nbBlocks.Split(",");
+            foreach(string s in nbBlocksStr)
+            {
+                int a;
+                if( !int.TryParse(s, out a) )
+                {
+                    return BadRequest(s + " is not an integer");
+                }
+            }
+            var estimateFee = new ExpandoObject() as IDictionary<string, Object>;
+            //TODO Check which algorithm to use (see bitcoin-abc's median, at src/policy/fees.cpp for an example)
+            foreach(string s in nbBlocksStr)
+            {
+                estimateFee.Add(s, config_.EstimateFeeDefault);
+            }
+            return Json(estimateFee);
+        }
+
+        /// <summary>
+        /// Get best block hash.
+        /// </summary>
+        /// <returns> Best block hash. </returns>
+        [HttpGet("status/bestblockhash")]
+        [SwaggerOperation("GetBestBlockHash")]
+        [SwaggerResponse((int)System.Net.HttpStatusCode.OK, typeof(GetBestBlockHashResponse))]
+        public async Task<ActionResult> GetBestBlockHash()
+        {
+            var getLastBlockResult = await GetLastBlock();
+            
+            return Json
+            (
+                new GetBestBlockHashResponse
+                {
+                    bestblockhash = Binary.ByteArrayToHexString(getLastBlockResult.Hash)
+                }
+            );
+            
+        }
+
+        /// <summary>
+        /// Get current coin price in US dollars.
+        /// </summary>
+        /// <returns> Current coin price in USD. </returns>
+        [HttpGet("currency")]
+        [SwaggerOperation("GetCurrency")]
+        [SwaggerResponse((int)System.Net.HttpStatusCode.OK, typeof(GetCurrencyResponse))]
+        public async Task<ActionResult> GetCurrency()
+        {
+            if( !memoryCache_.TryGetValue(Constants.Cache.CURRENT_PRICE_CACHE_KEY, out float usdPrice))
+            {
+                try
+                {
+                    usdPrice = await execPolicy_.ExecuteAsync(GetCurrentCoinPriceInUsd);
+                    memoryCache_.Set
+                    (
+                        Constants.Cache.CURRENT_PRICE_CACHE_KEY, usdPrice,
+                        new MemoryCacheEntryOptions
+                        {
+                            AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(config_.MaxCoinPriceAgeInSeconds),
+                            Size = Constants.Cache.CURRENT_PRICE_CACHE_ENTRY_SIZE
+                        }
+                    );
+                }
+                catch (Exception ex)
+                {
+                    logger_.LogWarning(ex, "Failed to get latest currency price from cache or external service; returning default value");
+                }
+            }
+            return Json(new GetCurrencyResponse
+            {
+                status = 200,
+                data = new CurrencyData
+                {
+                    bitstamp = usdPrice
+                }
+            });
+        }
+
+        /// <summary>
+        /// Get latest block difficulty.
+        /// </summary>
+        /// <returns> Latest block difficulty. </returns>
+        [HttpGet("status/difficulty")]
+        [SwaggerOperation("GetDifficulty")]
+        [SwaggerResponse((int)System.Net.HttpStatusCode.OK, typeof(GetDifficultyResponse))]
+        public async Task<ActionResult> GetDifficulty()
+        {
+            var getLastBlockResult = await GetLastBlock();
+            
+            return Json
+            (
+                new GetDifficultyResponse
+                {
+                    difficulty = Utils.BitsToDifficulty(getLastBlockResult.Bits)
+                }
+            );
+            
+        }
+
+        /// <summary>
+        /// Check if the underlying bitprim node is running correctly.
+        /// </summary>
+        /// <param name="minimumSync"> Minimum required sync percentage (from 0 to 100) to consider node healthy. </param>
+        /// <returns> "OK" if node healty, "NOK otherwise". </returns>
+        [HttpGet("healthcheck")]
+        [SwaggerOperation("GetHealthCheck")]
+        [SwaggerResponse((int)System.Net.HttpStatusCode.OK, typeof(string))]
+        public async Task<ActionResult> GetHealthCheck([FromQuery] float minimumSync)
+        {
+            if( !ModelState.IsValid )
+            {
+                return BadRequest("minimumSync must be a floating point number");
+            }
             dynamic syncStatus = await DoGetSyncStatus();
-            bool isNumeric = Double.TryParse(syncStatus.syncPercentage, out double syncPercentage);
-            bool isHealthy = isNumeric && syncPercentage > minimumSync;
-            return isHealthy? 
+            bool isHealthy = syncStatus.syncPercentage > minimumSync;
+            return isHealthy?
                 StatusCode((int)System.Net.HttpStatusCode.OK, "OK"):
                 StatusCode((int)System.Net.HttpStatusCode.PreconditionFailed, "NOK");
         }
 
-        [ResponseCache(CacheProfileName = Constants.Cache.SHORT_CACHE_PROFILE_NAME)]
-        [HttpGet("sync")]
-        public async Task<ActionResult> GetSyncStatus()
+        /// <summary>
+        /// Get underlying node information.
+        /// </summary>
+        /// <returns> See GetInfoResponse DTO. </returns>
+        [HttpGet("status/info")]
+        [SwaggerOperation("GetInfo")]
+        [SwaggerResponse((int)System.Net.HttpStatusCode.OK, typeof(GetInfoResponse))]
+        public async Task<ActionResult> GetInfo()
         {
-            return Json(await DoGetSyncStatus());
+            var getLastBlockResult = await GetLastBlock();
+            
+            return Json
+            (
+                new GetInfoResponse
+                {
+                    info = new GetInfoData
+                    {
+                        //TODO Some of these values should be retrieved from node-cint
+                        version = config_.Version,
+                        protocolversion = config_.ProtocolVersion,
+                        blocks = getLastBlockResult.BlockHeight,
+                        timeoffset = config_.TimeOffset,
+                        connections = config_.Connections,
+                        proxy = config_.Proxy,
+                        difficulty = Utils.BitsToDifficulty(getLastBlockResult.Bits),
+                        testnet = nodeExecutor_.UseTestnetRules,
+                        relayfee = config_.RelayFee,
+                        errors = "",
+                        network = GetNetworkType(nodeExecutor_.NetworkType),
+                        coin = GetCoin()
+                    }
+                }
+            );
+            
         }
 
-        [ResponseCache(CacheProfileName = Constants.Cache.SHORT_CACHE_PROFILE_NAME)]
+        /// <summary>
+        /// Get latest block hash.
+        /// </summary>
+        /// <returns> Latest block hash. </returns>
+        [HttpGet("status/lastblockhash")]
+        [SwaggerOperation("GetLastBlockHash")]
+        [SwaggerResponse((int)System.Net.HttpStatusCode.OK, typeof(GetLastBlockHashResponse))]
+        public async Task<ActionResult> GetLastBlockHash()
+        {
+            var getLastBlockResult = await GetLastBlock();
+            var hashHexString = Binary.ByteArrayToHexString(getLastBlockResult.Hash);
+            return Json
+            (
+                new GetLastBlockHashResponse
+                {
+                    syncTipHash = hashHexString,
+                    lastblockhash = hashHexString
+                }
+            );
+        }
+
+        /// <summary>
+        /// Get various node status information.
+        /// (getInfo: see GetInfo method | getDifficulty: see GetDifficulty method | getBestBlockHash: see GetBestBlockHash method |
+        ///  getLastBlockHash: see GetLastBlockHash method)
+        /// </summary>
+        /// <param name="method"> (getInfo | getDifficulty | getBestBlockHash | getLastBlockHash). Default: getInfo.
+        /// Use the name 'q' for this query parameter (it will be mapped to the 'method' parameter).
+        /// </param>
+        /// <returns> Depends on method; see the referenced API method for each case. </returns>
         [HttpGet("status")]
+        [ResponseCache(CacheProfileName = Constants.Cache.SHORT_CACHE_PROFILE_NAME)]
+        [SwaggerOperation("GetStatus")]
+        [SwaggerResponse((int)System.Net.HttpStatusCode.OK, typeof(object))]
         public async Task<ActionResult> GetStatus([Bind(Prefix = "q")] string method)
         {
             switch (method)
@@ -71,179 +268,67 @@ namespace bitprim.insight.Controllers
                 case Constants.GET_LAST_BLOCK_HASH:
                     return await GetLastBlockHash();
             }
-
             return await GetInfo();
         }
 
-        [HttpGet("utils/estimatefee")]
-        public ActionResult GetEstimateFee([FromQuery] int nbBlocks = 2)
+        /// <summary>
+        /// Get node synchronization status, as in how up to date it is with the blockchain.
+        /// </summary>
+        /// <returns> See GetSyncStatusResponse DTO. </returns>
+        [HttpGet("sync")]
+        [ResponseCache(CacheProfileName = Constants.Cache.SHORT_CACHE_PROFILE_NAME)]
+        [SwaggerOperation("GetSyncStatus")]
+        [SwaggerResponse((int)System.Net.HttpStatusCode.OK, typeof(GetSyncStatusResponse))]
+        public async Task<ActionResult> GetSyncStatus()
         {
-            var estimateFee = new ExpandoObject() as IDictionary<string, Object>;
-            //TODO Check which algorithm to use (see bitcoin-abc's median, at src/policy/fees.cpp for an example)
-            estimateFee.Add(nbBlocks.ToString(), config_.EstimateFeeDefault.ToString("N8"));
-            return Json(estimateFee);
+            return Json(await DoGetSyncStatus());
         }
 
-        [HttpGet("currency")]
-        public async Task<ActionResult> GetCurrency()
+        private async Task<GetLastBlock> GetLastBlock()
         {
-            var usdPrice = 1.0f;
-            try
+            if (!memoryCache_.TryGetValue(Constants.Cache.LAST_BLOCK_HEIGHT_CACHE_KEY,out ulong currentHeight))
             {
-                usdPrice = await execPolicy_.ExecuteAsync<float>(() => GetCurrentCoinPriceInUsd());
-                memoryCache_.Set
-                (
-                    Constants.Cache.CURRENT_PRICE_CACHE_KEY, usdPrice,
-                    new MemoryCacheEntryOptions { Size = Constants.Cache.CURRENT_PRICE_CACHE_ENTRY_SIZE }
-                );
+                var getLastHeightResult = await chain_.FetchLastHeightAsync();
+                Utils.CheckBitprimApiErrorCode(getLastHeightResult.ErrorCode, "FetchLastHeightAsync() failed");
+                currentHeight = getLastHeightResult.Result;
+
+                memoryCache_.Set(Constants.Cache.LAST_BLOCK_HEIGHT_CACHE_KEY, currentHeight,
+                    new MemoryCacheEntryOptions
+                    {
+                        AbsoluteExpirationRelativeToNow = Constants.Cache.LAST_BLOCK_HEIGHT_MAX_AGE,
+                        Size = Constants.Cache.LAST_BLOCK_HEIGHT_ENTRY_SIZE
+                    });
             }
-            catch (Exception ex)
+
+            if (!memoryCache_.TryGetValue(Constants.Cache.LAST_BLOCK_CACHE_KEY,out GetLastBlock ret))
             {
-                logger_.LogWarning(ex, "Failed to get latest currency price from external service; returning last read value");
-                if (!memoryCache_.TryGetValue(Constants.Cache.CURRENT_PRICE_CACHE_KEY, out usdPrice))
+                using (var getBlockDataResult = await chain_.FetchBlockHeaderByHeightAsync(currentHeight))
                 {
-                    logger_.LogWarning("No cached value available, returning default (1.0)");
-                }
-            }
-            return Json(new
-            {
-                status = 200,
-                data = new
-                {
-                    bitstamp = usdPrice
-                }
-            });
-        }
+                    Utils.CheckBitprimApiErrorCode(getBlockDataResult.ErrorCode, "FetchBlockHeaderByHeightAsync(" + currentHeight + ") failed");
 
-        private async Task<ActionResult> GetDifficulty()
-        {
-            using (var getLastBlockResult = await GetLastBlock())
-            {
-                return Json
-                (
-                    new
+                    ret = new GetLastBlock
                     {
-                        difficulty = Utils.BitsToDifficulty(getLastBlockResult.Result.BlockData.Header.Bits)
-                    }
-                );
-            }
-        }
+                        BlockHeight = getBlockDataResult.Result.BlockHeight
+                        , Bits = getBlockDataResult.Result.BlockData.Bits
+                        , Hash = getBlockDataResult.Result.BlockData.Hash
+                    };
 
-        private async Task<ActionResult> GetBestBlockHash()
-        {
-            using (var getLastBlockResult = await GetLastBlock())
-            {
-                return Json
-                (
-                    new
-                    {
-                        bestblockhash = Binary.ByteArrayToHexString(getLastBlockResult.Result.BlockData.Hash)
-                    }
-                );
-            }
-        }
-
-        private async Task<ActionResult> GetLastBlockHash()
-        {
-            using (var getLastBlockResult = await GetLastBlock())
-            {
-                var hashHexString = Binary.ByteArrayToHexString(getLastBlockResult.Result.BlockData.Hash);
-                return Json
-                (
-                    new
-                    {
-                        syncTipHash = hashHexString,
-                        lastblockhash = hashHexString
-                    }
-                );
-            }
-        }
-
-        private string GetNetworkType(NetworkType networkType)
-        {
-            switch (networkType)
-            {
-                case NetworkType.Mainnet:
-                    return "livenet";
-                default:
-                    return networkType.ToString().ToLower();
-
-            }
-        }
-
-        private async Task<object> DoGetSyncStatus()
-        {
-            var getLastHeightResult = await chain_.FetchLastHeightAsync();
-            Utils.CheckBitprimApiErrorCode(getLastHeightResult.ErrorCode, "GetLastHeight() failed");
-
-            var currentHeight = getLastHeightResult.Result;
-            UInt64? blockChainHeight = await GetCurrentBlockChainHeight();
-            dynamic syncStatus = new ExpandoObject();
-            if (blockChainHeight.HasValue)
-            {
-                var synced = currentHeight >= blockChainHeight;
-                syncStatus.status = synced ? "finished" : "synchronizing";
-                syncStatus.blockChainHeight = blockChainHeight;
-                syncStatus.syncPercentage = Math.Min((double)currentHeight / (double)blockChainHeight * 100.0, 100).ToString("N2");
-                syncStatus.error = null;
-            }
-            else
-            {
-                syncStatus.status = "unknown";
-                syncStatus.blockChainHeight = "unknown";
-                syncStatus.syncPercentage = "unknown";
-                syncStatus.error = "Could not determine max blockchain height; check log";
-            }
-            syncStatus.height = currentHeight;
-            syncStatus.type = config_.NodeType;
-            return syncStatus;
-        }
-
-        private async Task<ActionResult> GetInfo()
-        {
-            using (var getLastBlockResult = await GetLastBlock())
-            {
-                return Json
-                (
-                    new
-                    {
-                        info = new
+                    memoryCache_.Set(Constants.Cache.LAST_BLOCK_CACHE_KEY, ret,
+                        new MemoryCacheEntryOptions
                         {
-                            //TODO Some of these values should be retrieved from node-cint
-                            version = config_.Version,
-                            protocolversion = config_.ProtocolVersion,
-                            blocks = getLastBlockResult.Result.BlockHeight,
-                            timeoffset = config_.TimeOffset,
-                            connections = config_.Connections,
-                            proxy = config_.Proxy,
-                            difficulty = Utils.BitsToDifficulty(getLastBlockResult.Result.BlockData.Header.Bits),
-                            testnet = nodeExecutor_.UseTestnetRules,
-                            relayfee = config_.RelayFee,
-                            errors = "",
-                            network = GetNetworkType(nodeExecutor_.NetworkType),
-                            coin = GetCoin()
-                        }
-                    }
-                );
+                            AbsoluteExpirationRelativeToNow = Constants.Cache.LAST_BLOCK_MAX_AGE,
+                            Size = Constants.Cache.LAST_BLOCK_ENTRY_SIZE
+                        });
+                }
             }
-        }
 
-        private async Task<DisposableApiCallResult<GetBlockDataResult<Block>>> GetLastBlock()
-        {
-            var getLastHeightResult = await chain_.FetchLastHeightAsync();
-            Utils.CheckBitprimApiErrorCode(getLastHeightResult.ErrorCode, "FetchLastHeightAsync() failed");
-
-            var currentHeight = getLastHeightResult.Result;
-            var getBlockResult = await chain_.FetchBlockByHeightAsync(currentHeight);
-            Utils.CheckBitprimApiErrorCode(getBlockResult.ErrorCode, "FetchBlockByHeightAsync(" + currentHeight + ") failed");
-
-            return getBlockResult;
+            return ret;
         }
 
         //TODO Consider moving this down to node-cint for other APIs to reuse
         private async Task<float> GetCurrentCoinPriceInUsd()
         {
-            string currencyPair = "";
+            string currencyPair;
             switch (NodeSettings.CurrencyType)
             {
                 case CurrencyType.Bitcoin: currencyPair = Constants.BITSTAMP_BTCUSD; break;
@@ -254,100 +339,66 @@ namespace bitprim.insight.Controllers
             string bitstampUrl = Constants.BITSTAMP_URL.Replace(Constants.BITSTAMP_CURRENCY_PAIR_PLACEHOLDER, currencyPair);
             var priceDataString = await httpClient_.GetStringAsync(bitstampUrl);
             dynamic priceData = JsonConvert.DeserializeObject<dynamic>(priceDataString);
-            float price = 1.0f;
-            if (!float.TryParse(priceData.last.Value, NumberStyles.Float, CultureInfo.InvariantCulture, out price))
+            if (!float.TryParse(priceData.last.Value, NumberStyles.Float, CultureInfo.InvariantCulture, out float price))
             {
                 throw new FormatException("Invalid price value: " + priceData.last.Value);
             }
             return price;
         }
 
-        //TODO Avoid consulting external sources; get this information from bitprim network
-        private async Task<UInt64?> GetCurrentBlockChainHeight()
+        private async Task<object> DoGetSyncStatus()
         {
-            try
+            var getLastHeightResult = await chain_.FetchLastHeightAsync();
+            Utils.CheckBitprimApiErrorCode(getLastHeightResult.ErrorCode, "GetLastHeight() failed");
+            var currentHeight = getLastHeightResult.Result;
+
+            if( !memoryCache_.TryGetValue(Constants.Cache.LAST_BLOCK_TIMESTAMP, out long lastBlockTimestamp) )
             {
-                UInt64 blockChainHeight = 0;
-                if (memoryCache_.TryGetValue(Constants.Cache.BLOCKCHAIN_HEIGHT_CACHE_KEY, out blockChainHeight))
-                {
-                    return blockChainHeight;
-                };
-                switch (NodeSettings.CurrencyType)
-                {
-                    case CurrencyType.BitcoinCash:
-                        blockChainHeight = await execPolicy_.ExecuteAsync<UInt64>(() => GetBCCBlockchainHeight());
-                        break;
-                    case CurrencyType.Bitcoin:
-                        blockChainHeight = await execPolicy_.ExecuteAsync<UInt64>(() => GetBTCBlockchainHeight());
-                        break;
-                    case CurrencyType.Litecoin:
-                        blockChainHeight = await execPolicy_.ExecuteAsync<UInt64>(() => GetLTCBlockchainHeight());
-                        break;
-                    default:
-                        throw new InvalidOperationException("Only BCH, BTC and LTC support this operation");
-                }
-                memoryCache_.Set
-                (
-                    Constants.Cache.BLOCKCHAIN_HEIGHT_CACHE_KEY, blockChainHeight, new MemoryCacheEntryOptions
+                var getLastBlockResult = await chain_.FetchBlockByHeightHashTimestampAsync(currentHeight);
+                Utils.CheckBitprimApiErrorCode(getLastBlockResult.ErrorCode, "FetchBlockByHeightAsync(" + currentHeight + ") failed, check error log");
+                lastBlockTimestamp = new DateTimeOffset(getLastBlockResult.Result.BlockTimestamp).ToUnixTimeSeconds();
+                memoryCache_.Set(Constants.Cache.LAST_BLOCK_TIMESTAMP, lastBlockTimestamp,
+                    new MemoryCacheEntryOptions
                     {
-                        AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(Constants.Cache.MAX_BLOCKCHAIN_HEIGHT_AGE_IN_SECONDS),
-                        Size = Constants.Cache.BLOCKCHAIN_HEIGHT_CACHE_ENTRY_SIZE
-                    }
-                );
-                return blockChainHeight;
+                        AbsoluteExpirationRelativeToNow = Constants.Cache.BLOCK_TIMESTAMP_MAX_AGE,
+                        Size = Constants.Cache.TIMESTAMP_ENTRY_SIZE
+                    });
             }
-            catch (Exception ex)
+
+            if( !memoryCache_.TryGetValue(Constants.Cache.FIRST_BLOCK_TIMESTAMP, out long firstBlockTimestamp) )
             {
-                logger_.LogWarning(ex, "Failed to retrieve blockchain height from external service");
-                return null;
+                var getFirstBlockResult = await chain_.FetchBlockByHeightHashTimestampAsync(0);
+                Utils.CheckBitprimApiErrorCode(getFirstBlockResult.ErrorCode, "FetchBlockByHeightHashTimestampAsync(0) failed, check error log");
+                firstBlockTimestamp = new DateTimeOffset(getFirstBlockResult.Result.BlockTimestamp).ToUnixTimeSeconds();
+                memoryCache_.Set(Constants.Cache.FIRST_BLOCK_TIMESTAMP, firstBlockTimestamp,
+                    new MemoryCacheEntryOptions
+                    {
+                        Size = Constants.Cache.TIMESTAMP_ENTRY_SIZE
+                    });
             }
+            var nowTimestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+            var lastBlockAge = nowTimestamp - lastBlockTimestamp;
+            bool synced = lastBlockAge < config_.BlockchainStalenessThreshold;
+            dynamic syncStatus = new ExpandoObject();
+            syncStatus.status = synced ? "finished" : "synchronizing";
+            syncStatus.blockChainHeight = currentHeight;
+            syncStatus.syncPercentage = synced?
+                100 :
+                 Math.Min(Math.Round((double)(lastBlockTimestamp - firstBlockTimestamp) / (double)(nowTimestamp - firstBlockTimestamp) * 100.0, 2), 100);
+            syncStatus.height = currentHeight;
+            syncStatus.error = null;
+            syncStatus.type = config_.NodeType;
+            return syncStatus;
         }
 
-        private async Task<UInt64> GetBCCBlockchainHeight()
+        private static string GetNetworkType(NetworkType networkType)
         {
-            if (nodeExecutor_.UseTestnetRules)
+            switch (networkType)
             {
-                var syncDataString = await httpClient_.GetStringAsync(Constants.BLOCKTRAIL_TBCC_URL);
-                dynamic syncData = JsonConvert.DeserializeObject<dynamic>(syncDataString);
-                return syncData.last_blocks[0].height;
-            }
-            else
-            {
-                var syncDataString = await httpClient_.GetStringAsync(Constants.BLOCKCHAIR_BCC_URL);
-                dynamic syncData = JsonConvert.DeserializeObject<dynamic>(syncDataString);
-                return ((IEnumerable<dynamic>)syncData.data).Where(r => r.e == "blocks").First().c - 1;
-            }
-        }
-
-        private async Task<UInt64> GetBTCBlockchainHeight()
-        {
-            if (nodeExecutor_.UseTestnetRules)
-            {
-                var syncDataString = await httpClient_.GetStringAsync(Constants.SOCHAIN_TBTC_URL);
-                dynamic syncData = JsonConvert.DeserializeObject<dynamic>(syncDataString);
-                return syncData.data.blocks;
-            }
-            else
-            {
-                var syncDataString = await httpClient_.GetStringAsync(Constants.BLOCKCHAIR_BTC_URL);
-                dynamic syncData = JsonConvert.DeserializeObject<dynamic>(syncDataString);
-                return ((IEnumerable<dynamic>)syncData.data).First(r => r.e == "blocks").c;
-            }
-        }
-
-        private async Task<UInt64> GetLTCBlockchainHeight()
-        {
-            if (nodeExecutor_.UseTestnetRules)
-            {
-                var syncDataString = await httpClient_.GetStringAsync(Constants.SOCHAIN_TLTC_URL);
-                dynamic syncData = JsonConvert.DeserializeObject<dynamic>(syncDataString);
-                return syncData.data.blocks;
-            }
-            else
-            {
-                var syncDataString = await httpClient_.GetStringAsync(Constants.SOCHAIN_LTC_URL);
-                dynamic syncData = JsonConvert.DeserializeObject<dynamic>(syncDataString);
-                return syncData.data.blocks;
+                case NetworkType.Mainnet:
+                    return "livenet";
+                default:
+                    return networkType.ToString().ToLower();
             }
         }
 

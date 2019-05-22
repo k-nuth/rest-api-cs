@@ -1,10 +1,36 @@
-build: false
+#
+# Copyright (c) 2017-2018 Bitprim Inc.
+#
+# This file is part of Bitprim.
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU Affero General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU Affero General Public License for more details.
+#
+# You should have received a copy of the GNU Affero General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#
+
+build: off
 
 branches:
   only:
-  - master
-  - dev
+    - master
+    - dev
+    - /^v\d+\.\d+\.\d+$/
+    - /^release-\d+\.\d+\.\d+$/
+    - /^feature-ci-.+$/
+    - /^feature_ci_.+$/
 
+platform:
+  - x64
+  
 configuration:
 - Release
 
@@ -12,18 +38,28 @@ environment:
     PYTHON: "C:\\Python27"
     PYTHON_VERSION: "2.7.8"
     PYTHON_ARCH: "32"
-    NUGET_API_KEY:
-      secure: QXiv4MV3IX8V/7hl+CGMAH9vcLaUJ12ZEk2ohcKiumfT0jS3AzfkJ13qES92E5Pt
-
+  
     VS150COMNTOOLS: "C:\\Program Files (x86)\\Microsoft Visual Studio\\2017\\Community\\Common7\\Tools\\"
 
     matrix:
         - APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2017
 
-build_script:
-  - SET PATH=%PATH%;%PYTHON%/Scripts/
-  - cd bitprim.insight
-  - dotnet build /property:Platform=x64 /p:BTC=true
+assembly_info:
+  patch: false
+
+init:
+  - ps: |
+      if ($Env:APPVEYOR_REPO_BRANCH -ceq "master" -And [string]::IsNullOrEmpty($Env:APPVEYOR_REPO_TAG_NAME)) {
+        Write-Host "branch is master without tags, exiting"
+        Exit-AppveyorBuild
+      }
 
 install:
-  - "%PYTHON%/Scripts/pip.exe install conan --upgrade"
+  - "%PYTHON%/Scripts/pip.exe install conan==1.7.4"
+
+build_script:
+  - SET PATH=%PATH%;%PYTHON%/Scripts/
+  - powershell .\build.ps1 -ScriptArgs '-coin="BTC"'
+  - powershell .\build.ps1 -ScriptArgs '-coin="BCH"'
+
+test: off

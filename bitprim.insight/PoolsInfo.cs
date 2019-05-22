@@ -1,25 +1,18 @@
-using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
 using System.Text.RegularExpressions;
-using System.Threading;
 using Bitprim;
 using Newtonsoft.Json;
 using static System.String;
 
 namespace bitprim.insight
 {
-    public class PoolsInfo
+    /// <summary>
+    /// Miner pools info; this is used to recognize any block mined by a pool.
+    /// </summary>
+    public class PoolsInfo : IPoolsInfo
     {
-        public class PoolInfo
-        {
-            public string Name { get; set; }
-            public string Url { get; set; }
-
-            public static PoolInfo Empty = new PoolInfo {Name = "",Url = ""};
-        }
-
         private class RootObject
         {
             public string poolName { get; set; }
@@ -28,15 +21,20 @@ namespace bitprim.insight
         }
 
         private readonly string poolsFile_;
-
         private readonly Dictionary<Regex, PoolInfo> data_ = new Dictionary<Regex, PoolInfo>();
-        
-       
+
+        /// <summary>
+        /// Only constructor.
+        /// </summary>
+        /// <param name="poolsFile"> Path to the pools .json file. See pools.json file for format. </param>
         public PoolsInfo(string poolsFile)
         {
             poolsFile_ = poolsFile;
         }
 
+        /// <summary>
+        /// Read pools file and load pools information.
+        /// </summary>
         public void Load()
         {
             var serializer = new JsonSerializer();
@@ -59,7 +57,14 @@ namespace bitprim.insight
             }
         }
 
-        public PoolInfo GetPoolInfo(Transaction tx)
+        /// <summary>
+        /// Given a transaction, get information about the pool which created it.
+        /// </summary>
+        /// <param name="tx"> Transaction of interest. </param>
+        /// <returns> If tx contains pool info and it matches a pool defined in the pools file, return its info;
+        /// otherwise, return the Empty PollInfo instance
+        /// </returns>
+        public PoolInfo GetPoolInfo(ITransaction tx)
         {
             if (tx == null)
             {

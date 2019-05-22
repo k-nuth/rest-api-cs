@@ -3,6 +3,7 @@
     <TargetFramework>netcoreapp2.0</TargetFramework>
     <Platforms>AnyCPU;x64</Platforms>
     <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+    <DocumentationFile>bin\$(Configuration)\$(TargetFramework)\$(AssemblyName).xml</DocumentationFile>
   </PropertyGroup>
   <ItemGroup>
     <Folder Include="wwwroot\" />
@@ -17,25 +18,29 @@
      <When Condition="'$(BTC)' == 'true' ">
      
           <ItemGroup>
-            <PackageReference Include="bitprim-btc" Version="0.4.0" />
+            <PackageReference Include="bitprim-btc" Version="0.11.8" />
             <!-- <ProjectReference Include="../../bitprim-cs/bitprim/bitprim.csproj" /> -->
           </ItemGroup>
      
      </When>
 
      <When Condition="'$(BCH)' == 'true' ">
-     
+          <PropertyGroup>
+            <DefineConstants>$(DefineConstants);BCH</DefineConstants>
+          </PropertyGroup>
           <ItemGroup>
-            <PackageReference Include="bitprim-bch" Version="0.4.0" />
+            <PackageReference Include="bitprim-bch" Version="0.11.8" />
             <!-- <ProjectReference Include="../../bitprim-cs/bitprim/bitprim.csproj" /> -->
           </ItemGroup>
      
      </When>
 
      <Otherwise>
-     
+          <PropertyGroup>
+            <DefineConstants>$(DefineConstants);BCH</DefineConstants>
+          </PropertyGroup>
           <ItemGroup>
-            <PackageReference Include="bitprim-bch" Version="0.4.0" />
+            <PackageReference Include="bitprim-bch" Version="0.11.8" />
             <!-- <ProjectReference Include="../../bitprim-cs/bitprim/bitprim.csproj" /> -->
           </ItemGroup>
      
@@ -45,11 +50,10 @@
 
 
   <ItemGroup>
-    
-    <PackageReference Include="Microsoft.AspNetCore.All" Version="2.0.7" />
-    <PackageReference Include="Polly" Version="5.9.0" />
-    <PackageReference Include="Swashbuckle.AspNetCore" Version="2.4.0" />
-    <PackageReference Include="Microsoft.AspNetCore.WebSockets" Version="2.0.2" />
+    <PackageReference Include="Microsoft.AspNetCore.All" Version="2.0.9" />
+    <PackageReference Include="Polly" Version="6.0.1" />
+    <PackageReference Include="Swashbuckle.AspNetCore" Version="2.5.0" />
+    <PackageReference Include="Microsoft.AspNetCore.WebSockets" Version="2.0.3" />
     <PackageReference Include="Newtonsoft.Json" Version="11.0.2" />
     <PackageReference Include="Nito.AsyncEx" Version="5.0.0-pre-05" />
     <PackageReference Include="Serilog.AspNetCore" Version="2.1.1" />
@@ -59,8 +63,8 @@
   </ItemGroup>
 
   <Target Name="CopyLibAfterPublish" AfterTargets="Publish">
-    <Copy SourceFiles="$(TargetDir)libbitprim-node-cint.dll" DestinationFiles="$(PublishDir)libbitprim-node-cint.dll" Condition="Exists('$(TargetDir)libbitprim-node-cint.dll')"/>
-    <Copy SourceFiles="$(TargetDir)libbitprim-node-cint.so" DestinationFiles="$(PublishDir)libbitprim-node-cint.so" Condition="Exists('$(TargetDir)libbitprim-node-cint.so')"/>
+    <Copy SourceFiles="$(TargetDir)libbitprim-node-cint.dll" DestinationFiles="$(PublishDir)libbitprim-node-cint.dll" Condition="Exists('$(TargetDir)libbitprim-node-cint.dll')" />
+    <Copy SourceFiles="$(TargetDir)libbitprim-node-cint.so" DestinationFiles="$(PublishDir)libbitprim-node-cint.so" Condition="Exists('$(TargetDir)libbitprim-node-cint.so')" />
   </Target>
 
 </Project>

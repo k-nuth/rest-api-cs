@@ -10,7 +10,7 @@ using Serilog.Context;
 
 namespace bitprim.insight.Middlewares
 {
-    public class RequestLoggerMiddleware
+    internal class RequestLoggerMiddleware
     {
         private static class LogPropertyNames
         {
@@ -40,7 +40,9 @@ namespace bitprim.insight.Middlewares
         {
             if (httpContext == null) 
                 throw new ArgumentNullException(nameof(httpContext));
-
+            
+            LogPreRequest(httpContext);
+            
             var start = Stopwatch.GetTimestamp();
             try
             {
@@ -61,28 +63,54 @@ namespace bitprim.insight.Middlewares
             catch (Exception ex) when (LogException(httpContext, GetElapsedMilliseconds(start, Stopwatch.GetTimestamp()), ex)) { }
         }
 
-        static double GetElapsedMilliseconds(long start, long stop)
-        {
-            return Math.Round((stop - start) * 1000 / (double)Stopwatch.Frequency,2);
-        }
-
         private bool LogException(HttpContext httpContext, double elapsedMs, Exception ex)
         {
             LogHttpRequest(httpContext, elapsedMs,ex);
             return false;
         }
 
+        private static double GetElapsedMilliseconds(long start, long stop)
+        {
+            return Math.Round((stop - start) * 1000 / (double)Stopwatch.Frequency,2);
+        }
+
+        private static async Task<string> ReadRequestBody(HttpRequest request)
+        {
+            string body;
+            using (var reader = new StreamReader(request.Body))
+            {
+                request.Body.Position = 0;
+                body = await reader.ReadToEndAsync();
+            }
+            return body;
+        }
+
         private void LogHttpRequest(HttpContext context, double elapsedMs)
         {
              LogHttpRequest(context, elapsedMs, null);
         }
-    
+
+        private void LogPreRequest(HttpContext context)
+        {
+            using(LogContext.PushProperty(LogPropertyNames.SOURCE_IP, context.Connection.RemoteIpAddress))
+            using(LogContext.PushProperty(LogPropertyNames.HTTP_METHOD, context.Request.Method))
+            using(LogContext.PushProperty(LogPropertyNames.HTTP_REQUEST_URL, context.Request.Path.Value + (context.Request.QueryString.HasValue ? context.Request.QueryString.Value : "") ))
+            using(LogContext.PushProperty(LogPropertyNames.HTTP_PROTOCOL_VERSION, context.Request.Protocol))
+            using(LogContext.PushProperty(LogPropertyNames.HTTP_RESPONSE_STATUS_CODE, -1))
+            using(LogContext.PushProperty(LogPropertyNames.HTTP_RESPONSE_LENGTH, -1))
+            using(LogContext.PushProperty(LogPropertyNames.TIME_ZONE, timeZone_))
+            using(LogContext.PushProperty(LogPropertyNames.ELAPSED_MS, -1))
+            {
+                logger_.LogDebug(""); //Properties cover all information, so empty message
+            }
+        }
+
         private void LogHttpRequest(HttpContext context, double elapsedMs, Exception ex)
         {
             HttpResponse response = context.Response;
             using(LogContext.PushProperty(LogPropertyNames.SOURCE_IP, context.Connection.RemoteIpAddress))
             using(LogContext.PushProperty(LogPropertyNames.HTTP_METHOD, context.Request.Method))
-            using(LogContext.PushProperty(LogPropertyNames.HTTP_REQUEST_URL, context.Request.Path.Value))
+            using(LogContext.PushProperty(LogPropertyNames.HTTP_REQUEST_URL, context.Request.Path.Value + (context.Request.QueryString.HasValue ? context.Request.QueryString.Value : "") ))
             using(LogContext.PushProperty(LogPropertyNames.HTTP_PROTOCOL_VERSION, context.Request.Protocol))
             using(LogContext.PushProperty(LogPropertyNames.HTTP_RESPONSE_STATUS_CODE, context.Response.StatusCode))
             using(LogContext.PushProperty(LogPropertyNames.HTTP_RESPONSE_LENGTH, response.ContentLength ?? context.Response.Body.Length))
@@ -91,11 +119,15 @@ namespace bitprim.insight.Middlewares
             {
                 if (ex != null)
                 {
-                    logger_.LogError(ex,""); //Properties cover all information, so empty message
+                    logger_.LogError(ex, ""); //Properties cover all information, so empty message if no body
                 }
                 else
                 {
-                    logger_.LogInformation(""); //Properties cover all information, so empty message
+                    logger_.LogInformation(""); //Properties cover all information, so empty message if no body
+                }
+                if(context.Request.Method == HttpMethods.Post)
+                {
+                    logger_.LogDebug(ReadRequestBody(context.Request).Result.Replace(Environment.NewLine, ""));
                 }
             }
             context.Response.Body.Position = 0;
@@ -103,7 +135,7 @@ namespace bitprim.insight.Middlewares
     }
 
     // Extension method used to add the middleware to the HTTP request pipeline.
-    public static class RequestLoggerMiddlewareExtensions
+    internal static class RequestLoggerMiddlewareExtensions
     {
         public static IApplicationBuilder UseRequestLoggerMiddleware(this IApplicationBuilder builder)
         {

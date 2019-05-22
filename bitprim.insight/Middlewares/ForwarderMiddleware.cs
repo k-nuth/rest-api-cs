@@ -3,34 +3,39 @@ using System.IO;
 using System.Net.Http;
 using System.Text;
 using System.Threading.Tasks;
+using bitprim.insight.DTOs;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Newtonsoft.Json;
 using Polly;
 
 namespace bitprim.insight.Middlewares
 {
-    public class ForwarderMiddleware
+    internal class ForwarderMiddleware
     {
         private readonly RequestDelegate next_;
         private readonly ILogger<ForwarderMiddleware> logger_;
         private static readonly HttpClient client = new HttpClient();
-
-        private const int MAX_RETRIES = 3;
-        private const int SEED_DELAY = 100;
-        private const int MAX_DELAY = 2;
-
-        private readonly Policy retryPolicy_ = Policy
-            .Handle<Exception>()
-            .WaitAndRetryAsync(RetryUtils.DecorrelatedJitter(MAX_RETRIES, TimeSpan.FromMilliseconds(SEED_DELAY), TimeSpan.FromSeconds(MAX_DELAY)));
+        private readonly Policy retryPolicy_;
+        private readonly NodeConfig nodeConfig_;
 
         public ForwarderMiddleware(RequestDelegate next, ILogger<ForwarderMiddleware> logger, IOptions<NodeConfig> config)
         {
             next_ = next ?? throw new ArgumentNullException(nameof(next));
             logger_ = logger;
+            nodeConfig_ = config.Value;
             client.BaseAddress = new Uri(config.Value.ForwardUrl);
-            client.Timeout = TimeSpan.FromSeconds(config.Value.HttpClientTimeoutInSeconds);
+            client.Timeout = TimeSpan.FromSeconds(nodeConfig_.HttpClientTimeoutInSeconds);
+            retryPolicy_ = Policy
+                .Handle<Exception>()
+                .WaitAndRetryAsync(RetryUtils.DecorrelatedJitter
+                (
+                    nodeConfig_.ForwarderMaxRetries,
+                    TimeSpan.FromMilliseconds(nodeConfig_.ForwarderFirstRetryDelayInMillis),
+                    TimeSpan.FromSeconds(nodeConfig_.ForwarderMaxRetryDelayInSeconds)
+                ));
         }
 
         public async Task Invoke(HttpContext context)
@@ -63,7 +68,7 @@ namespace bitprim.insight.Middlewares
 
     }
 
-    public static class ForwarderMiddlewareExtensions
+    internal static class ForwarderMiddlewareExtensions
     {
         public static IApplicationBuilder UseForwarderMiddleware(this IApplicationBuilder builder)
         {
@@ -72,6 +77,16 @@ namespace bitprim.insight.Middlewares
                 applicationBuilder.Run(async context =>
                 {
                     await context.Response.WriteAsync("OK");
+                });
+            });
+
+
+            builder.Map("/forwardermemstats", applicationBuilder =>
+            {
+                applicationBuilder.Run(async context =>
+                {
+                    var stats = new MemoryStatsDto();
+                    await context.Response.WriteAsync(JsonConvert.SerializeObject(stats));
                 });
             });
 

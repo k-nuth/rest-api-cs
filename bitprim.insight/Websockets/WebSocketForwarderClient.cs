@@ -12,7 +12,7 @@ using Polly;
 
 namespace bitprim.insight.Websockets
 {
-    public sealed class WebSocketForwarderClient : IDisposable
+    internal sealed class WebSocketForwarderClient : IDisposable
     {
         private readonly IOptions<NodeConfig> config_;
         private readonly ILogger<WebSocketForwarderClient> logger_;
@@ -23,7 +23,7 @@ namespace bitprim.insight.Websockets
 
         private ClientWebSocket webSocket_;
 
-        private readonly Policy breakerPolicy_ = Policy.Handle<Exception>().CircuitBreakerAsync(2, TimeSpan.FromSeconds(Constants.WEBSOCKET_FORWARDER_CLIENT_RETRY_DELAY));
+        private readonly Policy breakerPolicy_;
         private readonly Policy retryPolicy_;
         private readonly Policy execPolicy_;
 
@@ -35,12 +35,14 @@ namespace bitprim.insight.Websockets
             logger_ = logger;
             webSocketHandler_ = webSocketHandler;
 
+            breakerPolicy_ = Policy.Handle<Exception>().CircuitBreakerAsync(2, TimeSpan.FromSeconds(config_.Value.WebsocketsForwarderClientRetryDelay));
+
             retryPolicy_ = Policy.Handle<Exception>()
                                     .WaitAndRetryForeverAsync(
                                                                 retryAttempt =>
                                                                 {
                                                                     logger_.LogWarning("Retry attempt " + retryAttempt);
-                                                                    return TimeSpan.FromSeconds(Constants.WEBSOCKET_FORWARDER_CLIENT_RETRY_DELAY);
+                                                                    return TimeSpan.FromSeconds(config_.Value.WebsocketsForwarderClientRetryDelay);
                                                                 });
 
             execPolicy_ = Policy.WrapAsync(retryPolicy_,breakerPolicy_);
@@ -48,6 +50,8 @@ namespace bitprim.insight.Websockets
 
         private async Task ReceiveHandler()
         {
+            logger_.LogInformation("Initializing websocket receiver hander");
+
             var buffer = new byte[RECEPTION_BUFFER_SIZE];
           
             while (Interlocked.CompareExchange(ref active_, 0, 0) > 0)
@@ -79,26 +83,52 @@ namespace bitprim.insight.Websockets
                                 await webSocketHandler_.PublishTransaction(content);
 
                                 var txid = obj["txid"].ToString();
-                                var addreses = ((JArray)obj["addresses"]).ToObject<List<string>>();
-                                
-                                var addresstx = new
-                                {
-                                    eventname = "addresstx",
-                                    txid = txid
-                                };
-                                
-                                await webSocketHandler_.PublishTransactionAddress(JsonConvert.SerializeObject(addresstx),addreses);
-                               
-                                break;
+                                var addresses = ((JArray)obj["addresses"]).ToObject<List<string>>();
+                                var balanceDeltas = obj["balanceDeltas"].ToObject<Dictionary<string, Int64>>();
 
+                                var addressesToPublish = new List<Tuple<string, string>>(addresses.Count);
+                                foreach(string addr in addresses)
+                                {
+                                    var addresstx = new
+                                    {
+                                        eventname = "addresstx",
+                                        txid = txid,
+                                        balanceDelta = balanceDeltas[addr]
+                                    };
+                                    addressesToPublish.Add(new Tuple<string, string>(addr, JsonConvert.SerializeObject(addresstx)));
+                                }
+
+                                await webSocketHandler_.PublishTransactionAddresses(addressesToPublish);
+                                break;
                         }
                     }
+                }
+                catch (WebSocketException ex)
+                {
+                    logger_.LogDebug("Status " + webSocket_.State);
+                    logger_.LogDebug("Close Status " + webSocket_.CloseStatus);
+                    logger_.LogDebug("WebSocketErrorCode " + ex.WebSocketErrorCode);
+                    
+                    if (Interlocked.CompareExchange(ref active_, 0, 0) > 0)
+                    {
+                        if (webSocket_.State != WebSocketState.CloseSent &&
+                            ex.WebSocketErrorCode != WebSocketError.ConnectionClosedPrematurely)
+                        {
+                            logger_.LogWarning(ex,"Error processing ReceiveHandler");
+                        }
+                        await ReInit();
+                    }     
                 }
                 catch (Exception e)
                 {
                     if (Interlocked.CompareExchange(ref active_, 0, 0) > 0)
                     {
-                        logger_.LogWarning(e,"Error processing ReceiveHandler");
+                        //Internal WinHttpException not exposed...
+                        if (e.HResult != Constants.WIN_HTTP_EXCEPTION_ERR_NUMBER)
+                        {
+                            logger_.LogWarning(e,"Error processing ReceiveHandler");
+                        }
+
                         await ReInit();
                     }   
                 }
@@ -140,12 +170,14 @@ namespace bitprim.insight.Websockets
 
         private async Task ReInit()
         {
+            logger_.LogInformation("ReInit websocket forwarder client");
             await execPolicy_.ExecuteAsync(async ()=> await CreateAndOpen());
             await SendSubscriptions();
         }
 
         public async Task Init()
         {
+            logger_.LogInformation("Init websocket forwarder client");
             await execPolicy_.ExecuteAsync(async ()=> await CreateAndOpen());
             _ = ReceiveHandler();
             await SendSubscriptions();
